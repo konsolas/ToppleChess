@@ -269,6 +269,61 @@ board_t::board_t(std::string fen) {
 
 }
 
+// This does not properly consider legality:
+//  - if promotion is actually possible
+//  - if the piece can actually make the move
+//  - if the piece actually exists
+move_t board_t::parse_move(const std::string &str) {
+    move_t move = {0};
+
+    // Location
+    move.from = to_sq(str[0], str[1]);
+    move.to = to_sq(str[2], str[3]);
+
+    // Piece
+    move.team = sq_data[move.from].team;
+    move.piece = sq_data[move.from].piece;
+
+    // Capture
+    move.is_capture = static_cast<uint16_t>(sq_data[move.to].occupied);
+    move.captured_type = sq_data[move.to].occupied ? sq_data[move.to].piece : 0;
+
+    // Promotion
+    move.is_promotion = static_cast<uint16_t>(str.length() == 5);
+    if(move.is_promotion) {
+        switch (str[4]) {
+            case 'n':
+                move.promotion_type = KNIGHT;
+                break;
+            case 'b':
+                move.promotion_type = BISHOP;
+                break;
+            case 'r':
+                move.promotion_type = ROOK;
+                break;
+            case 'q':
+                move.promotion_type = QUEEN;
+                break;
+            default:
+                throw std::runtime_error("invalid promotion type");
+        }
+    }
+
+    // Castling
+    if(move.piece == KING && (move.from == E1 || move.from == E8)
+        && abs(move.to - move.from) == 2) {
+        move.castle = 1;
+
+        // 0 = kingside, 1 = queenside
+        move.castle_side = static_cast<uint16_t>(move.to == G1 || move.to == G8);
+    }
+
+    // EP
+    move.is_ep = static_cast<uint16_t>(move.piece == PAWN && move.to == record[now].ep_square);
+
+    return move;
+}
+
 bool board_t::is_illegal() {
     Team side = record[now].next_move;
     U64 king_bb = bb_pieces[!side][KING];
@@ -371,4 +426,13 @@ bool board_t::is_repetition_draw() {
     }
 
     return false;
+}
+
+void board_t::mirror() {
+    for(uint8_t sq = 0; sq < 64; sq++) {
+        Team team = sq_data[sq].team;
+        Piece piece = sq_data[sq].piece;
+
+
+    }
 }

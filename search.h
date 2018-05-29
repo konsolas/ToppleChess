@@ -12,14 +12,13 @@ class search_t {
 public:
     explicit search_t(board_t board, tt::hash_t *tt);
 
-    move_t think(int n_threads, int max_depth);
+    move_t think(int n_threads, int max_depth, const std::atomic_bool &aborted);
 
-    template<bool PV> int searchAB(int alpha, int beta, int ply, int depth, bool can_null);
-    template<bool PV> int searchQS(int alpha, int beta, int ply);
+    template<bool H, bool PV> int searchAB(board_t &board, int alpha, int beta, int ply, int depth, bool can_null, const std::atomic_bool &aborted);
+    template<bool PV> int searchQS(board_t &board, int alpha, int beta, int ply, const std::atomic_bool &aborted);
 
     void save_pv();
 private:
-    volatile bool is_active = false;
     board_t board;
     tt::hash_t *tt;
 

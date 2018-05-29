@@ -77,7 +77,3 @@ void tt::hash_t::save(Bound bound, U64 hash, int depth, int eval, move_t move) {
     table[loc].value = static_cast<int16_t>(eval);
     table[loc].move = move;
 }
-
-tt::Bound tt::hash_t::bound(int value, int beta) {
-    return value >= beta ? tt::LOWER : tt::EXACT;
-}

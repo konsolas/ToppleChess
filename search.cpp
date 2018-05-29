@@ -6,37 +6,55 @@
 #include "eval.h"
 #include "movegen.h"
 
-int from_hash_score(const int v, int ply) {
-    return (v < LOW ? v + ply : (v > HIGH ? v - ply : v));
-}
+const int TIMEOUT = -INF * 2;
 
-int to_hash_score(const int v, int ply) {
-    return (v < LOW ? v - ply : (v > HIGH ? v + ply : v));
-}
-
-move_t search_t::think(int n_threads, int max_depth) {
+move_t search_t::think(int n_threads, int max_depth, const std::atomic_bool &aborted) {
     nodes = 0;
     // Run sync if nthreads = 0
     int alpha = -INF, beta = INF;
     auto start = engine_clock::now();
-    U64 prev_nodes = 1;
-    if (n_threads == 0) {
-        for (int depth = 1; depth <= max_depth; depth++) {
-            int score = searchAB<true>(alpha, beta, 0, depth, true);
-            save_pv();
+    if (n_threads > 0) {
+        // Helper threads
+        std::future<int> helper_threads[n_threads - 1];
+        board_t helper_boards[n_threads - 1];
+        for (int i = 0; i < n_threads - 1; i++) {
+            helper_boards[i] = board;
+        }
+        std::atomic_bool helper_thread_aborted;
 
-            auto current = engine_clock::now();
-            std::cout << "info depth " << depth << " score cp " << score
-                      << " time " << CHRONO_DIFF(start, current)
-                      << " nodes " << nodes
-                      << " nps " << (nodes / (CHRONO_DIFF(start, current) + 1)) * 1000
-                      << " pv ";
-            for (int i = 0; i < last_pv_len; i++) {
-                std::cout << from_sq(last_pv[i].from) << from_sq(last_pv[i].to) << " ";
+        for (int depth = 1; depth <= max_depth; depth++) {
+            helper_thread_aborted = false;
+
+            // Start helper threads (lazy SMP)
+            for (int i = 0; i < n_threads - 1; i++) {
+                helper_threads[i] = std::async(std::launch::async,
+                                               search_t::searchAB<true, true>, this,
+                                               std::ref(helper_boards[i]), alpha, beta, 0, depth, true,
+                                               std::ref(helper_thread_aborted));
             }
 
-            prev_nodes = nodes;
-            std::cout << std::endl;
+            int score = searchAB<false, true>(board, alpha, beta, 0, depth, true, aborted);
+
+            // Abort helper threads
+            helper_thread_aborted = true;
+
+            if (!aborted) {
+                save_pv();
+
+                auto current = engine_clock::now();
+                std::cout << "info depth " << depth << " score cp " << score
+                          << " time " << CHRONO_DIFF(start, current)
+                          << " nodes " << nodes
+                          << " nps " << (nodes / (CHRONO_DIFF(start, current) + 1)) * 1000
+                          << " pv ";
+                for (int i = 0; i < last_pv_len; i++) {
+                    std::cout << from_sq(last_pv[i].from) << from_sq(last_pv[i].to) << " ";
+                }
+
+                std::cout << std::endl;
+            } else {
+                break;
+            }
         }
     }
 
@@ -45,13 +63,18 @@ move_t search_t::think(int n_threads, int max_depth) {
 
 search_t::search_t(board_t board, tt::hash_t *tt) : board(board), tt(tt) {}
 
-template<bool PV>
-int search_t::searchAB(int alpha, int beta, int ply, int depth, bool can_null) {
+template<bool H, bool PV>
+int search_t::searchAB(board_t &board, int alpha, int beta, int ply, int depth, bool can_null,
+                       const std::atomic_bool &aborted) {
     nodes++;
-    pv_table_len[ply] = ply;
+    if(!H) pv_table_len[ply] = ply;
+
+    if (aborted) {
+        return TIMEOUT;
+    }
 
     // Quiescence search
-    if (depth < 1) return searchQS<PV>(alpha, beta, ply + 1);
+    if (depth < 1) return searchQS<PV>(board, alpha, beta, ply + 1, aborted);
 
     // Search variables
     bool pv = PV;
@@ -69,19 +92,18 @@ int search_t::searchAB(int alpha, int beta, int ply, int depth, bool can_null) {
     }
 
     // Probe transposition table
-    hashhit++;
     tt::entry_t h = {0};
     if (tt->probe(board.record[board.now].hash, h)) {
-        score = from_hash_score(h.value, ply);
+        score = h.value;
 
         if ((h.depth >= depth || score <= ply - MATE(0) || score > MATE(0) - ply - 1)) {
-            if (h.bound == tt::LOWER && score >= beta) return score;
-            if (h.bound == tt::UPPER && score <= alpha) return score;
-            if (!PV && h.bound == tt::EXACT) return score;
+            if(!PV) {
+                if (h.bound == tt::LOWER && score >= beta) return score;
+                if (h.bound == tt::UPPER && score <= alpha) return score;
+                if (h.bound == tt::EXACT) return score;
+            }
         }
     }
-
-    if(h.move.move_bytes) hashcut++;
 
     // Check extension
     bool in_check = board.is_incheck();
@@ -93,25 +115,29 @@ int search_t::searchAB(int alpha, int beta, int ply, int depth, bool can_null) {
         // Stand pat
         int stand_pat = eval(board);
 
-        // Eval-based pruning at frontier and pre-frontier nodes
-        if(depth < 4) {
+        // Eval-based pruning at frontier nodes
+        if(depth < 2) {
             int delta = 256 * depth - 128;
             if (stand_pat > beta + delta) return beta;
-            if (stand_pat < alpha - delta && searchQS<false>(alpha - delta, alpha - delta + 1, ply) < alpha - delta)
+            if (stand_pat < alpha - delta && searchQS<false>(board, alpha - delta, alpha - delta + 1, ply, aborted) < alpha - delta)
                 return alpha;
         }
 
         // Null move pruning
-        if (stand_pat >= beta) {
-            int reduction = 2 + depth / 4;
+        if (can_null && stand_pat >= beta) {
+            int reduction = 2;
             board.move(EMPTY_MOVE);
-            int null_score = -searchAB<false>(-beta, -beta + 1, ply, depth - reduction, false);
+            int null_score = -searchAB<H, false>(board, -beta, -beta + 1, ply, depth - reduction, false, aborted);
             board.unmove();
+
+            if (aborted) {
+                return TIMEOUT;
+            }
 
             nulltries++;
 
             if (null_score >= beta) {
-                if (searchAB<false>(beta - 1, beta, ply, depth - reduction, false) >= beta) {
+                if (searchAB<H, false>(board, beta - 1, beta, ply, depth - reduction, false, aborted) >= beta) {
                     nullcuts++;
                     return beta;
                 }
@@ -120,13 +146,11 @@ int search_t::searchAB(int alpha, int beta, int ply, int depth, bool can_null) {
     }
     */
 
+
     movegen_t gen(board);
-    //if (h.move.move_bytes && board.is_pseudo_legal(h.move)) gen.add_move(h.move);
     int moves = gen.gen_normal();
     int n_legal = 0;
     for (int idx = 0; idx < moves; idx++) {
-        if (idx != 0 && gen.buf[idx] == h.move) continue;
-
         board.move(gen.buf[idx]);
         if (board.is_illegal()) {
             board.unmove();
@@ -135,21 +159,33 @@ int search_t::searchAB(int alpha, int beta, int ply, int depth, bool can_null) {
             n_legal++; // Legal move
 
             if (pv) {
-                score = -searchAB<true>(-beta, -alpha, ply + 1, depth - 1, can_null);
+                score = -searchAB<H, true>(board, -beta, -alpha, ply + 1, depth - 1, can_null, aborted);
             } else {
-                score = -searchAB<false>(-alpha - 1, -alpha, ply + 1, depth - 1, can_null);
+                score = -searchAB<H, false>(board, -alpha - 1, -alpha, ply + 1, depth - 1, can_null, aborted);
                 if (score > alpha) {
                     pv = true;
                     // We'd rather not need to search again, but :/
-                    score = -searchAB<true>(-beta, -alpha, ply + 1, depth - 1, can_null);
+                    score = -searchAB<H, true>(board, -beta, -alpha, ply + 1, depth - 1, can_null, aborted);
                 }
             }
-
             board.unmove();
 
-            if (score > best_score) {
-                best_score = score;
+            if (aborted) return TIMEOUT;
+
+            if (score > best_score && (best_score = score) > alpha) {
                 best_move = gen.buf[idx];
+
+                alpha = score;
+                pv = false;
+                tt->save(score > beta ? tt::LOWER : tt::EXACT, board.record[board.now].hash, depth, best_score, best_move);
+
+                if (!H && PV) {
+                    pv_table[ply][ply] = gen.buf[idx];
+                    for (int i = ply + 1; i < pv_table_len[ply + 1]; i++) {
+                        pv_table[ply][i] = pv_table[ply + 1][i];
+                    }
+                    pv_table_len[ply] = pv_table_len[ply + 1];
+                }
 
                 if (score >= beta) {
                     if (n_legal == 1) {
@@ -157,22 +193,9 @@ int search_t::searchAB(int alpha, int beta, int ply, int depth, bool can_null) {
                     }
                     fh++;
 
-                    tt->save(tt::LOWER, board.record[board.now].hash, depth, to_hash_score(best_score, ply), best_move);
+                    tt->save(tt::LOWER, board.record[board.now].hash, depth, best_score, best_move);
 
                     return beta; // Fail hard
-                }
-
-                if (score > alpha) {
-                    alpha = score;
-                    pv = false;
-
-                    if (PV) {
-                        pv_table[ply][ply] = gen.buf[idx];
-                        for (int i = ply + 1; i < pv_table_len[ply + 1]; i++) {
-                            pv_table[ply][i] = pv_table[ply + 1][i];
-                        }
-                        pv_table_len[ply] = pv_table_len[ply + 1];
-                    }
                 }
             }
         }
@@ -186,20 +209,18 @@ int search_t::searchAB(int alpha, int beta, int ply, int depth, bool can_null) {
         }
     }
 
-    if (best_move.move_bytes) {
-        if (alpha > old_alpha) {
-            tt->save(tt::EXACT, board.record[board.now].hash, depth, to_hash_score(best_score, ply), best_move);
-        } else {
-            tt->save(tt::UPPER, board.record[board.now].hash, depth, to_hash_score(best_score, ply), best_move);
-        }
+    if(best_score < old_alpha){
+        tt->save(tt::UPPER, board.record[board.now].hash, depth, best_score, best_move);
     }
 
     return alpha;
 }
 
 template<bool PV>
-int search_t::searchQS(int alpha, int beta, int ply) {
+int search_t::searchQS(board_t &board, int alpha, int beta, int ply, const std::atomic_bool &aborted) {
     nodes++;
+
+    if (aborted) return TIMEOUT;
 
     int stand_pat;
 
@@ -216,9 +237,10 @@ int search_t::searchQS(int alpha, int beta, int ply) {
             board.unmove();
             continue;
         } else {
-            int score = -searchQS<PV>(-beta, -alpha, ply + 1);
-
+            int score = -searchQS<PV>(board, -beta, -alpha, ply + 1, aborted);
             board.unmove();
+
+            if (aborted) return TIMEOUT;
 
             if (score >= beta) {
                 return beta;

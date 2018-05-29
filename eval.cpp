@@ -93,8 +93,8 @@ const int KING_DEFENDER_WEIGHT[6] = {5, 3, 4, 4, 10};
 const int KING_MIN_WEIGHT = -1000;
 
 /* linear king safety function */
-const score_t KING_DANGER_M = score_t{9, 7};
-const score_t KING_DANGER_C = score_t{-12, -9};
+const score_t KING_DANGER_M = score_t{6, 5};
+const score_t KING_DANGER_C = score_t{-34, -26};
 
 /// tempo
 const int TEMPO = 10;
@@ -407,8 +407,11 @@ score_t eval_queens(Team side, const board_t &board, eval_data_t &dat) {
 score_t eval_kings(Team side, const board_t &board, eval_data_t &dat) {
     score_t score = {0, 0};
 
-    //int balance = std::max(dat.king_danger_balance[side], KING_MIN_WEIGHT);
-    //score -= KING_DANGER_M * balance + KING_DANGER_C;
+    int balance = std::max(dat.king_danger_balance[side], KING_MIN_WEIGHT);
+    score -= KING_DANGER_M * balance + KING_DANGER_C;
+
+    score.eg = std::max(score.eg, 0);
+    score.mg = std::max(score.mg, 0);
 
     return score;
 }

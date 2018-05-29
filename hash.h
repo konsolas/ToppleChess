@@ -28,7 +28,7 @@ namespace tt {
         move_t move; // 4 bytes
         int16_t value; // 2 bytes
         uint8_t depth; // 1 byte
-        uint8_t bound;
+        uint8_t bound; // 1 byte
     };
 
     class hash_t {
@@ -39,7 +39,6 @@ namespace tt {
 
         bool probe(U64 hash, entry_t &entry);
         void save(Bound bound, U64 hash, int depth, int eval, move_t move);
-        Bound bound(int value, int beta);
     private:
         const int BUCKET_SIZE = 4;
 

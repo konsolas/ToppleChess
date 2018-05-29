@@ -41,10 +41,13 @@ struct sq_data_t {
  * Uses bitboard representation only
  */
 struct board_t {
+    board_t() = default;
     explicit board_t(std::string fen);
 
     void move(move_t move);
     void unmove();
+
+    move_t parse_move(const std::string &str);
 
     bool is_illegal();
     bool is_incheck();
@@ -54,6 +57,8 @@ struct board_t {
     bool is_pseudo_legal(move_t move);
 
     bool is_repetition_draw();
+
+    void mirror();
 
     /* Board representation (Bitboard) */
     U64 bb_pieces[2][6] = {0}; // [Team][Piece]
