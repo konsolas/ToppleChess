@@ -58,6 +58,8 @@ struct board_t {
 
     bool is_repetition_draw();
 
+    int see(move_t move);
+
     void mirror();
 
     /* Board representation (Bitboard) */

@@ -30,17 +30,17 @@ TEST_CASE("Bitboard engine") {
                             0, 0, 0, 0, 0, 1, 0, 0,
                             0, 0, 1, 1, 1, 0, 0, 0});
 
-            REQUIRE(popBit(WHITE, bb) == C1);
-            REQUIRE(popBit(WHITE, bb) == D1);
-            REQUIRE(popBit(WHITE, bb) == E1);
-            REQUIRE(popBit(WHITE, bb) == F2);
-            REQUIRE(popBit(WHITE, bb) == F4);
-            REQUIRE(popBit(WHITE, bb) == A5);
-            REQUIRE(popBit(WHITE, bb) == F6);
-            REQUIRE(popBit(WHITE, bb) == B7);
-            REQUIRE(popBit(WHITE, bb) == D7);
-            REQUIRE(popBit(WHITE, bb) == H7);
-            REQUIRE(popBit(WHITE, bb) == G8);
+            REQUIRE(pop_bit(WHITE, bb) == C1);
+            REQUIRE(pop_bit(WHITE, bb) == D1);
+            REQUIRE(pop_bit(WHITE, bb) == E1);
+            REQUIRE(pop_bit(WHITE, bb) == F2);
+            REQUIRE(pop_bit(WHITE, bb) == F4);
+            REQUIRE(pop_bit(WHITE, bb) == A5);
+            REQUIRE(pop_bit(WHITE, bb) == F6);
+            REQUIRE(pop_bit(WHITE, bb) == B7);
+            REQUIRE(pop_bit(WHITE, bb) == D7);
+            REQUIRE(pop_bit(WHITE, bb) == H7);
+            REQUIRE(pop_bit(WHITE, bb) == G8);
 
             REQUIRE(bb == 0);
         }
@@ -55,17 +55,17 @@ TEST_CASE("Bitboard engine") {
                             0, 0, 0, 0, 0, 1, 0, 0,
                             0, 0, 1, 1, 1, 0, 0, 0});
 
-            REQUIRE(popBit(BLACK, bb) == G8);
-            REQUIRE(popBit(BLACK, bb) == H7);
-            REQUIRE(popBit(BLACK, bb) == D7);
-            REQUIRE(popBit(BLACK, bb) == B7);
-            REQUIRE(popBit(BLACK, bb) == F6);
-            REQUIRE(popBit(BLACK, bb) == A5);
-            REQUIRE(popBit(BLACK, bb) == F4);
-            REQUIRE(popBit(BLACK, bb) == F2);
-            REQUIRE(popBit(BLACK, bb) == E1);
-            REQUIRE(popBit(BLACK, bb) == D1);
-            REQUIRE(popBit(BLACK, bb) == C1);
+            REQUIRE(pop_bit(BLACK, bb) == G8);
+            REQUIRE(pop_bit(BLACK, bb) == H7);
+            REQUIRE(pop_bit(BLACK, bb) == D7);
+            REQUIRE(pop_bit(BLACK, bb) == B7);
+            REQUIRE(pop_bit(BLACK, bb) == F6);
+            REQUIRE(pop_bit(BLACK, bb) == A5);
+            REQUIRE(pop_bit(BLACK, bb) == F4);
+            REQUIRE(pop_bit(BLACK, bb) == F2);
+            REQUIRE(pop_bit(BLACK, bb) == E1);
+            REQUIRE(pop_bit(BLACK, bb) == D1);
+            REQUIRE(pop_bit(BLACK, bb) == C1);
 
             REQUIRE(bb == 0);
         }

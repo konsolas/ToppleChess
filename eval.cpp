@@ -63,15 +63,15 @@ inline std::ostream &operator<<(std::ostream &out, const score_t &s) {
 /** EVAL_BEGIN **/
 
 /// pawns
-const score_t MATERIAL[6] = {score_t{75, 105}, score_t{320, 280}, score_t{330, 300}, score_t{490, 500},
-                             score_t{950, 1000}}; // Piece type
+const score_t MATERIAL[6] = {score_t{85, 105}, score_t{320, 280}, score_t{330, 300}, score_t{490, 500},
+                             score_t{925, 975}}; // Piece type
 const score_t PASSED[8] = {score_t{0, 0}, score_t{8, 15}, score_t{10, 25}, score_t{14, 35}, score_t{25, 60},
                            score_t{50, 90}, score_t{80, 111}, score_t{0, 0}}; // Rank of passed pawn
-const score_t ISOLATED[2] = {score_t{-5, -30}, score_t{-15, -43}}; // On open file?
+const score_t ISOLATED[2] = {score_t{-5, -35}, score_t{-15, -43}}; // On open file?
 /* no pawns in front, and less than 2 enemy pawns in passed bitmap */
 const score_t CANDIDATE[8] = {score_t{0, 0}, score_t{4, 10}, score_t{5, 12}, score_t{7, 15}, score_t{10, 25},
                               score_t{20, 40}, score_t{0, 0}, score_t{0, 0}}; // Rank of candidate passed pawn
-const score_t DOUBLED[2] = {score_t{-7, -60}, score_t{-20, -60}}; // On open file?
+const score_t DOUBLED[2] = {score_t{-19, -60}, score_t{-20, -60}}; // On open file?
 
 /// other postional
 const score_t BISHOP_PAIR = score_t{25, 40};
@@ -79,25 +79,24 @@ const score_t BISHOP_PAIR = score_t{25, 40};
 const score_t ROOK_SEMI_OPEN_FILE = score_t{21, 12};
 const score_t ROOK_OPEN_FILE = score_t{29, 12};
 
-const score_t CENTRE_CONTROL[6] = {score_t{8, 0}, score_t{10, 5}, score_t{8, 10}, score_t{3, 4},
+const score_t CENTRE_CONTROL[6] = {score_t{10, 0}, score_t{2, 3}, score_t{8, 10}, score_t{1, 3},
                                    score_t{-20, 40}}; // Piece type
 
 /// mobility
-const score_t MOBILITY[6] = {score_t{15, 25}, score_t{8, 7}, score_t{4, 6}, score_t{7, 10}, score_t{5, 6},
+const score_t MOBILITY[6] = {score_t{1, 10}, score_t{3, 6}, score_t{1, 3}, score_t{1, 10}, score_t{0, 1},
                              score_t{0, 0}}; // Piece type
 
 /// king safety
-const int KING_ATTACKER_WEIGHT[6] = {3, 4, 5, 8, 16};
-const int KING_OPEN_FILE[2] = {6, 4}; // TODO: fully open, semi open. File considered closed if only attacker pawn present
-const int KING_DEFENDER_WEIGHT[6] = {5, 3, 4, 4, 10};
+const int KING_ATTACKER_WEIGHT[6] = {1, 2, 3, 5, 6};
+const int KING_DEFENDER_WEIGHT[6] = {5, 4, 4, 4, 7};
 const int KING_MIN_WEIGHT = -1000;
 
 /* linear king safety function */
-const score_t KING_DANGER_M = score_t{6, 5};
-const score_t KING_DANGER_C = score_t{-34, -26};
+const score_t KING_DANGER_M = score_t{3, 4};
+const score_t KING_DANGER_C = score_t{-36, -16};
 
 /// tempo
-const int TEMPO = 10;
+const int TEMPO = 5;
 
 /** EVAL_END **/
 
@@ -187,8 +186,8 @@ int eval(const board_t &board) {
         U64 king_bb_w = board.bb_pieces[WHITE][KING];
         U64 king_bb_b = board.bb_pieces[BLACK][KING];
 
-        dat.king_shield[WHITE] = BB_KING_CIRCLE[popBit(WHITE, king_bb_w)];
-        dat.king_shield[BLACK] = BB_KING_CIRCLE[popBit(BLACK, king_bb_b)];
+        dat.king_shield[WHITE] = BB_KING_CIRCLE[pop_bit(WHITE, king_bb_w)];
+        dat.king_shield[BLACK] = BB_KING_CIRCLE[pop_bit(BLACK, king_bb_b)];
     }
 
     eval += eval_pawns(WHITE, board, dat) - eval_pawns(BLACK, board, dat);
@@ -223,7 +222,7 @@ score_t eval_pawns(Team side, const board_t &board, eval_data_t &dat) {
 
     U64 pawns = board.bb_pieces[side][PAWN];
     while (pawns) {
-        uint8_t sq = popBit(side, pawns);
+        uint8_t sq = pop_bit(side, pawns);
 
         dat.counts[side][PAWN]++;
 
@@ -244,7 +243,7 @@ score_t eval_pawns(Team side, const board_t &board, eval_data_t &dat) {
         dat.king_danger_balance[xside] += pop_count(moves & dat.king_shield[xside]) * KING_ATTACKER_WEIGHT[PAWN];
 
         // Centre control
-        score += CENTRE_CONTROL[PAWN] * pop_count(moves & BB_CENTRE);
+        score += CENTRE_CONTROL[PAWN] * pop_count(single_bit(sq) & BB_CENTRE);
 
         // Passed?
         U64 passed = BB_PASSED[side][sq] & board.bb_pieces[xside][PAWN];
@@ -279,7 +278,7 @@ score_t eval_knights(Team side, const board_t &board, eval_data_t &dat) {
 
     U64 knights = board.bb_pieces[side][KNIGHT];
     while (knights) {
-        uint8_t sq = popBit(side, knights);
+        uint8_t sq = pop_bit(side, knights);
 
         dat.counts[side][KNIGHT]++;
 
@@ -309,7 +308,7 @@ score_t eval_bishops(Team side, const board_t &board, eval_data_t &dat) {
 
     U64 bishops = board.bb_pieces[side][BISHOP];
     while (bishops) {
-        uint8_t sq = popBit(side, bishops);
+        uint8_t sq = pop_bit(side, bishops);
 
         dat.counts[side][BISHOP]++;
 
@@ -343,7 +342,7 @@ score_t eval_rooks(Team side, const board_t &board, eval_data_t &dat) {
 
     U64 rooks = board.bb_pieces[side][ROOK];
     while (rooks) {
-        uint8_t sq = popBit(side, rooks);
+        uint8_t sq = pop_bit(side, rooks);
 
         dat.counts[side][ROOK]++;
 
@@ -381,7 +380,7 @@ score_t eval_queens(Team side, const board_t &board, eval_data_t &dat) {
 
     U64 queens = board.bb_pieces[side][QUEEN];
     while (queens) {
-        uint8_t sq = popBit(side, queens);
+        uint8_t sq = pop_bit(side, queens);
 
         dat.counts[side][QUEEN]++;
 

@@ -102,9 +102,9 @@ void board_t::move(move_t move) {
                 if (move.castle) {
                     // Move rook
                     switch_piece<true>(team, ROOK,
-                                 move.castle_side ? (team ? A8 : A1) : (team ? H8 : H1));
+                                       move.castle_side ? (team ? A8 : A1) : (team ? H8 : H1));
                     switch_piece<true>(team, ROOK,
-                                 move.castle_side ? (team ? D8 : D1) : (team ? F8 : F1));
+                                       move.castle_side ? (team ? D8 : D1) : (team ? F8 : F1));
                 }
             }
 
@@ -141,9 +141,9 @@ void board_t::unmove() {
             if (move.castle) {
                 // Move rook
                 switch_piece<false>((Team) move.team, ROOK,
-                             move.castle_side ? (move.team ? A8 : A1) : (move.team ? H8 : H1));
+                                    move.castle_side ? (move.team ? A8 : A1) : (move.team ? H8 : H1));
                 switch_piece<false>((Team) move.team, ROOK,
-                             move.castle_side ? (move.team ? D8 : D1) : (move.team ? F8 : F1));
+                                    move.castle_side ? (move.team ? D8 : D1) : (move.team ? F8 : F1));
             }
 
             switch_piece<false>((Team) move.team, (Piece) move.piece, move.from);
@@ -290,7 +290,7 @@ move_t board_t::parse_move(const std::string &str) {
 
     // Promotion
     move.is_promotion = static_cast<uint16_t>(str.length() == 5);
-    if(move.is_promotion) {
+    if (move.is_promotion) {
         switch (str[4]) {
             case 'n':
                 move.promotion_type = KNIGHT;
@@ -310,12 +310,16 @@ move_t board_t::parse_move(const std::string &str) {
     }
 
     // Castling
-    if(move.piece == KING && (move.from == E1 || move.from == E8)
-        && abs(move.to - move.from) == 2) {
-        move.castle = 1;
-
-        // 0 = kingside, 1 = queenside
-        move.castle_side = static_cast<uint16_t>(move.to == G1 || move.to == G8);
+    if (move.piece == KING) {
+        if(move.from == E1 || move.from == E8) {
+            if (move.to == G1 || move.to == G8) {
+                move.castle = 1;
+                move.castle_side = 0;
+            } else if(move.to == C1 || move.to == C8) {
+                move.castle = 1;
+                move.castle_side = 1;
+            }
+        }
     }
 
     // EP
@@ -327,7 +331,7 @@ move_t board_t::parse_move(const std::string &str) {
 bool board_t::is_illegal() {
     Team side = record[now].next_move;
     U64 king_bb = bb_pieces[!side][KING];
-    uint8_t king_square = popBit(WHITE, king_bb);
+    uint8_t king_square = pop_bit(WHITE, king_bb);
 
     return is_attacked(king_square, side);
 }
@@ -336,7 +340,7 @@ bool board_t::is_illegal() {
 bool board_t::is_incheck() {
     Team side = record[now].next_move;
     U64 king_bb = bb_pieces[side][KING];
-    uint8_t king_square = popBit(WHITE, king_bb);
+    uint8_t king_square = pop_bit(WHITE, king_bb);
 
     return is_attacked(king_square, Team(!side));
 }
@@ -357,7 +361,7 @@ void board_t::switch_piece(Team side, Piece piece, uint8_t sq) {
         bb_pieces[side][piece] ^= bb_square;
     }
 
-    if(HASH) { // Update hash
+    if (HASH) { // Update hash
         record[now].hash ^= zobrist::squares[sq][side][piece];
     }
 }
@@ -418,9 +422,9 @@ bool board_t::is_repetition_draw() {
 
     int last = now - 50;
 
-    for(int i = now - 2; i > last; i -= 2) {
-        if(record[i].hash == record[now].hash) rep++;
-        if(rep >= 3) {
+    for (int i = now - 2; i > last; i -= 2) {
+        if (record[i].hash == record[now].hash) rep++;
+        if (rep >= 3) {
             return true;
         }
     }
@@ -429,10 +433,114 @@ bool board_t::is_repetition_draw() {
 }
 
 void board_t::mirror() {
-    for(uint8_t sq = 0; sq < 64; sq++) {
+    // Mirror side
+    record[now].next_move = (Team) !record[now].next_move;
+    record[now].hash ^= zobrist::side;
+
+    // Mirror en-passant
+    if (record[now].ep_square != 0) {
+        record[now].hash ^= zobrist::ep[record[now].ep_square];
+        record[now].ep_square = MIRROR_TABLE[record[now].ep_square];
+        record[now].hash ^= zobrist::ep[record[now].ep_square];
+    }
+
+    // Mirror pieces
+    for (uint8_t sq = 0; sq < 64; sq++) {
         Team team = sq_data[sq].team;
         Piece piece = sq_data[sq].piece;
 
-
+        switch_piece<false>(team, piece, sq);
+        switch_piece<false>(Team(!team), piece, MIRROR_TABLE[sq]);
     }
+}
+
+int board_t::see(move_t move) {
+    // Piece values: pnbrqk
+    const int VAL[] = {100, 300, 315, 500, 915, INF};
+
+    // State
+    U64 attackers = attacks_to(move.to, Team(move.team)) | attacks_to(move.to, Team(!move.team));
+    U64 occupation_mask = ONES;
+    int current_target_val = 0;
+    bool prom_rank = rank_index(move.to) == 0 || rank_index(move.to) == 7;
+    Team next_move = Team(move.team);
+
+    // Material table
+    int num_capts = 0;
+    int material[32] = {0};
+
+    // Eval move
+    material[num_capts] = sq_data[move.to].occupied ? VAL[sq_data[move.to].piece] : 0;
+    current_target_val = VAL[move.piece];
+    if (prom_rank && move.piece == PAWN) {
+        material[num_capts] += VAL[move.promotion_type] - VAL[PAWN];
+        current_target_val += VAL[move.promotion_type] - VAL[PAWN];
+    }
+    num_capts++;
+
+    // Remove attacker
+    attackers &= ~single_bit(move.from);
+    occupation_mask &= ~single_bit(move.from);
+
+    // Reveal next attacker
+    attackers |= (find_moves(QUEEN, next_move, move.to, bb_all & occupation_mask)
+                  & (bb_pieces[WHITE][QUEEN] | bb_pieces[BLACK][QUEEN])) |
+                 (find_moves(BISHOP, next_move, move.to, bb_all & occupation_mask)
+                    & (bb_pieces[WHITE][BISHOP] | bb_pieces[BLACK][BISHOP])) |
+                 (find_moves(ROOK, next_move, move.to, bb_all & occupation_mask)
+                    & (bb_pieces[WHITE][ROOK] | bb_pieces[BLACK][ROOK]));
+    attackers &= occupation_mask;
+
+    next_move = Team(!next_move);
+
+    while (attackers) {
+        // Pick LVA
+        Square from;
+        if (!prom_rank && attackers & bb_pieces[next_move][PAWN])
+            from = Square(bit_scan(attackers & bb_pieces[next_move][PAWN]));
+        else if (attackers & bb_pieces[next_move][KNIGHT])
+            from = Square(bit_scan(attackers & bb_pieces[next_move][KNIGHT]));
+        else if (attackers & bb_pieces[next_move][BISHOP])
+            from = Square(bit_scan(attackers & bb_pieces[next_move][BISHOP]));
+        else if (attackers & bb_pieces[next_move][ROOK])
+            from = Square(bit_scan(attackers & bb_pieces[next_move][ROOK]));
+        else if (prom_rank && attackers & bb_pieces[next_move][PAWN])
+            from = Square(bit_scan(attackers & bb_pieces[next_move][PAWN]));
+        else if (attackers & bb_pieces[next_move][QUEEN])
+            from = Square(bit_scan(attackers & bb_pieces[next_move][QUEEN]));
+        else if (attackers & bb_pieces[next_move][KING] && !(attackers & bb_side[!next_move]))
+            from = Square(bit_scan(attackers & bb_pieces[next_move][KING]));
+        else break;
+
+        // Eval move
+        material[num_capts] = -material[num_capts - 1] + current_target_val;
+        current_target_val = VAL[sq_data[from].piece];
+        if (prom_rank && sq_data[from].piece == PAWN) {
+            material[num_capts] += VAL[QUEEN] - VAL[PAWN];
+            current_target_val = VAL[QUEEN] - VAL[PAWN];
+        }
+        num_capts++;
+
+        // Remove attacker
+        attackers &= ~single_bit(from);
+        occupation_mask &= ~single_bit(from);
+
+        // Reveal next attacker
+        attackers |= (find_moves(QUEEN, next_move, move.to, bb_all & occupation_mask)
+                      & (bb_pieces[WHITE][QUEEN] | bb_pieces[BLACK][QUEEN])) |
+                     (find_moves(BISHOP, next_move, move.to, bb_all & occupation_mask)
+                      & (bb_pieces[WHITE][BISHOP] | bb_pieces[BLACK][BISHOP])) |
+                     (find_moves(ROOK, next_move, move.to, bb_all & occupation_mask)
+                      & (bb_pieces[WHITE][ROOK] | bb_pieces[BLACK][ROOK]));
+        attackers &= occupation_mask;
+
+        next_move = Team(!next_move);
+    }
+
+    // Calculate SEE of first capture
+    while (--num_capts)
+        if (material[num_capts] > -material[num_capts - 1])
+            material[num_capts - 1] = -material[num_capts];
+
+    return material[0];
 }

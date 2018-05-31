@@ -58,7 +58,7 @@ tt::hash_t::~hash_t() {
 }
 
 bool tt::hash_t::probe(U64 hash, tt::entry_t &entry) {
-    const size_t loc = (size_t) hash & num_entries;
+    const size_t loc = hash & num_entries;
 
     if (table[loc].hash == hash) {
         entry = table[loc];
@@ -69,11 +69,22 @@ bool tt::hash_t::probe(U64 hash, tt::entry_t &entry) {
 }
 
 void tt::hash_t::save(Bound bound, U64 hash, int depth, int eval, move_t move) {
-    const size_t loc = (size_t) hash & num_entries;
+    const size_t loc = hash & num_entries;
 
     table[loc].hash = hash;
     table[loc].bound = bound;
     table[loc].depth = static_cast<uint8_t>(depth);
     table[loc].value = static_cast<int16_t>(eval);
     table[loc].move = move;
+}
+
+int tt::hash_t::hash_full() {
+    int cnt = 0;
+    for (int i = 0; i < num_entries; i++) {
+        if(table[i].hash) {
+            cnt++;
+        }
+    }
+
+    return cnt;
 }

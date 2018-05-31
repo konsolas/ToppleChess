@@ -386,6 +386,7 @@ namespace bb_util {
 
         for (uint8_t a = 0; a < 64; a++) {
             for (uint8_t b = 0; b < 64; b++) {
+                // Between
                 U64 occupied = single_bit[a] | single_bit[b];
                 if (bb_magics::bishop_moves(a, 0) & single_bit[b]) {
                     between[a][b] = bb_magics::bishop_moves(a, occupied) &
@@ -559,7 +560,7 @@ uint8_t square_index(uint8_t file, uint8_t rank) {
     return bb_util::sq_index[file][rank];
 }
 
-uint8_t popBit(Team team, U64 &bb) {
+uint8_t pop_bit(Team team, U64 &bb) {
     if(team) {
         const uint8_t s = bb_intrin::msb(bb);
         bb &= ~single_bit(s);
@@ -570,6 +571,11 @@ uint8_t popBit(Team team, U64 &bb) {
         return s;
     }
 }
+
+uint8_t bit_scan(U64 bb) {
+    return bb_intrin::lsb(bb);
+}
+
 
 int pop_count(U64 bb) {
     return bb_intrin::pop_count(bb);

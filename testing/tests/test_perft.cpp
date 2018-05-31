@@ -6,6 +6,8 @@
 #include "../util.h"
 #include "../../board.h"
 #include "../../movegen.h"
+#include "../../eval.h"
+
 
 const bool operator==(const board_t& lhs, const board_t& rhs) {
     for(uint8_t sq = 0; sq < 64; sq++) {
@@ -23,22 +25,14 @@ const bool operator!=(const board_t& lhs, const board_t& rhs) {
     return !(lhs == rhs);
 }
 
-const void consistency_check(const board_t &board) {
-    for(uint8_t sq = 0; sq < 64; sq++) {
-        if(board.sq_data[sq].occupied) {
-            if((board.bb_pieces[board.sq_data[sq].team][board.sq_data[sq].piece] & single_bit(sq)) == 0) {
-                FAIL("Bit consistency check failed at position (0) " << board << " sq=" << from_sq(sq) << " side=" << +board.sq_data[sq].team << " piece=" << +board.sq_data[sq].piece);
-            }
-        } else {
-            if((board.bb_all & single_bit(sq)) != 0) {
-                FAIL("Bit consistency check failed at position (1) " << board);
-            }
+const void consistency_check(board_t &board) {
+    int score = eval(board);
+    board.mirror();
+    int mirrorscore = eval(board);
+    board.mirror();
 
-            if((board.bb_side[WHITE] & single_bit(sq)) != 0 || (board.bb_side[BLACK] & single_bit(sq)) != 0) {
-                FAIL("Bit consistency check failed at position (2) " << board);
-            }
-        }
-    }
+    INFO("position: " << board);
+    REQUIRE(score == -mirrorscore);
 }
 
 const void hash_check(const board_t &board) {
@@ -78,18 +72,10 @@ U64 perft(board_t &board, int depth) {
     board_t snapshot = board;
 
     movegen_t gen(board);
+    gen.gen_normal();
 
-    int moves;
-    if(board.is_incheck()) {
-        //moves = gen.gen_evasions();
-        moves = gen.gen_normal();
-    } else {
-        moves = gen.gen_normal();
-    }
-
-
-    for (int i = 0; i < moves; i++) {
-        move_t next = gen.buf[i];
+    while (gen.has_next()) {
+        move_t next = gen.next();
 
         board.move(next);
 
@@ -110,6 +96,8 @@ U64 perft(board_t &board, int depth) {
 TEST_CASE("Perft") {
     init_tables();
     zobrist::init_hashes();
+    eval_init();
+
     // Test perft
     SECTION("(test) rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8 ") {
         board_t board("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8 ");

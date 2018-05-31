@@ -4,9 +4,7 @@
 
 #include "movegen.h"
 
-movegen_t::movegen_t(board_t &board) : board(board) {
-    idx = 0;
-}
+movegen_t::movegen_t(board_t &board) : board(board) {}
 
 int movegen_t::gen_normal() {
     record = board.record[board.now];
@@ -16,7 +14,7 @@ int movegen_t::gen_normal() {
     gen_caps();
     gen_quiets();
 
-    return idx;
+    return buf_size;
 }
 
 int movegen_t::gen_caps() {
@@ -44,12 +42,12 @@ int movegen_t::gen_caps() {
             move.piece = attacker;
 
             while (bb_attacker) {
-                uint8_t from = popBit(team, bb_attacker);
+                uint8_t from = pop_bit(team, bb_attacker);
                 move.from = from;
 
                 U64 bb_targets = find_moves(Piece(attacker), team, from, board.bb_all) & bb_victim; // Mask captures
                 while (bb_targets) {
-                    uint8_t to = popBit(team, bb_targets); // Prefer captures closer to our home rank
+                    uint8_t to = pop_bit(team, bb_targets); // Prefer captures closer to our home rank
                     move.to = to;
 
                     // Promotions
@@ -58,12 +56,12 @@ int movegen_t::gen_caps() {
                         for (uint8_t i = QUEEN; i > PAWN; i--) {
                             move.promotion_type = i;
 
-                            buf[idx++] = move;
+                            buf[buf_size++] = move;
                         }
                         move.is_promotion = 0;
                         move.promotion_type = 0;
                     } else {
-                        buf[idx++] = move;
+                        buf[buf_size++] = move;
                     }
 
                 }
@@ -71,7 +69,7 @@ int movegen_t::gen_caps() {
         }
     }
 
-    return idx;
+    return buf_size;
 }
 
 void movegen_t::gen_castling() {
@@ -91,7 +89,7 @@ void movegen_t::gen_castling() {
             move.to = team ? G8 : G1;
             move.castle = 1;
             move.castle_side = 0;
-            buf[idx++] = move;
+            buf[buf_size++] = move;
         }
     }
 
@@ -109,7 +107,7 @@ void movegen_t::gen_castling() {
             move.to = team ? C8 : C1;
             move.castle = 1;
             move.castle_side = 1;
-            buf[idx++] = move;
+            buf[buf_size++] = move;
         }
     }
 }
@@ -124,156 +122,15 @@ void movegen_t::gen_ep() {
                          & board.bb_pieces[team][PAWN];
 
         while (ep_attacks) {
-            uint8_t from = popBit(WHITE, ep_attacks);
+            uint8_t from = pop_bit(WHITE, ep_attacks);
 
             move.from = from;
             move.piece = PAWN;
             move.to = record.ep_square;
             move.is_ep = 1;
-            buf[idx++] = move;
+            buf[buf_size++] = move;
         }
     }
-}
-
-// Don't use :(
-int movegen_t::gen_evasions() {
-    record = board.record[board.now];
-    team = record.next_move;
-    x_team = Team(!record.next_move);
-
-    move_t move{};
-
-    U64 king_bb = board.bb_pieces[team][KING];
-    uint8_t king_sq = popBit(WHITE, king_bb);
-
-    U64 checkers = board.attacks_to(king_sq, x_team);
-
-    // Just generate the en-passant capture in case it's relevant
-    gen_ep();
-
-    // If there's only one checker, we can capture it or block the check
-    // No point in checking popcount, it's quite performance intensive so we skip it and assume makemove isn't that bad.
-    U64 checkers_bb = checkers;
-    uint8_t checker_sq = popBit(WHITE, checkers);
-
-    // Try to capture checker (loop through LVA)
-    move = EMPTY_MOVE;
-    move.team = team;
-    move.is_capture = 1;
-    move.captured_type = board.sq_data[checker_sq].piece;
-    for (uint8_t attacker = PAWN; attacker < KING; attacker++) {
-        U64 bb_attacker = board.bb_pieces[team][attacker];
-        move.piece = attacker;
-
-        while (bb_attacker) {
-            uint8_t from = popBit(team, bb_attacker);
-            move.from = from;
-
-            U64 bb_targets = find_moves(Piece(attacker), team, from, board.bb_all) & checkers_bb; // Mask captures
-
-            if (bb_targets) {
-                move.to = checker_sq;
-
-                // Promotions
-                if (attacker == PAWN && (team ? move.to <= H1 : move.to >= A8)) {
-                    move.is_promotion = 1;
-                    for (uint8_t i = QUEEN; i > PAWN; i--) {
-                        move.promotion_type = i;
-
-                        buf[idx++] = move;
-                    }
-                    move.is_promotion = 0;
-                    move.promotion_type = 0;
-                } else {
-                    buf[idx++] = move;
-                }
-            }
-        }
-    }
-
-    // If the checker is a slider, try to interpose
-    Piece checker_type = board.sq_data[checker_sq].piece;
-    if (checker_type == ROOK || checker_type == BISHOP || checker_type == QUEEN) {
-        U64 interpose_bb = bits_between(king_sq, checker_sq);
-
-        move = EMPTY_MOVE;
-        move.team = team;
-        move.piece = PAWN;
-        U64 bb_pawns = board.bb_pieces[team][PAWN];
-        while (bb_pawns) {
-            uint8_t from = popBit(team, bb_pawns);
-            move.from = from;
-
-            U64 bb_targets = find_moves(PAWN, team, from, board.bb_all) & interpose_bb;
-
-            while (bb_targets) {
-                uint8_t to = popBit(x_team, bb_targets);
-                move.to = to;
-
-                // Promotions
-                if (team ? to <= H1 : to >= A8) {
-                    move.is_promotion = 1;
-                    for (uint8_t i = QUEEN; i > PAWN; i--) {
-                        move.promotion_type = i;
-
-                        buf[idx++] = move;
-                    }
-
-                    move.is_promotion = 0;
-                    move.promotion_type = 0;
-                } else {
-                    buf[idx++] = move;
-                }
-            }
-        }
-
-        // Generate piece moves (not pawns), least valuable piece first (can't interpose with king)
-        for (uint8_t piece = KNIGHT; piece < KING; piece++) {
-            move.piece = piece;
-            U64 bb_piece = board.bb_pieces[team][piece];
-
-            while (bb_piece) {
-                uint8_t from = popBit(team, bb_piece);
-                move.from = from;
-
-                U64 bb_targets = find_moves((Piece) piece, team, from, board.bb_all) & interpose_bb;
-
-                while (bb_targets) {
-                    uint8_t to = popBit(x_team, bb_targets);
-                    move.to = to;
-
-                    buf[idx++] = move;
-                }
-            }
-        }
-    }
-
-    // The only other option is moving the king
-    move = EMPTY_MOVE;
-    move.team = team;
-    move.from = king_sq;
-    move.piece = KING;
-    U64 king_targets_bb = find_moves(KING, team, king_sq, board.bb_all) & ~board.bb_side[team];
-    while (king_targets_bb) {
-        uint8_t to = popBit(team, king_targets_bb);
-        move.to = to;
-
-        //if (!board.is_attacked(to, x_team)) {
-            if (board.sq_data[to].occupied) {
-                move.is_capture = 1;
-                move.captured_type = board.sq_data[to].piece;
-
-                buf[idx++] = move;
-
-                move.is_capture = 0;
-                move.captured_type = 0;
-            } else {
-                buf[idx++] = move;
-            }
-        //}
-    }
-
-    return idx;
 }
 
 int movegen_t::gen_quiets() {
@@ -290,13 +147,13 @@ int movegen_t::gen_quiets() {
     U64 bb_pawns = board.bb_pieces[team][PAWN];
 
     while (bb_pawns) {
-        uint8_t from = popBit(team, bb_pawns);
+        uint8_t from = pop_bit(team, bb_pawns);
         move.from = from;
 
         U64 bb_targets = find_moves(PAWN, team, from, board.bb_all) & mask;
 
         while (bb_targets) {
-            uint8_t to = popBit(x_team, bb_targets);
+            uint8_t to = pop_bit(x_team, bb_targets);
             move.to = to;
 
             // Promotions
@@ -305,13 +162,13 @@ int movegen_t::gen_quiets() {
                 for (uint8_t i = QUEEN; i > PAWN; i--) {
                     move.promotion_type = i;
 
-                    buf[idx++] = move;
+                    buf[buf_size++] = move;
                 }
 
                 move.is_promotion = 0;
                 move.promotion_type = 0;
             } else {
-                buf[idx++] = move;
+                buf[buf_size++] = move;
             }
         }
     }
@@ -322,23 +179,99 @@ int movegen_t::gen_quiets() {
         U64 bb_piece = board.bb_pieces[team][piece];
 
         while (bb_piece) {
-            uint8_t from = popBit(team, bb_piece);
+            uint8_t from = pop_bit(team, bb_piece);
             move.from = from;
 
             U64 bb_targets = find_moves((Piece) piece, team, from, board.bb_all) & mask;
 
             while (bb_targets) {
-                uint8_t to = popBit(x_team, bb_targets);
+                uint8_t to = pop_bit(x_team, bb_targets);
                 move.to = to;
 
-                buf[idx++] = move;
+                buf[buf_size++] = move;
             }
         }
     }
 
-    return idx;
+    return buf_size;
 }
 
-void movegen_t::add_move(move_t move) {
-    buf[idx++] = move;
+move_t movegen_t::next(GenStage &stage, search_t &search, move_t hash_move, int ply) {
+    if(stage < GEN_HASH) {
+        if(hash_move != EMPTY_MOVE) {
+            for (int i = idx; i < buf_size; i++) {
+                if(hash_move == buf[i]) {
+                    buf_swap(i, idx);
+                    stage = GEN_HASH;
+                    return next();
+                }
+            }
+        }
+    }
+
+    // Score moves
+    if(!scored) {
+        for (int i = idx; i < buf_size; i++) {
+            move_t move = buf[i];
+            buf_scores[i] = (board.see(move) * 1000 + record.next_move ? rank_index(move.to) : 8 - rank_index(move.to));
+
+            if(!move.is_capture) {
+                if (search.killer_heur.primary(ply) == move) {
+                    buf_scores[i] += 20001;
+                } else if (search.killer_heur.primary(ply) == move) {
+                    buf_scores[i] += 20000;
+                }
+
+                buf_scores[i] += search.history_heur.get(move);
+            }
+        }
+
+        scored = true;
+    }
+
+    // Pick moves
+    int best_idx = idx;
+    for(int i = idx; i < buf_size; i++) {
+        if(buf_scores[i] > buf_scores[best_idx]) {
+            best_idx = idx;
+        }
+    }
+
+    buf_swap(best_idx, idx);
+    int move_score = buf_scores[idx];
+    move_t move = next();
+    if(move.is_capture && move_score >= 0) {
+        stage = GEN_GOOD_CAPT;
+    } else if(move == search.killer_heur.primary(ply) || move == search.killer_heur.secondary(ply)) {
+        stage = GEN_KILLERS;
+    } else if(!move.is_capture) {
+        stage = GEN_QUIETS;
+    } else {
+        stage = GEN_BAD_CAPT;
+    }
+
+    return move;
+}
+
+move_t movegen_t::next() {
+    return buf[idx++];
+}
+
+bool movegen_t::has_next() {
+    return idx < buf_size;
+}
+
+void movegen_t::buf_swap(int i, int j) {
+    move_t temp = buf[i];
+    buf[i] = buf[j];
+    buf[j] = temp;
+
+    int temp_score = buf_scores[i];
+    buf_scores[i] = buf_scores[j];
+    buf_scores[j] = temp_score;
+}
+
+move_t *movegen_t::get_searched(int &len) {
+    len = idx;
+    return buf;
 }
