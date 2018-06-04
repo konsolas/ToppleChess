@@ -44,7 +44,7 @@ TEST_CASE("Bitboard engine") {
 
             REQUIRE(bb == 0);
         }
-
+/*
         SECTION("popMSB") {
             U64 bb = c_u64({0, 0, 0, 0, 0, 0, 1, 0,
                             0, 1, 0, 1, 0, 0, 0, 1,
@@ -69,7 +69,7 @@ TEST_CASE("Bitboard engine") {
 
             REQUIRE(bb == 0);
         }
-
+*/
         SECTION("Square index lookup") {
             REQUIRE(square_index(0, 0) == A1);
             REQUIRE(square_index(2, 2) == C3);

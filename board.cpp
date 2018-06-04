@@ -330,8 +330,7 @@ move_t board_t::parse_move(const std::string &str) {
 
 bool board_t::is_illegal() {
     Team side = record[now].next_move;
-    U64 king_bb = bb_pieces[!side][KING];
-    uint8_t king_square = pop_bit(WHITE, king_bb);
+    uint8_t king_square = bit_scan(bb_pieces[!side][KING]);
 
     return is_attacked(king_square, side);
 }
@@ -339,8 +338,7 @@ bool board_t::is_illegal() {
 
 bool board_t::is_incheck() {
     Team side = record[now].next_move;
-    U64 king_bb = bb_pieces[side][KING];
-    uint8_t king_square = pop_bit(WHITE, king_bb);
+    uint8_t king_square = bit_scan(bb_pieces[side][KING]);
 
     return is_attacked(king_square, Team(!side));
 }
@@ -420,11 +418,11 @@ bool board_t::is_pseudo_legal(move_t move) {
 bool board_t::is_repetition_draw() {
     int rep = 1;
 
-    int last = now - 50;
+    int last = std::max(now - 50, 0);
 
     for (int i = now - 2; i > last; i -= 2) {
         if (record[i].hash == record[now].hash) rep++;
-        if (rep >= 3) {
+        if (rep >= 2) {
             return true;
         }
     }
@@ -455,9 +453,6 @@ void board_t::mirror() {
 }
 
 int board_t::see(move_t move) {
-    // Piece values: pnbrqk
-    const int VAL[] = {100, 300, 315, 500, 915, INF};
-
     // State
     U64 attackers = attacks_to(move.to, Team(move.team)) | attacks_to(move.to, Team(!move.team));
     U64 occupation_mask = ONES;

@@ -9,9 +9,9 @@
 #include <chrono>
 
 #define INF 32767
-#define MATE(ply) (INF - (ply))
-#define LOW (-29000)
-#define HIGH (29000)
+#define TO_MATE_SCORE(ply) (INF - (ply))
+#define TO_MATE_PLY(score) (INF - (score))
+#define MINCHECKMATE (TO_MATE_SCORE(MAX_PLY))
 
 #define MAX_PLY 128
 

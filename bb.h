@@ -79,7 +79,7 @@ uint8_t pop_bit(Team team, U64 &bb);
  * @param bb bitboard to search
  * @return index of LSB
  */
- uint8_t bit_scan(U64 bb);
+uint8_t bit_scan(U64 bb);
 
 /**
  * Returns the number of '1' bits in the given bitboard.

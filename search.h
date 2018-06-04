@@ -86,9 +86,8 @@ public:
     explicit search_t(board_t board, tt::hash_t *tt);
 
     move_t think(int n_threads, int max_depth, const std::atomic_bool &aborted);
-
-    template<bool H, bool PV> int searchAB(board_t &board, int alpha, int beta, int ply, int depth, bool can_null, const std::atomic_bool &aborted);
-    template<bool PV> int searchQS(board_t &board, int alpha, int beta, int ply, const std::atomic_bool &aborted);
+    template<bool H> int searchAB(board_t &board, int alpha, int beta, int ply, int depth, bool can_null, const std::atomic_bool &aborted);
+    int searchQS(board_t &board, int alpha, int beta, int ply, const std::atomic_bool &aborted);
 
     void save_pv();
 private:
@@ -112,6 +111,7 @@ private:
     U64 fh = 0;
     U64 hit = 0;
     U64 hash_try = 0;
+    U64 cut = 0;
 };
 
 #endif //TOPPLE_SEARCH_H

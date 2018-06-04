@@ -8,6 +8,16 @@
 
 const int TIMEOUT = -INF * 2;
 
+void print_score(int score) {
+    if(score > MINCHECKMATE) {
+        std::cout << " score mate " << ((TO_MATE_PLY(score) + 1) / 2);
+    } else if (score < -MINCHECKMATE) {
+        std::cout << " score mate -" << ((TO_MATE_PLY(-score) + 1) / 2);
+    } else {
+        std::cout << " score cp " << score;
+    }
+}
+
 move_t search_t::think(int n_threads, int max_depth, const std::atomic_bool &aborted) {
     nodes = 0;
     // Run sync if nthreads = 0
@@ -28,12 +38,12 @@ move_t search_t::think(int n_threads, int max_depth, const std::atomic_bool &abo
             // Start helper threads (lazy SMP)
             for (int i = 0; i < n_threads - 1; i++) {
                 helper_threads[i] = std::async(std::launch::async,
-                                               search_t::searchAB<true, true>, this,
+                                               search_t::searchAB<true>, this,
                                                std::ref(helper_boards[i]), alpha, beta, 0, depth, true,
                                                std::ref(helper_thread_aborted));
             }
 
-            int score = searchAB<false, true>(board, alpha, beta, 0, depth, true, aborted);
+            int score = searchAB<false>(board, alpha, beta, 0, depth, true, aborted);
 
             // Abort helper threads
             helper_thread_aborted = true;
@@ -42,15 +52,22 @@ move_t search_t::think(int n_threads, int max_depth, const std::atomic_bool &abo
                 save_pv();
 
                 auto current = engine_clock::now();
-                std::cout << "info depth " << depth << " score cp " << score
-                          << " time " << CHRONO_DIFF(start, current)
+                auto time = CHRONO_DIFF(start, current);
+                std::cout << "info depth " << depth;
+                print_score(score);
+                std::cout << " time " << time
                           << " nodes " << nodes
-                          << " nps " << (nodes / (CHRONO_DIFF(start, current) + 1)) * 1000
-                          << " hashfull " << tt->hash_full()
-                          << " hashhitrate " << ((double) hit / hash_try)
-                          << " mbf " << ((double) nodes / ntnodes)
-                          << " betacutoff " << ((double) fhf / fh)
-                          << " pv ";
+                          << " nps " << (nodes / (time + 1)) * 1000;
+                /*
+                if (time > 2000) {
+                    std::cout << " hashfull " << tt->hash_full()
+                              << " hashhitrate " << ((double) hit / hash_try)
+                              << " hashcutrate " << ((double) cut / hit)
+                              << " mbf " << ((double) nodes / ntnodes)
+                              << " betacutoff " << ((double) fhf / fh);
+                }
+                */
+                std::cout << " pv ";
                 for (int i = 0; i < last_pv_len; i++) {
                     std::cout << from_sq(last_pv[i].from) << from_sq(last_pv[i].to) << " ";
                 }
@@ -67,33 +84,32 @@ move_t search_t::think(int n_threads, int max_depth, const std::atomic_bool &abo
 
 search_t::search_t(board_t board, tt::hash_t *tt) : board(board), tt(tt) {}
 
-template<bool H, bool PV>
+template<bool H>
 int search_t::searchAB(board_t &board, int alpha, int beta, int ply, int depth, bool can_null,
                        const std::atomic_bool &aborted) {
     nodes++;
     if (!H) pv_table_len[ply] = ply;
+
+    const bool PV = alpha + 1 < beta;
 
     if (aborted) {
         return TIMEOUT;
     }
 
     // Quiescence search
-    if (depth < 1) return searchQS<PV>(board, alpha, beta, ply + 1, aborted);
+    if (depth < 1) return searchQS(board, alpha, beta, ply + 1, aborted);
     else ntnodes++;
 
     // Search variables
-    bool pv = PV;
-    int score;
-    const int old_alpha = alpha;
-    move_t best_move{};
+    int score; const int old_alpha = alpha; move_t best_move{};
 
     // Game state
     if (board.record[board.now].halfmove_clock >= 100 || board.is_repetition_draw()) return 0;
 
     // Mate distance pruning
     if (ply) {
-        alpha = std::max(-MATE(ply), alpha);
-        beta = std::min(MATE(ply + 1), beta);
+        alpha = std::max(-TO_MATE_SCORE(ply), alpha);
+        beta = std::min(TO_MATE_SCORE(ply + 1), beta);
     }
 
     // Check extension
@@ -104,10 +120,10 @@ int search_t::searchAB(board_t &board, int alpha, int beta, int ply, int depth, 
     tt::entry_t h = {0};
     hash_try++;
     if (tt->probe(board.record[board.now].hash, h)) {
-        score = h.value;
+        score = h.value(ply);
         hit++;
 
-        if (h.depth >= depth && !PV) {
+        if (!PV && h.depth >= depth) {
             if (h.bound == tt::LOWER && score >= beta) return score;
             if (h.bound == tt::UPPER && score <= alpha) return score;
             if (h.bound == tt::EXACT) return score;
@@ -127,14 +143,13 @@ int search_t::searchAB(board_t &board, int alpha, int beta, int ply, int depth, 
         } else {
             n_legal++; // Legal move
 
-            if (pv) {
-                score = -searchAB<H, true>(board, -beta, -alpha, ply + 1, depth - 1, can_null, aborted);
+            if (PV && n_legal == 1) {
+                score = -searchAB<H>(board, -beta, -alpha, ply + 1, depth - 1, can_null, aborted);
             } else {
-                score = -searchAB<H, false>(board, -alpha - 1, -alpha, ply + 1, depth - 1, can_null, aborted);
-                if (score > alpha) {
-                    pv = true;
-                    // We'd rather not need to search again, but :/
-                    score = -searchAB<H, true>(board, -beta, -alpha, ply + 1, depth - 1, can_null, aborted);
+                score = -searchAB<H>(board, -alpha - 1, -alpha, ply + 1, depth - 1, can_null, aborted);
+                if (alpha < score && score < beta) {
+                    // Research if the zero window search failed.
+                    score = -searchAB<H>(board, -beta, -alpha, ply + 1, depth - 1, can_null, aborted);
                 }
             }
             board.unmove();
@@ -144,8 +159,6 @@ int search_t::searchAB(board_t &board, int alpha, int beta, int ply, int depth, 
             if (score > alpha) {
                 alpha = score;
                 best_move = move;
-
-                pv = false;
 
                 if (!move.is_capture) history_heur.update(move, nullptr, 0, depth);
 
@@ -163,7 +176,7 @@ int search_t::searchAB(board_t &board, int alpha, int beta, int ply, int depth, 
                     }
                     fh++;
 
-                    tt->save(tt::LOWER, board.record[board.now].hash, depth, score, best_move);
+                    tt->save(tt::LOWER, board.record[board.now].hash, depth, ply, score, best_move);
 
                     if (!move.is_capture) {
                         int len;
@@ -180,35 +193,27 @@ int search_t::searchAB(board_t &board, int alpha, int beta, int ply, int depth, 
 
     if (n_legal == 0) {
         if (in_check) {
-            return -MATE(ply);
+            return -TO_MATE_SCORE(ply);
         } else {
             return 0;
         }
     }
 
     if (alpha > old_alpha) {
-        tt->save(tt::EXACT, board.record[board.now].hash, depth, alpha, best_move);
+        tt->save(tt::EXACT, board.record[board.now].hash, depth, ply, alpha, best_move);
     } else {
-        tt->save(tt::UPPER, board.record[board.now].hash, depth, alpha, best_move);
+        tt->save(tt::UPPER, board.record[board.now].hash, depth, ply, alpha, best_move);
     }
 
     return alpha;
 }
 
-template<bool PV>
 int search_t::searchQS(board_t &board, int alpha, int beta, int ply, const std::atomic_bool &aborted) {
     nodes++;
 
     if (aborted) return TIMEOUT;
 
-    int stand_pat;
-
-    tt::entry_t h = {0};
-    if (tt->probe(board.record[board.now].hash, h)) {
-        stand_pat = h.value;
-    } else {
-        stand_pat = eval(board);
-    }
+    int stand_pat = eval(board);
 
     if (stand_pat >= beta) return beta;
     if (alpha < stand_pat) alpha = stand_pat;
@@ -225,7 +230,7 @@ int search_t::searchQS(board_t &board, int alpha, int beta, int ply, const std::
             board.unmove();
             continue;
         } else {
-            int score = -searchQS<PV>(board, -beta, -alpha, ply + 1, aborted);
+            int score = -searchQS(board, -beta, -alpha, ply + 1, aborted);
             board.unmove();
 
             if (aborted) return TIMEOUT;

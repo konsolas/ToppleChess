@@ -561,6 +561,7 @@ uint8_t square_index(uint8_t file, uint8_t rank) {
 }
 
 uint8_t pop_bit(Team team, U64 &bb) {
+    /*
     if(team) {
         const uint8_t s = bb_intrin::msb(bb);
         bb &= ~single_bit(s);
@@ -570,6 +571,10 @@ uint8_t pop_bit(Team team, U64 &bb) {
         bb &= bb - 1;
         return s;
     }
+     */
+    const uint8_t s = bb_intrin::lsb(bb);
+    bb &= bb - 1;
+    return s;
 }
 
 uint8_t bit_scan(U64 bb) {

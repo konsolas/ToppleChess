@@ -90,16 +90,16 @@ int main(int argc, char *argv[]) {
                         } else if(param == "wtime") {
                             if(board->record[board->now].next_move == WHITE) {
                                 int wtime; iss >> wtime;
-                                max_time -= 500;
-                                max_time += wtime / std::max(50 - board->now, (unsigned int) 15);
-                                if(max_time < 1) max_time = 1;
+                                max_time -= 10;
+                                max_time += wtime / std::max(50 - board->now, 30);
+                                if(max_time < 10) max_time = 10;
                             }
                         } else if(param == "btime") {
                             if(board->record[board->now].next_move == BLACK) {
                                 int btime; iss >> btime;
-                                max_time -= 500;
-                                max_time += btime / std::max(50 - board->now, (unsigned int) 15);
-                                if(max_time < 1) max_time = 1;
+                                max_time -= 10;
+                                max_time += btime / std::max(50 - board->now, 30);
+                                if(max_time < 10) max_time = 10;
                             }
                         } else if(param == "winc") {
                             if(board->record[board->now].next_move == WHITE) {
@@ -120,12 +120,15 @@ int main(int argc, char *argv[]) {
                                     std::future<move_t> bm = std::async(std::launch::async, &search_t::think,
                                         search, 1, max_depth, std::ref(search_abort));
 
+                                    move_t best_move;
                                     if(bm.wait_for(std::chrono::milliseconds(max_time)) == std::future_status::ready) {
-                                        std::cout << "bestmove " << bm.get() << std::endl;
+                                        best_move = bm.get();
                                     } else {
                                         search_abort = true;
-                                        std::cout << "bestmove " << bm.get() << std::endl;
+                                        best_move = bm.get();
                                     }
+
+                                    std::cout << "bestmove " << best_move << std::endl;
                                }
                     );
                 }

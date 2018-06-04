@@ -26,9 +26,19 @@ namespace tt {
     struct entry_t { // 16 bytes
         U64 hash; // 8 bytes
         move_t move; // 4 bytes
-        int16_t value; // 2 bytes
+        int16_t internal_value; // 2 bytes
         uint8_t depth; // 1 byte
-        uint8_t bound; // 1 byte
+        uint8_t bound; // 1 byte]
+
+        int value(int ply) {
+            if(internal_value >= MINCHECKMATE) {
+                return internal_value - ply;
+            } else if (internal_value <= -MINCHECKMATE) {
+                return internal_value + ply;
+            } else {
+                return internal_value;
+            }
+        }
     };
 
     class hash_t {
@@ -38,7 +48,7 @@ namespace tt {
         ~hash_t();
 
         bool probe(U64 hash, entry_t &entry);
-        void save(Bound bound, U64 hash, int depth, int eval, move_t move);
+        void save(Bound bound, U64 hash, int depth, int ply, int eval, move_t move);
         int hash_full();
     private:
         const int BUCKET_SIZE = 4;

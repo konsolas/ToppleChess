@@ -14,7 +14,6 @@
 struct eval_data_t {
     U64 king_shield[2] = {0};
     int king_danger_balance[2] = {0, 0};
-    int king_attackers[2] = {0, 0};
 
     U64 attacked_by_pawn[2] = {0};
     U64 attackable_by_pawn[2] = {0};
@@ -63,37 +62,37 @@ inline std::ostream &operator<<(std::ostream &out, const score_t &s) {
 /** EVAL_BEGIN **/
 
 /// pawns
-const score_t MATERIAL[6] = {score_t{85, 105}, score_t{320, 280}, score_t{330, 300}, score_t{490, 500},
+const score_t MATERIAL[6] = {score_t{85, 115}, score_t{300, 280}, score_t{305, 300}, score_t{490, 500},
                              score_t{925, 975}}; // Piece type
 const score_t PASSED[8] = {score_t{0, 0}, score_t{8, 15}, score_t{10, 25}, score_t{14, 35}, score_t{25, 60},
                            score_t{50, 90}, score_t{80, 111}, score_t{0, 0}}; // Rank of passed pawn
-const score_t ISOLATED[2] = {score_t{-5, -35}, score_t{-15, -43}}; // On open file?
+const score_t ISOLATED[2] = {score_t{-5, -12}, score_t{-8, -12}}; // On open file?
 /* no pawns in front, and less than 2 enemy pawns in passed bitmap */
 const score_t CANDIDATE[8] = {score_t{0, 0}, score_t{4, 10}, score_t{5, 12}, score_t{7, 15}, score_t{10, 25},
                               score_t{20, 40}, score_t{0, 0}, score_t{0, 0}}; // Rank of candidate passed pawn
-const score_t DOUBLED[2] = {score_t{-19, -60}, score_t{-20, -60}}; // On open file?
+const score_t DOUBLED[2] = {score_t{-10, -20}, score_t{-7, -11}}; // On open file?
 
 /// other postional
-const score_t BISHOP_PAIR = score_t{25, 40};
+const score_t BISHOP_PAIR = score_t{15, 25};
 
 const score_t ROOK_SEMI_OPEN_FILE = score_t{21, 12};
 const score_t ROOK_OPEN_FILE = score_t{29, 12};
 
-const score_t CENTRE_CONTROL[6] = {score_t{10, 0}, score_t{2, 3}, score_t{8, 10}, score_t{1, 3},
+const score_t CENTRE_CONTROL[6] = {score_t{10, 0}, score_t{2, 3}, score_t{2, 3}, score_t{1, 3},
                                    score_t{-20, 40}}; // Piece type
 
 /// mobility
-const score_t MOBILITY[6] = {score_t{1, 10}, score_t{3, 6}, score_t{1, 3}, score_t{1, 10}, score_t{0, 1},
+const score_t MOBILITY[6] = {score_t{0, 10}, score_t{3, 5}, score_t{1, 3}, score_t{1, 10}, score_t{0, 1},
                              score_t{0, 0}}; // Piece type
 
 /// king safety
 const int KING_ATTACKER_WEIGHT[6] = {1, 2, 3, 5, 6};
-const int KING_DEFENDER_WEIGHT[6] = {5, 4, 4, 4, 7};
+const int KING_DEFENDER_WEIGHT[6] = {6, 4, 4, 4, 7};
 const int KING_MIN_WEIGHT = -1000;
 
 /* linear king safety function */
-const score_t KING_DANGER_M = score_t{3, 4};
-const score_t KING_DANGER_C = score_t{-36, -16};
+const score_t KING_DANGER_M = score_t{2, 3};
+const score_t KING_DANGER_C = score_t{-26, -16};
 
 /// tempo
 const int TEMPO = 5;
@@ -183,11 +182,8 @@ int eval(const board_t &board) {
     eval_data_t dat = {0};
 
     {
-        U64 king_bb_w = board.bb_pieces[WHITE][KING];
-        U64 king_bb_b = board.bb_pieces[BLACK][KING];
-
-        dat.king_shield[WHITE] = BB_KING_CIRCLE[pop_bit(WHITE, king_bb_w)];
-        dat.king_shield[BLACK] = BB_KING_CIRCLE[pop_bit(BLACK, king_bb_b)];
+        dat.king_shield[WHITE] = BB_KING_CIRCLE[bit_scan(board.bb_pieces[WHITE][KING])];
+        dat.king_shield[BLACK] = BB_KING_CIRCLE[bit_scan(board.bb_pieces[BLACK][KING])];
     }
 
     eval += eval_pawns(WHITE, board, dat) - eval_pawns(BLACK, board, dat);
@@ -295,6 +291,7 @@ score_t eval_knights(Team side, const board_t &board, eval_data_t &dat) {
         dat.king_danger_balance[side] -= ((moves & dat.king_shield[side]) != 0) * KING_DEFENDER_WEIGHT[KNIGHT];
         dat.king_danger_balance[xside] += pop_count(moves & dat.king_shield[xside]) * KING_ATTACKER_WEIGHT[KNIGHT];
 
+
         // Centre control
         score += CENTRE_CONTROL[KNIGHT] * pop_count(moves & BB_CENTRE);
     }
@@ -324,6 +321,7 @@ score_t eval_bishops(Team side, const board_t &board, eval_data_t &dat) {
         // King safety
         dat.king_danger_balance[side] -= ((moves & dat.king_shield[side]) != 0) * KING_DEFENDER_WEIGHT[BISHOP];
         dat.king_danger_balance[xside] += ((moves & dat.king_shield[xside]) != 0) * KING_ATTACKER_WEIGHT[BISHOP];
+
 
         // Centre control
         score += CENTRE_CONTROL[BISHOP] * pop_count(moves & BB_CENTRE);
@@ -398,6 +396,7 @@ score_t eval_queens(Team side, const board_t &board, eval_data_t &dat) {
 
         // Centre control
         score += CENTRE_CONTROL[QUEEN] * pop_count(moves & BB_CENTRE);
+
     }
 
     return score;

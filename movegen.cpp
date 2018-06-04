@@ -29,8 +29,9 @@ int movegen_t::gen_caps() {
     move.team = team;
     move.is_capture = 1;
 
-    // Loop through opponent pieces instead of own pieces to find captures
+    // Old MVV/LVA generation
     // MVV
+    /*
     for (uint8_t victim = QUEEN;
          victim <= QUEEN; victim--) { // victim <= QUEEN because uint8_t will go to 255 if you subtract 1 from 0
         move.captured_type = victim;
@@ -65,6 +66,61 @@ int movegen_t::gen_caps() {
                     }
 
                 }
+            }
+        }
+    }
+    */
+
+    // New max speed generation
+    // Pawn moves
+    move.piece = PAWN;
+    U64 bb_pawns = board.bb_pieces[team][PAWN];
+
+    while (bb_pawns) {
+        uint8_t from = pop_bit(team, bb_pawns);
+        move.from = from;
+
+        U64 bb_targets = find_moves(PAWN, team, from, board.bb_all) & board.bb_side[x_team];
+
+        while (bb_targets) {
+            uint8_t to = pop_bit(x_team, bb_targets);
+            move.to = to;
+            move.captured_type = board.sq_data[to].piece;
+
+            // Promotions
+            if (team ? to <= H1 : to >= A8) {
+                move.is_promotion = 1;
+                for (uint8_t i = QUEEN; i > PAWN; i--) {
+                    move.promotion_type = i;
+
+                    buf[buf_size++] = move;
+                }
+
+                move.is_promotion = 0;
+                move.promotion_type = 0;
+            } else {
+                buf[buf_size++] = move;
+            }
+        }
+    }
+
+    // Generate piece moves (not pawns)
+    for (uint8_t piece = 1; piece < 6; piece++) {
+        move.piece = piece;
+        U64 bb_piece = board.bb_pieces[team][piece];
+
+        while (bb_piece) {
+            uint8_t from = pop_bit(team, bb_piece);
+            move.from = from;
+
+            U64 bb_targets = find_moves((Piece) piece, team, from, board.bb_all) & board.bb_side[x_team];
+
+            while (bb_targets) {
+                uint8_t to = pop_bit(x_team, bb_targets);
+                move.to = to;
+                move.captured_type = board.sq_data[to].piece;
+
+                buf[buf_size++] = move;
             }
         }
     }
@@ -197,6 +253,8 @@ int movegen_t::gen_quiets() {
 }
 
 move_t movegen_t::next(GenStage &stage, search_t &search, move_t hash_move, int ply) {
+    const int CAPT_BASE = 30000;
+
     if(stage < GEN_HASH) {
         if(hash_move != EMPTY_MOVE) {
             for (int i = idx; i < buf_size; i++) {
@@ -213,16 +271,21 @@ move_t movegen_t::next(GenStage &stage, search_t &search, move_t hash_move, int 
     if(!scored) {
         for (int i = idx; i < buf_size; i++) {
             move_t move = buf[i];
-            buf_scores[i] = (board.see(move) * 1000 + record.next_move ? rank_index(move.to) : 8 - rank_index(move.to));
 
             if(!move.is_capture) {
                 if (search.killer_heur.primary(ply) == move) {
-                    buf_scores[i] += 20001;
+                    buf_scores[i] = 20003;
                 } else if (search.killer_heur.primary(ply) == move) {
-                    buf_scores[i] += 20000;
+                    buf_scores[i] = 20002;
+                } else if(ply >= 2 && (search.killer_heur.primary(ply - 2) == move)) {
+                    buf_scores[i] = 20001;
+                } else {
+                    buf_scores[i] = search.history_heur.get(move);
                 }
-
-                buf_scores[i] += search.history_heur.get(move);
+            } else {
+                buf_scores[i] = CAPT_BASE;
+                buf_scores[i] += (board.see(move)
+                                  + record.next_move ? rank_index(move.to) + 1 : 8 - rank_index(move.to));
             }
         }
 
@@ -240,9 +303,11 @@ move_t movegen_t::next(GenStage &stage, search_t &search, move_t hash_move, int 
     buf_swap(best_idx, idx);
     int move_score = buf_scores[idx];
     move_t move = next();
-    if(move.is_capture && move_score >= 0) {
+    if(move.is_capture && move_score >= CAPT_BASE) {
         stage = GEN_GOOD_CAPT;
-    } else if(move == search.killer_heur.primary(ply) || move == search.killer_heur.secondary(ply)) {
+    } else if(move == search.killer_heur.primary(ply)
+              || move == search.killer_heur.secondary(ply)
+              || (ply >= 2 && (search.killer_heur.primary(ply - 2) == move))) {
         stage = GEN_KILLERS;
     } else if(!move.is_capture) {
         stage = GEN_QUIETS;

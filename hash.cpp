@@ -68,13 +68,16 @@ bool tt::hash_t::probe(U64 hash, tt::entry_t &entry) {
     return false;
 }
 
-void tt::hash_t::save(Bound bound, U64 hash, int depth, int eval, move_t move) {
+void tt::hash_t::save(Bound bound, U64 hash, int depth, int ply, int eval, move_t move) {
     const size_t loc = hash & num_entries;
+
+    if(eval >= MINCHECKMATE) eval += ply;
+    if(eval <= -MINCHECKMATE) eval -= ply;
 
     table[loc].hash = hash;
     table[loc].bound = bound;
     table[loc].depth = static_cast<uint8_t>(depth);
-    table[loc].value = static_cast<int16_t>(eval);
+    table[loc].internal_value = static_cast<int16_t>(eval);
     table[loc].move = move;
 }
 

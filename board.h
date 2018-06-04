@@ -13,6 +13,10 @@
 #include "bb.h"
 #include "hash.h"
 
+// Piece values: pnbrqk
+// Used for SEE
+const int VAL[] = {100, 300, 300, 500, 900, INF};
+
 /**
  * Represents a state in the game. It contains the move used to reach the state, and necessary variables within the state.
  */
@@ -70,7 +74,7 @@ struct board_t {
     sq_data_t sq_data[64] = {{ 0 }};
 
     /* Game history */
-    unsigned int now = 0; // Index for record array
+    int now = 0; // Index for record array
     game_record_t record[4096] = {{ 0 }}; // Record (supporting games of up to 4096 moves)
 
     /* Internal methods */
@@ -81,7 +85,7 @@ struct board_t {
 inline std::ostream& operator<<(std::ostream& stream, const board_t &board) {
     stream << std::endl;
 
-    for(size_t i = 1; i <= board.now; i++) {
+    for(int i = 1; i <= board.now; i++) {
         if(i % 2 != 0) {
             stream << " " << ((i + 1) / 2) << ". ";
         }
