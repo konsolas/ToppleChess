@@ -175,9 +175,9 @@ TEST_CASE("Board representation") {
 
     SECTION("Basic move") {
         move_t move = EMPTY_MOVE;
-        move.from = E2;
-        move.to = E4;
-        move.piece = PAWN;
+        move.info.from = E2;
+        move.info.to = E4;
+        move.info.piece = PAWN;
 
         board.move(move);
 

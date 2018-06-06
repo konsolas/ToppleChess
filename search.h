@@ -24,7 +24,7 @@ public:
 
         for(int i = 0; i < len; i++) {
             move_t prev = previous[i];
-            if (!prev.is_capture) {
+            if (!prev.info.is_capture) {
                 table(prev, -bonus);
             }
         }
@@ -35,14 +35,14 @@ public:
     }
 
     int get(move_t move) {
-        return historyTable[move.piece][move.to];
+        return historyTable[move.info.piece][move.info.to];
     }
 private:
     int historyTable[16][64] = {0}; // Indexed by [PIECETYPE][TOSQUARE]
 
     // Intenal update routine
     void table(move_t move, int delta) {
-        historyTable[move.piece][move.to] += delta;
+        historyTable[move.info.piece][move.info.to] += delta;
     }
 
     // Throttle the history heuristic to be bounded by +- 20000
@@ -65,7 +65,7 @@ public:
         memset(killers, 0, sizeof(killers));
     }
     void update(move_t killer, int ply) {
-        if(!killer.is_capture) {
+        if(!killer.info.is_capture) {
             killers[ply][1] = killers[ply][0];
             killers[ply][0] = killer;
         }
@@ -85,12 +85,15 @@ class search_t {
 public:
     explicit search_t(board_t board, tt::hash_t *tt);
 
-    move_t think(int n_threads, int max_depth, const std::atomic_bool &aborted);
+    move_t think(unsigned int n_threads, int max_depth, const std::atomic_bool &aborted);
     template<bool H> int searchAB(board_t &board, int alpha, int beta, int ply, int depth, bool can_null, const std::atomic_bool &aborted);
     int searchQS(board_t &board, int alpha, int beta, int ply, const std::atomic_bool &aborted);
 
     void save_pv();
+    bool has_pv();
 private:
+    bool is_aborted(const std::atomic_bool &aborted);
+
     board_t board;
     tt::hash_t *tt;
 

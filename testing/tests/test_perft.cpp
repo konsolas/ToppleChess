@@ -86,7 +86,9 @@ U64 perft(board_t &board, int depth) {
         board.unmove();
 
         if(board != snapshot) {
-            FAIL("Unmake move failed at position: " << board << "expecting " << snapshot << " move=" << from_sq(next.from) << from_sq(next.to));
+            FAIL("Unmake move failed at position: " << board
+                                                    << "expecting " << snapshot
+                                                    << " move=" << from_sq(next.info.from) << from_sq(next.info.to));
         }
     }
 

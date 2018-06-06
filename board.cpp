@@ -27,68 +27,68 @@ void board_t::move(move_t move) {
     }
 
     if (move != EMPTY_MOVE) {
-        auto team = Team(move.team);
-        auto x_team = Team(!move.team);
+        auto team = Team(move.info.team);
+        auto x_team = Team(!move.info.team);
 
         // Update halfmove clock
-        if (move.piece == PAWN || move.is_capture) {
+        if (move.info.piece == PAWN || move.info.is_capture) {
             record[now].halfmove_clock = 0;
         } else {
             record[now].halfmove_clock++;
         }
 
-        if (move.is_capture && move.captured_type == ROOK) {
-            if (move.to == (x_team ? H8 : H1) && record[now].castle[x_team][0]) {
+        if (move.info.is_capture && move.info.captured_type == ROOK) {
+            if (move.info.to == (x_team ? H8 : H1) && record[now].castle[x_team][0]) {
                 record[now].castle[x_team][0] = false;
                 record[now].hash ^= zobrist::castle[x_team][0];
-            } else if (move.to == (x_team ? A8 : A1) && record[now].castle[x_team][1]) {
+            } else if (move.info.to == (x_team ? A8 : A1) && record[now].castle[x_team][1]) {
                 record[now].castle[x_team][1] = false;
                 record[now].hash ^= zobrist::castle[x_team][1];
             }
         }
 
-        if (move.piece == PAWN) {
-            if (move.is_ep) {
+        if (move.info.piece == PAWN) {
+            if (move.info.is_ep) {
                 // Remove captured pawn
-                switch_piece<true>(x_team, PAWN, team ? move.to + uint8_t(8) : move.to - uint8_t(8));
-            } else if (move.is_capture) {
-                switch_piece<true>(x_team, (Piece) move.captured_type, move.to);
+                switch_piece<true>(x_team, PAWN, team ? move.info.to + uint8_t(8) : move.info.to - uint8_t(8));
+            } else if (move.info.is_capture) {
+                switch_piece<true>(x_team, (Piece) move.info.captured_type, move.info.to);
             }
 
-            if (move.is_promotion) {
-                switch_piece<true>(team, (Piece) move.piece, move.from);
-                switch_piece<true>(team, (Piece) move.promotion_type, move.to);
+            if (move.info.is_promotion) {
+                switch_piece<true>(team, (Piece) move.info.piece, move.info.from);
+                switch_piece<true>(team, (Piece) move.info.promotion_type, move.info.to);
             } else {
-                switch_piece<true>(team, (Piece) move.piece, move.from);
-                switch_piece<true>(team, (Piece) move.piece, move.to);
+                switch_piece<true>(team, (Piece) move.info.piece, move.info.from);
+                switch_piece<true>(team, (Piece) move.info.piece, move.info.to);
             }
 
             // Update en-passant square
-            if (team ? move.to - move.from == -16 : move.to - move.from == 16) {
-                record[now].ep_square = team ? move.to + uint8_t(8) : move.to - uint8_t(8);
+            if (team ? move.info.to - move.info.from == -16 : move.info.to - move.info.from == 16) {
+                record[now].ep_square = team ? move.info.to + uint8_t(8) : move.info.to - uint8_t(8);
                 record[now].hash ^= zobrist::ep[record[now].ep_square];
             }
         } else {
             // Update castling hashes for moving rook
-            if (move.piece == ROOK) {
+            if (move.info.piece == ROOK) {
                 if (team) {
-                    if (move.from == H8 && record[now].castle[team][0]) {
+                    if (move.info.from == H8 && record[now].castle[team][0]) {
                         record[now].hash ^= zobrist::castle[team][0];
                         record[now].castle[team][0] = false;
-                    } else if (move.from == A8 && record[now].castle[team][1]) {
+                    } else if (move.info.from == A8 && record[now].castle[team][1]) {
                         record[now].hash ^= zobrist::castle[team][1];
                         record[now].castle[team][1] = false;
                     }
                 } else {
-                    if (move.from == H1 && record[now].castle[team][0]) {
+                    if (move.info.from == H1 && record[now].castle[team][0]) {
                         record[now].hash ^= zobrist::castle[team][0];
                         record[now].castle[team][0] = false;
-                    } else if (move.from == A1 && record[now].castle[team][1]) {
+                    } else if (move.info.from == A1 && record[now].castle[team][1]) {
                         record[now].hash ^= zobrist::castle[team][1];
                         record[now].castle[team][1] = false;
                     }
                 }
-            } else if (move.piece == KING) {
+            } else if (move.info.piece == KING) {
                 // Update castling hashes
                 if (record[now].castle[team][0]) {
                     record[now].hash ^= zobrist::castle[team][0];
@@ -99,20 +99,20 @@ void board_t::move(move_t move) {
                     record[now].castle[team][1] = false;
                 }
 
-                if (move.castle) {
+                if (move.info.castle) {
                     // Move rook
                     switch_piece<true>(team, ROOK,
-                                       move.castle_side ? (team ? A8 : A1) : (team ? H8 : H1));
+                                       move.info.castle_side ? (team ? A8 : A1) : (team ? H8 : H1));
                     switch_piece<true>(team, ROOK,
-                                       move.castle_side ? (team ? D8 : D1) : (team ? F8 : F1));
+                                       move.info.castle_side ? (team ? D8 : D1) : (team ? F8 : F1));
                 }
             }
 
-            if (move.is_capture) {
-                switch_piece<true>(x_team, (Piece) move.captured_type, move.to);
+            if (move.info.is_capture) {
+                switch_piece<true>(x_team, (Piece) move.info.captured_type, move.info.to);
             }
-            switch_piece<true>(team, (Piece) move.piece, move.from);
-            switch_piece<true>(team, (Piece) move.piece, move.to);
+            switch_piece<true>(team, (Piece) move.info.piece, move.info.from);
+            switch_piece<true>(team, (Piece) move.info.piece, move.info.to);
         }
     }
 }
@@ -122,35 +122,35 @@ void board_t::unmove() {
     now -= 1;
 
     if (move != EMPTY_MOVE) {
-        if (move.piece == PAWN) {
-            if (move.is_promotion) {
-                switch_piece<false>((Team) move.team, (Piece) move.piece, move.from);
-                switch_piece<false>((Team) move.team, (Piece) move.promotion_type, move.to);
+        if (move.info.piece == PAWN) {
+            if (move.info.is_promotion) {
+                switch_piece<false>((Team) move.info.team, (Piece) move.info.piece, move.info.from);
+                switch_piece<false>((Team) move.info.team, (Piece) move.info.promotion_type, move.info.to);
             } else {
-                switch_piece<false>((Team) move.team, (Piece) move.piece, move.from);
-                switch_piece<false>((Team) move.team, (Piece) move.piece, move.to);
+                switch_piece<false>((Team) move.info.team, (Piece) move.info.piece, move.info.from);
+                switch_piece<false>((Team) move.info.team, (Piece) move.info.piece, move.info.to);
             }
 
-            if (move.is_ep) {
+            if (move.info.is_ep) {
                 // Replace captured pawn
-                switch_piece<false>((Team) !move.team, PAWN, move.team ? move.to + uint8_t(8) : move.to - uint8_t(8));
-            } else if (move.is_capture) {
-                switch_piece<false>((Team) !move.team, (Piece) move.captured_type, move.to);
+                switch_piece<false>((Team) !move.info.team, PAWN, move.info.team ? move.info.to + uint8_t(8) : move.info.to - uint8_t(8));
+            } else if (move.info.is_capture) {
+                switch_piece<false>((Team) !move.info.team, (Piece) move.info.captured_type, move.info.to);
             }
         } else {
-            if (move.castle) {
+            if (move.info.castle) {
                 // Move rook
-                switch_piece<false>((Team) move.team, ROOK,
-                                    move.castle_side ? (move.team ? A8 : A1) : (move.team ? H8 : H1));
-                switch_piece<false>((Team) move.team, ROOK,
-                                    move.castle_side ? (move.team ? D8 : D1) : (move.team ? F8 : F1));
+                switch_piece<false>((Team) move.info.team, ROOK,
+                                    move.info.castle_side ? (move.info.team ? A8 : A1) : (move.info.team ? H8 : H1));
+                switch_piece<false>((Team) move.info.team, ROOK,
+                                    move.info.castle_side ? (move.info.team ? D8 : D1) : (move.info.team ? F8 : F1));
             }
 
-            switch_piece<false>((Team) move.team, (Piece) move.piece, move.from);
-            switch_piece<false>((Team) move.team, (Piece) move.piece, move.to);
+            switch_piece<false>((Team) move.info.team, (Piece) move.info.piece, move.info.from);
+            switch_piece<false>((Team) move.info.team, (Piece) move.info.piece, move.info.to);
 
-            if (move.is_capture) {
-                switch_piece<false>((Team) !move.team, (Piece) move.captured_type, move.to);
+            if (move.info.is_capture) {
+                switch_piece<false>((Team) !move.info.team, (Piece) move.info.captured_type, move.info.to);
             }
         }
     }
@@ -277,32 +277,32 @@ move_t board_t::parse_move(const std::string &str) {
     move_t move = {0};
 
     // Location
-    move.from = to_sq(str[0], str[1]);
-    move.to = to_sq(str[2], str[3]);
+    move.info.from = to_sq(str[0], str[1]);
+    move.info.to = to_sq(str[2], str[3]);
 
     // Piece
-    move.team = sq_data[move.from].team;
-    move.piece = sq_data[move.from].piece;
+    move.info.team = sq_data[move.info.from].team;
+    move.info.piece = sq_data[move.info.from].piece;
 
     // Capture
-    move.is_capture = static_cast<uint16_t>(sq_data[move.to].occupied);
-    move.captured_type = sq_data[move.to].occupied ? sq_data[move.to].piece : 0;
+    move.info.is_capture = static_cast<uint16_t>(sq_data[move.info.to].occupied);
+    move.info.captured_type = sq_data[move.info.to].occupied ? sq_data[move.info.to].piece : 0;
 
     // Promotion
-    move.is_promotion = static_cast<uint16_t>(str.length() == 5);
-    if (move.is_promotion) {
+    move.info.is_promotion = static_cast<uint16_t>(str.length() == 5);
+    if (move.info.is_promotion) {
         switch (str[4]) {
             case 'n':
-                move.promotion_type = KNIGHT;
+                move.info.promotion_type = KNIGHT;
                 break;
             case 'b':
-                move.promotion_type = BISHOP;
+                move.info.promotion_type = BISHOP;
                 break;
             case 'r':
-                move.promotion_type = ROOK;
+                move.info.promotion_type = ROOK;
                 break;
             case 'q':
-                move.promotion_type = QUEEN;
+                move.info.promotion_type = QUEEN;
                 break;
             default:
                 throw std::runtime_error("invalid promotion type");
@@ -310,20 +310,20 @@ move_t board_t::parse_move(const std::string &str) {
     }
 
     // Castling
-    if (move.piece == KING) {
-        if(move.from == E1 || move.from == E8) {
-            if (move.to == G1 || move.to == G8) {
-                move.castle = 1;
-                move.castle_side = 0;
-            } else if(move.to == C1 || move.to == C8) {
-                move.castle = 1;
-                move.castle_side = 1;
+    if (move.info.piece == KING) {
+        if(move.info.from == E1 || move.info.from == E8) {
+            if (move.info.to == G1 || move.info.to == G8) {
+                move.info.castle = 1;
+                move.info.castle_side = 0;
+            } else if(move.info.to == C1 || move.info.to == C8) {
+                move.info.castle = 1;
+                move.info.castle_side = 1;
             }
         }
     }
 
     // EP
-    move.is_ep = static_cast<uint16_t>(move.piece == PAWN && move.to == record[now].ep_square);
+    move.info.is_ep = static_cast<uint16_t>(move.info.piece == PAWN && move.info.to == record[now].ep_square);
 
     return move;
 }
@@ -388,14 +388,14 @@ bool board_t::is_attacked(uint8_t sq, Team side) {
 }
 
 bool board_t::is_pseudo_legal(move_t move) {
-    auto team = Team(move.team);
-    auto x_team = Team(!move.team);
+    auto team = Team(move.info.team);
+    auto x_team = Team(!move.info.team);
 
     if (record[now].next_move != team) return false;
 
-    if (move.castle) {
-        if (record[now].castle[move.team][move.castle_side] == 0) return false;
-        if (move.castle_side == 0) {
+    if (move.info.castle) {
+        if (record[now].castle[move.info.team][move.info.castle_side] == 0) return false;
+        if (move.info.castle_side == 0) {
             return (bb_all & bits_between(team ? E8 : E1, team ? H8 : H1)) == 0 &&
                    !is_attacked(team ? E8 : E1, x_team) &&
                    !is_attacked(team ? F8 : F1, x_team) &&
@@ -408,11 +408,11 @@ bool board_t::is_pseudo_legal(move_t move) {
         }
     }
 
-    if (move.is_capture) {
-        if ((bb_pieces[x_team][move.captured_type] & single_bit(move.to)) == 0) return false;
+    if (move.info.is_capture) {
+        if ((bb_pieces[x_team][move.info.captured_type] & single_bit(move.info.to)) == 0) return false;
     }
 
-    return (bb_pieces[team][move.piece] & single_bit(move.from)) && !(bb_side[team] & single_bit(move.to));
+    return (bb_pieces[team][move.info.piece] & single_bit(move.info.from)) && !(bb_side[team] & single_bit(move.info.to));
 }
 
 bool board_t::is_repetition_draw() {
@@ -454,35 +454,35 @@ void board_t::mirror() {
 
 int board_t::see(move_t move) {
     // State
-    U64 attackers = attacks_to(move.to, Team(move.team)) | attacks_to(move.to, Team(!move.team));
+    U64 attackers = attacks_to(move.info.to, Team(move.info.team)) | attacks_to(move.info.to, Team(!move.info.team));
     U64 occupation_mask = ONES;
     int current_target_val = 0;
-    bool prom_rank = rank_index(move.to) == 0 || rank_index(move.to) == 7;
-    Team next_move = Team(move.team);
+    bool prom_rank = rank_index(move.info.to) == 0 || rank_index(move.info.to) == 7;
+    Team next_move = Team(move.info.team);
 
     // Material table
     int num_capts = 0;
     int material[32] = {0};
 
     // Eval move
-    material[num_capts] = sq_data[move.to].occupied ? VAL[sq_data[move.to].piece] : 0;
-    current_target_val = VAL[move.piece];
-    if (prom_rank && move.piece == PAWN) {
-        material[num_capts] += VAL[move.promotion_type] - VAL[PAWN];
-        current_target_val += VAL[move.promotion_type] - VAL[PAWN];
+    material[num_capts] = sq_data[move.info.to].occupied ? VAL[sq_data[move.info.to].piece] : 0;
+    current_target_val = VAL[move.info.piece];
+    if (prom_rank && move.info.piece == PAWN) {
+        material[num_capts] += VAL[move.info.promotion_type] - VAL[PAWN];
+        current_target_val += VAL[move.info.promotion_type] - VAL[PAWN];
     }
     num_capts++;
 
     // Remove attacker
-    attackers &= ~single_bit(move.from);
-    occupation_mask &= ~single_bit(move.from);
+    attackers &= ~single_bit(move.info.from);
+    occupation_mask &= ~single_bit(move.info.from);
 
     // Reveal next attacker
-    attackers |= (find_moves(QUEEN, next_move, move.to, bb_all & occupation_mask)
+    attackers |= (find_moves(QUEEN, next_move, move.info.to, bb_all & occupation_mask)
                   & (bb_pieces[WHITE][QUEEN] | bb_pieces[BLACK][QUEEN])) |
-                 (find_moves(BISHOP, next_move, move.to, bb_all & occupation_mask)
+                 (find_moves(BISHOP, next_move, move.info.to, bb_all & occupation_mask)
                     & (bb_pieces[WHITE][BISHOP] | bb_pieces[BLACK][BISHOP])) |
-                 (find_moves(ROOK, next_move, move.to, bb_all & occupation_mask)
+                 (find_moves(ROOK, next_move, move.info.to, bb_all & occupation_mask)
                     & (bb_pieces[WHITE][ROOK] | bb_pieces[BLACK][ROOK]));
     attackers &= occupation_mask;
 
@@ -521,11 +521,11 @@ int board_t::see(move_t move) {
         occupation_mask &= ~single_bit(from);
 
         // Reveal next attacker
-        attackers |= (find_moves(QUEEN, next_move, move.to, bb_all & occupation_mask)
+        attackers |= (find_moves(QUEEN, next_move, move.info.to, bb_all & occupation_mask)
                       & (bb_pieces[WHITE][QUEEN] | bb_pieces[BLACK][QUEEN])) |
-                     (find_moves(BISHOP, next_move, move.to, bb_all & occupation_mask)
+                     (find_moves(BISHOP, next_move, move.info.to, bb_all & occupation_mask)
                       & (bb_pieces[WHITE][BISHOP] | bb_pieces[BLACK][BISHOP])) |
-                     (find_moves(ROOK, next_move, move.to, bb_all & occupation_mask)
+                     (find_moves(ROOK, next_move, move.info.to, bb_all & occupation_mask)
                       & (bb_pieces[WHITE][ROOK] | bb_pieces[BLACK][ROOK]));
         attackers &= occupation_mask;
 

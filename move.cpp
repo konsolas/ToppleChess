@@ -17,10 +17,10 @@ bool operator!=(const move_t& lhs, const move_t& rhs)
 }
 
 std::ostream& operator<<(std::ostream& stream, const move_t &move) {
-    stream << from_sq(move.from) << from_sq(move.to);
+    stream << from_sq(move.info.from) << from_sq(move.info.to);
 
-    if(move.is_promotion) {
-        switch (move.promotion_type) {
+    if(move.info.is_promotion) {
+        switch (move.info.promotion_type) {
             case KNIGHT:
                 stream << "n";
                 break;

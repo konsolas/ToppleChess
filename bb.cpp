@@ -6,6 +6,10 @@
 #include <stdexcept>
 #include <iostream>
 
+#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
+#include <intrin.h>
+#endif
+
 #include "bb.h"
 
 /**
