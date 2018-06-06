@@ -78,7 +78,7 @@ const score_t BISHOP_PAIR = score_t{15, 25};
 const score_t ROOK_SEMI_OPEN_FILE = score_t{21, 12};
 const score_t ROOK_OPEN_FILE = score_t{29, 12};
 
-const score_t CENTRE_CONTROL[6] = {score_t{10, 0}, score_t{2, 3}, score_t{2, 3}, score_t{1, 3},
+const score_t CENTRE_CONTROL[6] = {score_t{11, 0}, score_t{2, 3}, score_t{2, 3}, score_t{1, 3},
                                    score_t{-20, 40}}; // Piece type
 
 /// mobility
@@ -86,7 +86,7 @@ const score_t MOBILITY[6] = {score_t{0, 10}, score_t{3, 5}, score_t{1, 3}, score
                              score_t{0, 0}}; // Piece type
 
 /// king safety
-const int KING_ATTACKER_WEIGHT[6] = {1, 2, 3, 5, 6};
+const int KING_ATTACKER_WEIGHT[6] = {1, 1, 2, 4, 5};
 const int KING_DEFENDER_WEIGHT[6] = {6, 4, 4, 4, 7};
 const int KING_MIN_WEIGHT = -1000;
 
@@ -396,7 +396,6 @@ score_t eval_queens(Team side, const board_t &board, eval_data_t &dat) {
 
         // Centre control
         score += CENTRE_CONTROL[QUEEN] * pop_count(moves & BB_CENTRE);
-
     }
 
     return score;
