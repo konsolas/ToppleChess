@@ -131,10 +131,18 @@ int main(int argc, char *argv[]) {
                     }
 
                     if(time_control.enabled) {
+                        // Try and use a consistent amount of time per move
                         max_time = time_control.time /
                                    (time_control.moves > 0 ? time_control.moves : std::max(50 - board->now, 20));
-                        max_time += time_control.inc - 5; // 5ms input lag
+
+                        // Handle increment: Look to gain some time if there isn't much left
+                        max_time += time_control.inc - (time_control.inc / 4);
+
+                        // Ensure time is valid (if a time of zero is given, search will be depth 1)
                         max_time = std::max(max_time, 0);
+
+                        // Add a 10ms buffer to prevent losses from timeout.
+                        max_time = std::min(max_time, time_control.time - 10);
                     }
 
                     // Start search

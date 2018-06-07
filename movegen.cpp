@@ -29,50 +29,7 @@ int movegen_t::gen_caps() {
     move.info.team = team;
     move.info.is_capture = 1;
 
-    // Old MVV/LVA generation
-    // MVV
-    /*
-    for (uint8_t victim = QUEEN;
-         victim <= QUEEN; victim--) { // victim <= QUEEN because uint8_t will go to 255 if you subtract 1 from 0
-        move.info.captured_type = victim;
-        U64 bb_victim = board.bb_pieces[x_team][victim];
-
-        // Loop through LVA
-        for (uint8_t attacker = PAWN; attacker <= KING; attacker++) {
-            U64 bb_attacker = board.bb_pieces[team][attacker];
-            move.info.piece = attacker;
-
-            while (bb_attacker) {
-                uint8_t from = pop_bit(team, bb_attacker);
-                move.info.from = from;
-
-                U64 bb_targets = find_moves(Piece(attacker), team, from, board.bb_all) & bb_victim; // Mask captures
-                while (bb_targets) {
-                    uint8_t to = pop_bit(team, bb_targets); // Prefer captures closer to our home rank
-                    move.info.to = to;
-
-                    // Promotions
-                    if (attacker == PAWN && (team ? to <= H1 : to >= A8)) {
-                        move.info.is_promotion = 1;
-                        for (uint8_t i = QUEEN; i > PAWN; i--) {
-                            move.info.promotion_type = i;
-
-                            buf[buf_size++] = move;
-                        }
-                        move.info.is_promotion = 0;
-                        move.info.promotion_type = 0;
-                    } else {
-                        buf[buf_size++] = move;
-                    }
-
-                }
-            }
-        }
-    }
-    */
-
-    // New max speed generation
-    // Pawn moves
+    // Pawn caps
     move.info.piece = PAWN;
     U64 bb_pawns = board.bb_pieces[team][PAWN];
 
@@ -80,7 +37,7 @@ int movegen_t::gen_caps() {
         uint8_t from = pop_bit(team, bb_pawns);
         move.info.from = from;
 
-        U64 bb_targets = find_moves(PAWN, team, from, board.bb_all) & board.bb_side[x_team];
+        U64 bb_targets = find_moves<PAWN>(team, from, board.bb_all) & board.bb_side[x_team];
 
         while (bb_targets) {
             uint8_t to = pop_bit(x_team, bb_targets);
@@ -104,26 +61,12 @@ int movegen_t::gen_caps() {
         }
     }
 
-    // Generate piece moves (not pawns)
-    for (uint8_t piece = 1; piece < 6; piece++) {
-        move.info.piece = piece;
-        U64 bb_piece = board.bb_pieces[team][piece];
-
-        while (bb_piece) {
-            uint8_t from = pop_bit(team, bb_piece);
-            move.info.from = from;
-
-            U64 bb_targets = find_moves((Piece) piece, team, from, board.bb_all) & board.bb_side[x_team];
-
-            while (bb_targets) {
-                uint8_t to = pop_bit(x_team, bb_targets);
-                move.info.to = to;
-                move.info.captured_type = board.sq_data[to].piece;
-
-                buf[buf_size++] = move;
-            }
-        }
-    }
+    // Generate piece caps (not pawns)
+    gen_piece_capts<KNIGHT>(move);
+    gen_piece_capts<BISHOP>(move);
+    gen_piece_capts<ROOK>(move);
+    gen_piece_capts<QUEEN>(move);
+    gen_piece_capts<KING>(move);
 
     return buf_size;
 }
@@ -174,7 +117,7 @@ void movegen_t::gen_ep() {
 
     // Generate en-passant capture
     if (record.ep_square != 0) {
-        U64 ep_attacks = find_moves(PAWN, x_team, record.ep_square, board.bb_pieces[team][PAWN])
+        U64 ep_attacks = find_moves<PAWN>(x_team, record.ep_square, board.bb_pieces[team][PAWN])
                          & board.bb_pieces[team][PAWN];
 
         while (ep_attacks) {
@@ -206,7 +149,7 @@ int movegen_t::gen_quiets() {
         uint8_t from = pop_bit(team, bb_pawns);
         move.info.from = from;
 
-        U64 bb_targets = find_moves(PAWN, team, from, board.bb_all) & mask;
+        U64 bb_targets = find_moves<PAWN>(team, from, board.bb_all) & mask;
 
         while (bb_targets) {
             uint8_t to = pop_bit(x_team, bb_targets);
@@ -230,24 +173,11 @@ int movegen_t::gen_quiets() {
     }
 
     // Generate piece moves (not pawns)
-    for (uint8_t piece = 1; piece < 6; piece++) {
-        move.info.piece = piece;
-        U64 bb_piece = board.bb_pieces[team][piece];
-
-        while (bb_piece) {
-            uint8_t from = pop_bit(team, bb_piece);
-            move.info.from = from;
-
-            U64 bb_targets = find_moves((Piece) piece, team, from, board.bb_all) & mask;
-
-            while (bb_targets) {
-                uint8_t to = pop_bit(x_team, bb_targets);
-                move.info.to = to;
-
-                buf[buf_size++] = move;
-            }
-        }
-    }
+    gen_piece_quiets<KNIGHT>(move, mask);
+    gen_piece_quiets<BISHOP>(move, mask);
+    gen_piece_quiets<ROOK>(move, mask);
+    gen_piece_quiets<QUEEN>(move, mask);
+    gen_piece_quiets<KING>(move, mask);
 
     return buf_size;
 }
@@ -339,4 +269,45 @@ void movegen_t::buf_swap(int i, int j) {
 move_t *movegen_t::get_searched(int &len) {
     len = idx;
     return buf;
+}
+
+template<Piece TYPE>
+void movegen_t::gen_piece_quiets(move_t move, U64 mask) {
+    move.info.piece = TYPE;
+    U64 bb_piece = board.bb_pieces[team][TYPE];
+
+    while (bb_piece) {
+        uint8_t from = pop_bit(team, bb_piece);
+        move.info.from = from;
+
+        U64 bb_targets = find_moves<TYPE>(team, from, board.bb_all) & mask;
+
+        while (bb_targets) {
+            uint8_t to = pop_bit(x_team, bb_targets);
+            move.info.to = to;
+
+            buf[buf_size++] = move;
+        }
+    }
+}
+
+template<Piece TYPE>
+void movegen_t::gen_piece_capts(move_t move) {
+    move.info.piece = TYPE;
+    U64 bb_piece = board.bb_pieces[team][TYPE];
+
+    while (bb_piece) {
+        uint8_t from = pop_bit(team, bb_piece);
+        move.info.from = from;
+
+        U64 bb_targets = find_moves<TYPE>(team, from, board.bb_all) & board.bb_side[x_team];
+
+        while (bb_targets) {
+            uint8_t to = pop_bit(x_team, bb_targets);
+            move.info.to = to;
+            move.info.captured_type = board.sq_data[to].piece;
+
+            buf[buf_size++] = move;
+        }
+    }
 }

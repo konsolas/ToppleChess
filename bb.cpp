@@ -524,32 +524,36 @@ void init_tables() {
     bb_normal_moves::init_normal_moves();
 }
 
-U64 find_moves(Piece type, Team side, uint8_t square, U64 occupied) {
-    switch (type) {
-        case PAWN: {
-            U64 result = 0;
-            result |= occupied & bb_normal_moves::pawn_caps[side][square];
-            if (!(occupied & bb_normal_moves::pawn_moves_x1[side][square])) {
-                result |= bb_normal_moves::pawn_moves_x1[side][square];
-                if (!(occupied & bb_normal_moves::pawn_moves_x2[side][square])) {
-                    result |= bb_normal_moves::pawn_moves_x2[side][square];
-                }
-            }
-            return result;
+template <> U64 find_moves<PAWN>(Team side, uint8_t square, U64 occupied) {
+    U64 result = 0;
+    result |= occupied & bb_normal_moves::pawn_caps[side][square];
+    if (!(occupied & bb_normal_moves::pawn_moves_x1[side][square])) {
+        result |= bb_normal_moves::pawn_moves_x1[side][square];
+        if (!(occupied & bb_normal_moves::pawn_moves_x2[side][square])) {
+            result |= bb_normal_moves::pawn_moves_x2[side][square];
         }
-        case KNIGHT:
-            return bb_normal_moves::knight_moves[square];
-        case BISHOP:
-            return bb_magics::bishop_moves(square, occupied);
-        case ROOK:
-            return bb_magics::rook_moves(square, occupied);
-        case QUEEN:
-            return bb_magics::bishop_moves(square, occupied) | bb_magics::rook_moves(square, occupied);
-        case KING:
-            return bb_normal_moves::king_moves[square];
     }
+    return result;
+}
 
-    return 0; // Can't happen
+template <> U64 find_moves<KNIGHT>(Team side, uint8_t square, U64 occupied) {
+    return bb_normal_moves::knight_moves[square];
+}
+
+template <> U64 find_moves<BISHOP>(Team side, uint8_t square, U64 occupied) {
+    return bb_magics::bishop_moves(square, occupied);
+}
+
+template <> U64 find_moves<ROOK>(Team side, uint8_t square, U64 occupied) {
+    return bb_magics::rook_moves(square, occupied);
+}
+
+template <> U64 find_moves<QUEEN>(Team side, uint8_t square, U64 occupied) {
+    return bb_magics::bishop_moves(square, occupied) | bb_magics::rook_moves(square, occupied);
+}
+
+template <> U64 find_moves<KING>(Team side, uint8_t square, U64 occupied) {
+    return bb_normal_moves::king_moves[square];
 }
 
 U64 single_bit(uint8_t square) {

@@ -367,24 +367,24 @@ void board_t::switch_piece(Team side, Piece piece, uint8_t sq) {
 U64 board_t::attacks_to(uint8_t sq, Team side) {
     auto x_side = Team(!side);
     U64 attacks =
-            (find_moves(QUEEN, x_side, sq, bb_all) & bb_pieces[side][QUEEN]) |
-            (find_moves(ROOK, x_side, sq, bb_all) & bb_pieces[side][ROOK]) |
-            (find_moves(KNIGHT, x_side, sq, bb_all) & bb_pieces[side][KNIGHT]) |
-            (find_moves(BISHOP, x_side, sq, bb_all) & bb_pieces[side][BISHOP]) |
-            (find_moves(PAWN, x_side, sq, bb_all) & bb_pieces[side][PAWN]) |
-            (find_moves(KING, x_side, sq, bb_all) & bb_pieces[side][KING]);
+            (find_moves<QUEEN>(x_side, sq, bb_all) & bb_pieces[side][QUEEN]) |
+            (find_moves<ROOK>(x_side, sq, bb_all) & bb_pieces[side][ROOK]) |
+            (find_moves<KNIGHT>(x_side, sq, bb_all) & bb_pieces[side][KNIGHT]) |
+            (find_moves<BISHOP>(x_side, sq, bb_all) & bb_pieces[side][BISHOP]) |
+            (find_moves<PAWN>(x_side, sq, bb_all) & bb_pieces[side][PAWN]) |
+            (find_moves<KING>(x_side, sq, bb_all) & bb_pieces[side][KING]);
 
     return attacks;
 }
 
 bool board_t::is_attacked(uint8_t sq, Team side) {
     auto x_side = Team(!side);
-    return (find_moves(QUEEN, x_side, sq, bb_all) & bb_pieces[side][QUEEN]) ||
-           (find_moves(ROOK, x_side, sq, bb_all) & bb_pieces[side][ROOK]) ||
-           (find_moves(KNIGHT, x_side, sq, bb_all) & bb_pieces[side][KNIGHT]) ||
-           (find_moves(BISHOP, x_side, sq, bb_all) & bb_pieces[side][BISHOP]) ||
-           (find_moves(PAWN, x_side, sq, bb_all) & bb_pieces[side][PAWN]) ||
-           (find_moves(KING, x_side, sq, bb_all) & bb_pieces[side][KING]);
+    return (find_moves<QUEEN>(x_side, sq, bb_all) & bb_pieces[side][QUEEN]) ||
+           (find_moves<ROOK>(x_side, sq, bb_all) & bb_pieces[side][ROOK]) ||
+           (find_moves<KNIGHT>(x_side, sq, bb_all) & bb_pieces[side][KNIGHT]) ||
+           (find_moves<BISHOP>(x_side, sq, bb_all) & bb_pieces[side][BISHOP]) ||
+           (find_moves<PAWN>(x_side, sq, bb_all) & bb_pieces[side][PAWN]) ||
+           (find_moves<KING>(x_side, sq, bb_all) & bb_pieces[side][KING]);
 }
 
 bool board_t::is_pseudo_legal(move_t move) {
@@ -415,14 +415,14 @@ bool board_t::is_pseudo_legal(move_t move) {
     return (bb_pieces[team][move.info.piece] & single_bit(move.info.from)) && !(bb_side[team] & single_bit(move.info.to));
 }
 
-bool board_t::is_repetition_draw() {
+bool board_t::is_repetition_draw(int ply, int reps) {
     int rep = 1;
 
-    int last = std::max(now - 50, 0);
+    int last = std::max(now - ply, 0);
 
     for (int i = now - 2; i > last; i -= 2) {
         if (record[i].hash == record[now].hash) rep++;
-        if (rep >= 2) {
+        if (rep >= reps) {
             return true;
         }
     }
@@ -478,11 +478,11 @@ int board_t::see(move_t move) {
     occupation_mask &= ~single_bit(move.info.from);
 
     // Reveal next attacker
-    attackers |= (find_moves(QUEEN, next_move, move.info.to, bb_all & occupation_mask)
+    attackers |= (find_moves<QUEEN>(next_move, move.info.to, bb_all & occupation_mask)
                   & (bb_pieces[WHITE][QUEEN] | bb_pieces[BLACK][QUEEN])) |
-                 (find_moves(BISHOP, next_move, move.info.to, bb_all & occupation_mask)
+                 (find_moves<BISHOP>(next_move, move.info.to, bb_all & occupation_mask)
                     & (bb_pieces[WHITE][BISHOP] | bb_pieces[BLACK][BISHOP])) |
-                 (find_moves(ROOK, next_move, move.info.to, bb_all & occupation_mask)
+                 (find_moves<ROOK>(next_move, move.info.to, bb_all & occupation_mask)
                     & (bb_pieces[WHITE][ROOK] | bb_pieces[BLACK][ROOK]));
     attackers &= occupation_mask;
 
@@ -521,11 +521,11 @@ int board_t::see(move_t move) {
         occupation_mask &= ~single_bit(from);
 
         // Reveal next attacker
-        attackers |= (find_moves(QUEEN, next_move, move.info.to, bb_all & occupation_mask)
+        attackers |= (find_moves<QUEEN>(next_move, move.info.to, bb_all & occupation_mask)
                       & (bb_pieces[WHITE][QUEEN] | bb_pieces[BLACK][QUEEN])) |
-                     (find_moves(BISHOP, next_move, move.info.to, bb_all & occupation_mask)
+                     (find_moves<BISHOP>(next_move, move.info.to, bb_all & occupation_mask)
                       & (bb_pieces[WHITE][BISHOP] | bb_pieces[BLACK][BISHOP])) |
-                     (find_moves(ROOK, next_move, move.info.to, bb_all & occupation_mask)
+                     (find_moves<ROOK>(next_move, move.info.to, bb_all & occupation_mask)
                       & (bb_pieces[WHITE][ROOK] | bb_pieces[BLACK][ROOK]));
         attackers &= occupation_mask;
 

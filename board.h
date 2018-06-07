@@ -60,7 +60,7 @@ struct board_t {
     U64 attacks_to(uint8_t sq, Team side); // Attacks to sq from side
     bool is_pseudo_legal(move_t move);
 
-    bool is_repetition_draw();
+    bool is_repetition_draw(int ply, int reps);
 
     int see(move_t move);
 

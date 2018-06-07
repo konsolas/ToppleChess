@@ -124,8 +124,8 @@ TEST_CASE("Bitboard engine") {
                               0, 0, 0, 0, 0, 0, 0, 0,
                               0, 0, 0, 0, 0, 0, 0, 0});
 
-            REQUIRE(find_moves(KING, BLACK, square, 0) == expected);
-            REQUIRE(find_moves(KING, WHITE, square, 0) == expected);
+            REQUIRE(find_moves<KING>(BLACK, square, 0) == expected);
+            REQUIRE(find_moves<KING>(WHITE, square, 0) == expected);
 
             square = A1;
             expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
@@ -137,8 +137,8 @@ TEST_CASE("Bitboard engine") {
                               1, 1, 0, 0, 0, 0, 0, 0,
                               0, 1, 0, 0, 0, 0, 0, 0});
 
-            REQUIRE(find_moves(KING, BLACK, square, 0) == expected);
-            REQUIRE(find_moves(KING, WHITE, square, 0) == expected);
+            REQUIRE(find_moves<KING>(BLACK, square, 0) == expected);
+            REQUIRE(find_moves<KING>(WHITE, square, 0) == expected);
 
             square = H8;
             expected = c_u64({0, 0, 0, 0, 0, 0, 1, 0,
@@ -150,8 +150,8 @@ TEST_CASE("Bitboard engine") {
                               0, 0, 0, 0, 0, 0, 0, 0,
                               0, 0, 0, 0, 0, 0, 0, 0});
 
-            REQUIRE(find_moves(KING, BLACK, square, 0) == expected);
-            REQUIRE(find_moves(KING, WHITE, square, 0) == expected);
+            REQUIRE(find_moves<KING>(BLACK, square, 0) == expected);
+            REQUIRE(find_moves<KING>(WHITE, square, 0) == expected);
 
             square = D8;
             expected = c_u64({0, 0, 1, 0, 1, 0, 0, 0,
@@ -163,8 +163,8 @@ TEST_CASE("Bitboard engine") {
                               0, 0, 0, 0, 0, 0, 0, 0,
                               0, 0, 0, 0, 0, 0, 0, 0});
 
-            REQUIRE(find_moves(KING, BLACK, square, 0) == expected);
-            REQUIRE(find_moves(KING, WHITE, square, 0) == expected);
+            REQUIRE(find_moves<KING>(BLACK, square, 0) == expected);
+            REQUIRE(find_moves<KING>(WHITE, square, 0) == expected);
 
             square = E1;
             expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
@@ -176,8 +176,8 @@ TEST_CASE("Bitboard engine") {
                               0, 0, 0, 1, 1, 1, 0, 0,
                               0, 0, 0, 1, 0, 1, 0, 0});
 
-            REQUIRE(find_moves(KING, BLACK, square, 0) == expected);
-            REQUIRE(find_moves(KING, WHITE, square, 0) == expected);
+            REQUIRE(find_moves<KING>(BLACK, square, 0) == expected);
+            REQUIRE(find_moves<KING>(WHITE, square, 0) == expected);
 
             square = H3;
             expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
@@ -189,8 +189,8 @@ TEST_CASE("Bitboard engine") {
                               0, 0, 0, 0, 0, 0, 1, 1,
                               0, 0, 0, 0, 0, 0, 0, 0});
 
-            REQUIRE(find_moves(KING, BLACK, square, 0) == expected);
-            REQUIRE(find_moves(KING, WHITE, square, 0) == expected);
+            REQUIRE(find_moves<KING>(BLACK, square, 0) == expected);
+            REQUIRE(find_moves<KING>(WHITE, square, 0) == expected);
 
             square = A7;
             expected = c_u64({1, 1, 0, 0, 0, 0, 0, 0,
@@ -202,8 +202,8 @@ TEST_CASE("Bitboard engine") {
                               0, 0, 0, 0, 0, 0, 0, 0,
                               0, 0, 0, 0, 0, 0, 0, 0});
 
-            REQUIRE(find_moves(KING, BLACK, square, 0) == expected);
-            REQUIRE(find_moves(KING, WHITE, square, 0) == expected);
+            REQUIRE(find_moves<KING>(BLACK, square, 0) == expected);
+            REQUIRE(find_moves<KING>(WHITE, square, 0) == expected);
         }
 
         SECTION("Knight") {
@@ -217,8 +217,8 @@ TEST_CASE("Bitboard engine") {
                               0, 0, 0, 0, 0, 0, 0, 0,
                               0, 0, 0, 0, 0, 0, 0, 0});
 
-            REQUIRE(find_moves(KNIGHT, BLACK, square, 0) == expected);
-            REQUIRE(find_moves(KNIGHT, WHITE, square, 0) == expected);
+            REQUIRE(find_moves<KNIGHT>(BLACK, square, 0) == expected);
+            REQUIRE(find_moves<KNIGHT>(WHITE, square, 0) == expected);
 
             square = A1;
             expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
@@ -230,8 +230,8 @@ TEST_CASE("Bitboard engine") {
                               0, 0, 1, 0, 0, 0, 0, 0,
                               0, 0, 0, 0, 0, 0, 0, 0});
 
-            REQUIRE(find_moves(KNIGHT, BLACK, square, 0) == expected);
-            REQUIRE(find_moves(KNIGHT, WHITE, square, 0) == expected);
+            REQUIRE(find_moves<KNIGHT>(BLACK, square, 0) == expected);
+            REQUIRE(find_moves<KNIGHT>(WHITE, square, 0) == expected);
 
             square = H8;
             expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
@@ -243,8 +243,8 @@ TEST_CASE("Bitboard engine") {
                               0, 0, 0, 0, 0, 0, 0, 0,
                               0, 0, 0, 0, 0, 0, 0, 0});
 
-            REQUIRE(find_moves(KNIGHT, BLACK, square, 0) == expected);
-            REQUIRE(find_moves(KNIGHT, WHITE, square, 0) == expected);
+            REQUIRE(find_moves<KNIGHT>(BLACK, square, 0) == expected);
+            REQUIRE(find_moves<KNIGHT>(WHITE, square, 0) == expected);
 
             square = G4;
             expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
@@ -256,8 +256,8 @@ TEST_CASE("Bitboard engine") {
                               0, 0, 0, 0, 0, 1, 0, 1,
                               0, 0, 0, 0, 0, 0, 0, 0});
 
-            REQUIRE(find_moves(KNIGHT, BLACK, square, 0) == expected);
-            REQUIRE(find_moves(KNIGHT, WHITE, square, 0) == expected);
+            REQUIRE(find_moves<KNIGHT>(BLACK, square, 0) == expected);
+            REQUIRE(find_moves<KNIGHT>(WHITE, square, 0) == expected);
 
             square = E1;
             expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
@@ -269,8 +269,8 @@ TEST_CASE("Bitboard engine") {
                               0, 0, 1, 0, 0, 0, 1, 0,
                               0, 0, 0, 0, 0, 0, 0, 0});
 
-            REQUIRE(find_moves(KNIGHT, BLACK, square, 0) == expected);
-            REQUIRE(find_moves(KNIGHT, WHITE, square, 0) == expected);
+            REQUIRE(find_moves<KNIGHT>(BLACK, square, 0) == expected);
+            REQUIRE(find_moves<KNIGHT>(WHITE, square, 0) == expected);
 
             square = H3;
             expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
@@ -282,8 +282,8 @@ TEST_CASE("Bitboard engine") {
                               0, 0, 0, 0, 0, 1, 0, 0,
                               0, 0, 0, 0, 0, 0, 1, 0});
 
-            REQUIRE(find_moves(KNIGHT, BLACK, square, 0) == expected);
-            REQUIRE(find_moves(KNIGHT, WHITE, square, 0) == expected);
+            REQUIRE(find_moves<KNIGHT>(BLACK, square, 0) == expected);
+            REQUIRE(find_moves<KNIGHT>(WHITE, square, 0) == expected);
 
             square = A7;
             expected = c_u64({0, 0, 1, 0, 0, 0, 0, 0,
@@ -295,8 +295,8 @@ TEST_CASE("Bitboard engine") {
                               0, 0, 0, 0, 0, 0, 0, 0,
                               0, 0, 0, 0, 0, 0, 0, 0});
 
-            REQUIRE(find_moves(KNIGHT, BLACK, square, 0) == expected);
-            REQUIRE(find_moves(KNIGHT, WHITE, square, 0) == expected);
+            REQUIRE(find_moves<KNIGHT>(BLACK, square, 0) == expected);
+            REQUIRE(find_moves<KNIGHT>(WHITE, square, 0) == expected);
         }
 
         SECTION("Pawn") {
@@ -312,8 +312,8 @@ TEST_CASE("Bitboard engine") {
                                   0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0}); // C4
 
-                REQUIRE(find_moves(PAWN, BLACK, C5, 0) == expected);
-                REQUIRE(find_moves(PAWN, WHITE, C3, 0) == expected);
+                REQUIRE(find_moves<PAWN>(BLACK, C5, 0) == expected);
+                REQUIRE(find_moves<PAWN>(WHITE, C3, 0) == expected);
 
                 expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0,
@@ -324,8 +324,8 @@ TEST_CASE("Bitboard engine") {
                                   0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0}); // D5
 
-                REQUIRE(find_moves(PAWN, BLACK, D6, 0) == expected);
-                REQUIRE(find_moves(PAWN, WHITE, D4, 0) == expected);
+                REQUIRE(find_moves<PAWN>(BLACK, D6, 0) == expected);
+                REQUIRE(find_moves<PAWN>(WHITE, D4, 0) == expected);
 
                 expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0,
@@ -336,7 +336,7 @@ TEST_CASE("Bitboard engine") {
                                   0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0}); // C4
 
-                REQUIRE(find_moves(PAWN, WHITE, A5, 0) == expected);
+                REQUIRE(find_moves<PAWN>(WHITE, A5, 0) == expected);
 
                 expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0,
@@ -347,7 +347,7 @@ TEST_CASE("Bitboard engine") {
                                   0, 0, 0, 0, 0, 0, 1, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0}); // C4
 
-                REQUIRE(find_moves(PAWN, BLACK, G3, 0) == expected);
+                REQUIRE(find_moves<PAWN>(BLACK, G3, 0) == expected);
             }
 
             SECTION("Double moves") {
@@ -360,8 +360,8 @@ TEST_CASE("Bitboard engine") {
                                   0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0});
 
-                REQUIRE(find_moves(PAWN, BLACK, G2, 0) != expected);
-                REQUIRE(find_moves(PAWN, WHITE, G2, 0) == expected);
+                REQUIRE(find_moves<PAWN>(BLACK, G2, 0) != expected);
+                REQUIRE(find_moves<PAWN>(WHITE, G2, 0) == expected);
 
                 expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0,
@@ -372,8 +372,8 @@ TEST_CASE("Bitboard engine") {
                                   0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0});
 
-                REQUIRE(find_moves(PAWN, BLACK, C7, 0) == expected);
-                REQUIRE(find_moves(PAWN, WHITE, C7, 0) != expected);
+                REQUIRE(find_moves<PAWN>(BLACK, C7, 0) == expected);
+                REQUIRE(find_moves<PAWN>(WHITE, C7, 0) != expected);
             }
 
             SECTION("Square in front occupied") {
@@ -395,17 +395,17 @@ TEST_CASE("Bitboard engine") {
                                   0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0});
 
-                REQUIRE(find_moves(PAWN, WHITE, B4, occupied) == expected);
-                REQUIRE(find_moves(PAWN, BLACK, B6, occupied) == expected);
-                REQUIRE(find_moves(PAWN, WHITE, D6, occupied) == expected);
-                REQUIRE(find_moves(PAWN, BLACK, E6, occupied) == expected);
-                REQUIRE(find_moves(PAWN, WHITE, E4, occupied) == expected);
-                REQUIRE(find_moves(PAWN, BLACK, F7, occupied) == expected);
-                REQUIRE(find_moves(PAWN, WHITE, F5, occupied) == expected);
-                REQUIRE(find_moves(PAWN, BLACK, F4, occupied) == expected);
-                REQUIRE(find_moves(PAWN, WHITE, F2, occupied) == expected);
-                REQUIRE(find_moves(PAWN, BLACK, H6, occupied) == expected);
-                REQUIRE(find_moves(PAWN, WHITE, H4, occupied) == expected);
+                REQUIRE(find_moves<PAWN>(WHITE, B4, occupied) == expected);
+                REQUIRE(find_moves<PAWN>(BLACK, B6, occupied) == expected);
+                REQUIRE(find_moves<PAWN>(WHITE, D6, occupied) == expected);
+                REQUIRE(find_moves<PAWN>(BLACK, E6, occupied) == expected);
+                REQUIRE(find_moves<PAWN>(WHITE, E4, occupied) == expected);
+                REQUIRE(find_moves<PAWN>(BLACK, F7, occupied) == expected);
+                REQUIRE(find_moves<PAWN>(WHITE, F5, occupied) == expected);
+                REQUIRE(find_moves<PAWN>(BLACK, F4, occupied) == expected);
+                REQUIRE(find_moves<PAWN>(WHITE, F2, occupied) == expected);
+                REQUIRE(find_moves<PAWN>(BLACK, H6, occupied) == expected);
+                REQUIRE(find_moves<PAWN>(WHITE, H4, occupied) == expected);
 
                 // Blocking the second square of the double move
                 occupied = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
@@ -426,7 +426,7 @@ TEST_CASE("Bitboard engine") {
                                   0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0});
 
-                REQUIRE(find_moves(PAWN, BLACK, E7, occupied) == expected);
+                REQUIRE(find_moves<PAWN>(BLACK, E7, occupied) == expected);
 
                 // Blocking the second square of the double move
                 occupied = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
@@ -447,7 +447,7 @@ TEST_CASE("Bitboard engine") {
                                   0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0});
 
-                REQUIRE(find_moves(PAWN, WHITE, B2, occupied) == expected);
+                REQUIRE(find_moves<PAWN>(WHITE, B2, occupied) == expected);
             }
 
             SECTION("Normal moves with captures") {
@@ -469,8 +469,8 @@ TEST_CASE("Bitboard engine") {
                                   0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0});
 
-                REQUIRE(find_moves(PAWN, BLACK, D6, occupied) == expected);
-                REQUIRE(find_moves(PAWN, WHITE, D4, occupied) == expected);
+                REQUIRE(find_moves<PAWN>(BLACK, D6, occupied) == expected);
+                REQUIRE(find_moves<PAWN>(WHITE, D4, occupied) == expected);
 
                 occupied = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 1, 0, 0, 0, 0, 0,
@@ -490,8 +490,8 @@ TEST_CASE("Bitboard engine") {
                                   0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0});
 
-                REQUIRE(find_moves(PAWN, BLACK, H6, occupied) == expected);
-                REQUIRE(find_moves(PAWN, WHITE, H4, occupied) == expected);
+                REQUIRE(find_moves<PAWN>(BLACK, H6, occupied) == expected);
+                REQUIRE(find_moves<PAWN>(WHITE, H4, occupied) == expected);
             }
 
             SECTION("Mixed situations") {
@@ -514,7 +514,7 @@ TEST_CASE("Bitboard engine") {
                                   0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0});
 
-                REQUIRE(find_moves(PAWN, BLACK, square, occupied) == expected);
+                REQUIRE(find_moves<PAWN>(BLACK, square, occupied) == expected);
 
                 square = D7;
                 expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
@@ -526,7 +526,7 @@ TEST_CASE("Bitboard engine") {
                                   0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0});
 
-                REQUIRE(find_moves(PAWN, BLACK, square, occupied) == expected);
+                REQUIRE(find_moves<PAWN>(BLACK, square, occupied) == expected);
 
                 square = E3;
                 expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
@@ -538,7 +538,7 @@ TEST_CASE("Bitboard engine") {
                                   0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0});
 
-                REQUIRE(find_moves(PAWN, WHITE, square, occupied) == expected);
+                REQUIRE(find_moves<PAWN>(WHITE, square, occupied) == expected);
 
                 square = G4;
                 expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
@@ -550,7 +550,7 @@ TEST_CASE("Bitboard engine") {
                                   0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0});
 
-                REQUIRE(find_moves(PAWN, WHITE, square, occupied) == expected);
+                REQUIRE(find_moves<PAWN>(WHITE, square, occupied) == expected);
             }
         }
 
@@ -574,8 +574,8 @@ TEST_CASE("Bitboard engine") {
                               0, 0, 1, 0, 0, 0, 0, 0,
                               0, 0, 0, 0, 0, 0, 0, 0});
 
-            REQUIRE(find_moves(BISHOP, WHITE, square, occupied) == expected);
-            REQUIRE(find_moves(BISHOP, BLACK, square, occupied) == expected);
+            REQUIRE(find_moves<BISHOP>(WHITE, square, occupied) == expected);
+            REQUIRE(find_moves<BISHOP>(BLACK, square, occupied) == expected);
 
             square = C1;
             expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
@@ -587,8 +587,8 @@ TEST_CASE("Bitboard engine") {
                               0, 1, 0, 1, 0, 0, 0, 0,
                               0, 0, 0, 0, 0, 0, 0, 0});
 
-            REQUIRE(find_moves(BISHOP, WHITE, square, occupied) == expected);
-            REQUIRE(find_moves(BISHOP, BLACK, square, occupied) == expected);
+            REQUIRE(find_moves<BISHOP>(WHITE, square, occupied) == expected);
+            REQUIRE(find_moves<BISHOP>(BLACK, square, occupied) == expected);
 
             square = D3;
             expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
@@ -600,8 +600,8 @@ TEST_CASE("Bitboard engine") {
                               0, 0, 1, 0, 1, 0, 0, 0,
                               0, 0, 0, 0, 0, 1, 0, 0});
 
-            REQUIRE(find_moves(BISHOP, WHITE, square, occupied) == expected);
-            REQUIRE(find_moves(BISHOP, BLACK, square, occupied) == expected);
+            REQUIRE(find_moves<BISHOP>(WHITE, square, occupied) == expected);
+            REQUIRE(find_moves<BISHOP>(BLACK, square, occupied) == expected);
 
             square = D8;
             expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
@@ -613,8 +613,8 @@ TEST_CASE("Bitboard engine") {
                               0, 0, 0, 0, 0, 0, 0, 0,
                               0, 0, 0, 0, 0, 0, 0, 0});
 
-            REQUIRE(find_moves(BISHOP, WHITE, square, occupied) == expected);
-            REQUIRE(find_moves(BISHOP, BLACK, square, occupied) == expected);
+            REQUIRE(find_moves<BISHOP>(WHITE, square, occupied) == expected);
+            REQUIRE(find_moves<BISHOP>(BLACK, square, occupied) == expected);
         }
 
         SECTION("Rook") {
@@ -637,8 +637,8 @@ TEST_CASE("Bitboard engine") {
                               0, 0, 0, 0, 1, 0, 0, 0,
                               0, 0, 0, 0, 1, 0, 0, 0});
 
-            REQUIRE(find_moves(ROOK, WHITE, square, occupied) == expected);
-            REQUIRE(find_moves(ROOK, BLACK, square, occupied) == expected);
+            REQUIRE(find_moves<ROOK>(WHITE, square, occupied) == expected);
+            REQUIRE(find_moves<ROOK>(BLACK, square, occupied) == expected);
 
             square = C1;
             expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
@@ -650,8 +650,8 @@ TEST_CASE("Bitboard engine") {
                               0, 0, 1, 0, 0, 0, 0, 0,
                               1, 1, 0, 1, 1, 1, 1, 1});
 
-            REQUIRE(find_moves(ROOK, WHITE, square, occupied) == expected);
-            REQUIRE(find_moves(ROOK, BLACK, square, occupied) == expected);
+            REQUIRE(find_moves<ROOK>(WHITE, square, occupied) == expected);
+            REQUIRE(find_moves<ROOK>(BLACK, square, occupied) == expected);
 
             square = D3;
             expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
@@ -663,8 +663,8 @@ TEST_CASE("Bitboard engine") {
                               0, 0, 0, 1, 0, 0, 0, 0,
                               0, 0, 0, 1, 0, 0, 0, 0});
 
-            REQUIRE(find_moves(ROOK, WHITE, square, occupied) == expected);
-            REQUIRE(find_moves(ROOK, BLACK, square, occupied) == expected);
+            REQUIRE(find_moves<ROOK>(WHITE, square, occupied) == expected);
+            REQUIRE(find_moves<ROOK>(BLACK, square, occupied) == expected);
 
             square = D8;
             expected = c_u64({1, 1, 1, 0, 1, 0, 0, 0,
@@ -676,8 +676,8 @@ TEST_CASE("Bitboard engine") {
                               0, 0, 0, 0, 0, 0, 0, 0,
                               0, 0, 0, 0, 0, 0, 0, 0});
 
-            REQUIRE(find_moves(ROOK, WHITE, square, occupied) == expected);
-            REQUIRE(find_moves(ROOK, BLACK, square, occupied) == expected);
+            REQUIRE(find_moves<ROOK>(WHITE, square, occupied) == expected);
+            REQUIRE(find_moves<ROOK>(BLACK, square, occupied) == expected);
         }
     }
 }

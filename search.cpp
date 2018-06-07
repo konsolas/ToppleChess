@@ -106,7 +106,7 @@ int search_t::searchAB(board_t &board, int alpha, int beta, int ply, int depth, 
     int score; const int old_alpha = alpha; move_t best_move{};
 
     // Game state
-    if (board.record[board.now].halfmove_clock >= 100 || board.is_repetition_draw()) return 0;
+    if (board.record[board.now].halfmove_clock >= 100 || board.is_repetition_draw(ply, 2)) return 0;
 
     // Mate distance pruning
     if (ply) {

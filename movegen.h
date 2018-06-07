@@ -98,6 +98,9 @@ private:
 
     void gen_castling();
     void gen_ep();
+
+    template <Piece TYPE> void gen_piece_quiets(move_t move, U64 mask);
+    template <Piece TYPE> void gen_piece_capts(move_t move);
 };
 
 

@@ -144,8 +144,8 @@ void eval_init() {
         }
 
         // King circle
-        BB_KING_CIRCLE[sq] |= find_moves(KING, WHITE, sq, 0);
-        BB_KING_CIRCLE[sq] |= find_moves(KNIGHT, WHITE, sq, 0);
+        BB_KING_CIRCLE[sq] |= find_moves<KING>(WHITE, sq, 0);
+        BB_KING_CIRCLE[sq] |= find_moves<KNIGHT>(WHITE, sq, 0);
     }
 
     // Mirror
@@ -225,7 +225,7 @@ score_t eval_pawns(Team side, const board_t &board, eval_data_t &dat) {
         // Material
         score += MATERIAL[PAWN];
 
-        U64 moves = find_moves(PAWN, side, sq, 0xffffffffffffffff);
+        U64 moves = find_moves<PAWN>(side, sq, 0xffffffffffffffff);
         dat.attacked_by_pawn[side] |= moves;
 
         // Update holes bitmap
@@ -281,7 +281,7 @@ score_t eval_knights(Team side, const board_t &board, eval_data_t &dat) {
         // Material
         score += MATERIAL[KNIGHT];
 
-        U64 moves = find_moves(KNIGHT, side, sq, board.bb_all) & ~board.bb_side[side] &
+        U64 moves = find_moves<KNIGHT>(side, sq, board.bb_all) & ~board.bb_side[side] &
                     (~dat.attacked_by_pawn[xside] | board.bb_side[xside]); // Find non-losing moves
 
         // Mobility
@@ -312,7 +312,7 @@ score_t eval_bishops(Team side, const board_t &board, eval_data_t &dat) {
         // Material
         score += MATERIAL[BISHOP];
 
-        U64 moves = find_moves(BISHOP, side, sq, board.bb_side[side]) & ~board.bb_side[side] &
+        U64 moves = find_moves<BISHOP>(side, sq, board.bb_side[side]) & ~board.bb_side[side] &
                     (~dat.attacked_by_pawn[xside] | board.bb_side[xside]); // Find non-losing moves
 
         // Mobility
@@ -346,7 +346,7 @@ score_t eval_rooks(Team side, const board_t &board, eval_data_t &dat) {
 
         score += MATERIAL[ROOK];
 
-        U64 moves = find_moves(ROOK, side, sq, board.bb_side[side]) & ~board.bb_side[side] &
+        U64 moves = find_moves<ROOK>(side, sq, board.bb_side[side]) & ~board.bb_side[side] &
                     (~dat.attacked_by_pawn[xside] | board.bb_side[xside]); // Find non-losing moves
 
         // Mobility
@@ -384,7 +384,7 @@ score_t eval_queens(Team side, const board_t &board, eval_data_t &dat) {
 
         score += MATERIAL[QUEEN];
 
-        U64 moves = find_moves(QUEEN, side, sq, board.bb_all) & ~board.bb_side[side] &
+        U64 moves = find_moves<QUEEN>(side, sq, board.bb_all) & ~board.bb_side[side] &
                     (~dat.attacked_by_pawn[xside] | board.bb_side[xside]); // Find non-losing moves
 
         // Mobility

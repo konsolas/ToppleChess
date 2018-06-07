@@ -7,6 +7,7 @@
 
 #include "types.h"
 
+#include <string>
 
 /**
  * Initialise bitboard tables. Must be called before use of any other functions in this header.
@@ -31,7 +32,7 @@ void init_tables();
  * @param occupied bitboard of occupied squares
  * @return possible moves of the piece
  */
-U64 find_moves(Piece type, Team side, uint8_t square, U64 occupied);
+template <Piece TYPE> U64 find_moves(Team side, uint8_t square, U64 occupied);
 
 /**
  * Generate a bitboard with a single bit set, corresponding to the given argument
