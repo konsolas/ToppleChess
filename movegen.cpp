@@ -62,11 +62,11 @@ int movegen_t::gen_caps() {
     }
 
     // Generate piece caps (not pawns)
-    gen_piece_capts<KNIGHT>(move);
-    gen_piece_capts<BISHOP>(move);
-    gen_piece_capts<ROOK>(move);
-    gen_piece_capts<QUEEN>(move);
-    gen_piece_capts<KING>(move);
+    gen_piece_caps<KNIGHT>(move);
+    gen_piece_caps<BISHOP>(move);
+    gen_piece_caps<ROOK>(move);
+    gen_piece_caps<QUEEN>(move);
+    gen_piece_caps<KING>(move);
 
     return buf_size;
 }
@@ -182,40 +182,42 @@ int movegen_t::gen_quiets() {
     return buf_size;
 }
 
-move_t movegen_t::next(GenStage &stage, search_t &search, move_t hash_move, int ply) {
-    const int CAPT_BASE = 30000;
-
-    if(stage < GEN_HASH) {
-        if(hash_move != EMPTY_MOVE) {
-            for (int i = idx; i < buf_size; i++) {
-                if(hash_move == buf[i]) {
-                    buf_swap(i, idx);
-                    stage = GEN_HASH;
-                    return next();
-                }
+move_t movegen_t::next(GenStage &stage, int &move_score, search_t &search, move_t hash_move, int ply) {
+    if (stage < GEN_HASH && hash_move != EMPTY_MOVE) {
+        for (int i = idx; i < buf_size; i++) {
+            if (hash_move == buf[i]) {
+                buf_swap(i, idx);
+                stage = GEN_HASH;
+                return next();
             }
         }
     }
 
     // Score moves
-    if(!scored) {
+    if (!scored) {
         for (int i = idx; i < buf_size; i++) {
             move_t move = buf[i];
 
-            if(!move.info.is_capture) {
+            if (!move.info.is_capture) {
                 if (search.killer_heur.primary(ply) == move) {
                     buf_scores[i] = 20003;
                 } else if (search.killer_heur.primary(ply) == move) {
                     buf_scores[i] = 20002;
-                } else if(ply >= 2 && (search.killer_heur.primary(ply - 2) == move)) {
+                } else if (ply >= 2 && (search.killer_heur.primary(ply - 2) == move)) {
                     buf_scores[i] = 20001;
                 } else {
                     buf_scores[i] = search.history_heur.get(move);
                 }
             } else {
-                buf_scores[i] = CAPT_BASE;
-                buf_scores[i] += (board.see(move)
-                                  + record.next_move ? rank_index(move.info.to) + 1 : 8 - rank_index(move.info.to));
+                int see_score = board.see(move);
+
+                if(see_score >= 0) {
+                    buf_scores[i] = CAPT_BASE;
+                    buf_scores[i] += (see_score
+                                      + (record.next_move ? rank_index(move.info.to) + 1 : 8 - rank_index(move.info.to)));
+                } else {
+                    buf_scores[i] = see_score - CAPT_BASE;
+                }
             }
         }
 
@@ -224,22 +226,20 @@ move_t movegen_t::next(GenStage &stage, search_t &search, move_t hash_move, int 
 
     // Pick moves
     int best_idx = idx;
-    for(int i = idx; i < buf_size; i++) {
-        if(buf_scores[i] > buf_scores[best_idx]) {
-            best_idx = idx;
+    for (int i = idx; i < buf_size; i++) {
+        if (buf_scores[i] > buf_scores[best_idx]) {
+            best_idx = i;
         }
     }
 
     buf_swap(best_idx, idx);
-    int move_score = buf_scores[idx];
+    move_score = buf_scores[idx];
     move_t move = next();
-    if(move.info.is_capture && move_score >= CAPT_BASE) {
+    if (move.info.is_capture && move_score >= CAPT_BASE) {
         stage = GEN_GOOD_CAPT;
-    } else if(move == search.killer_heur.primary(ply)
-              || move == search.killer_heur.secondary(ply)
-              || (ply >= 2 && (search.killer_heur.primary(ply - 2) == move))) {
+    } else if (move_score > 20000) {
         stage = GEN_KILLERS;
-    } else if(!move.info.is_capture) {
+    } else if (!move.info.is_capture) {
         stage = GEN_QUIETS;
     } else {
         stage = GEN_BAD_CAPT;
@@ -292,7 +292,7 @@ void movegen_t::gen_piece_quiets(move_t move, U64 mask) {
 }
 
 template<Piece TYPE>
-void movegen_t::gen_piece_capts(move_t move) {
+void movegen_t::gen_piece_caps(move_t move) {
     move.info.piece = TYPE;
     U64 bb_piece = board.bb_pieces[team][TYPE];
 

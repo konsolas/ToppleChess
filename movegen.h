@@ -9,6 +9,8 @@
 #include "board.h"
 #include "search.h"
 
+#define CAPT_BASE 100000
+
 class board_t;
 
 enum GenStage {
@@ -59,7 +61,7 @@ public:
      * @param ply current depth
      * @return next move
      */
-    move_t next(GenStage &stage, search_t &search, move_t hash_move, int ply);
+    move_t next(GenStage &stage, int &score, search_t &search, move_t hash_move, int ply);
 
     /**
      * Generate next move without sorting
@@ -88,9 +90,9 @@ private:
 
     int buf_size = 0;
     int idx = 0;
-    move_t buf[256];
+    move_t buf[256] = {0};
     bool scored = false;
-    int buf_scores[256];
+    int buf_scores[256] = {0};
 
     Team team;
     Team x_team;
@@ -100,7 +102,7 @@ private:
     void gen_ep();
 
     template <Piece TYPE> void gen_piece_quiets(move_t move, U64 mask);
-    template <Piece TYPE> void gen_piece_capts(move_t move);
+    template <Piece TYPE> void gen_piece_caps(move_t move);
 };
 
 

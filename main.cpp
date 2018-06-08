@@ -31,6 +31,9 @@ int main(int argc, char *argv[]) {
     std::atomic_bool search_abort;
     std::future<void> future;
 
+    // Startup
+    std::cout << "Topple v" << TOPPLE_VER << " (c) Vincent Tang 2018" << std::endl;
+
     while (true) {
         std::string input;
         std::getline(std::cin, input);
@@ -42,7 +45,7 @@ int main(int argc, char *argv[]) {
             iss >> cmd;
 
             if (cmd == "uci") {
-                std::cout << "id name Topple" << std::endl;
+                std::cout << "id name Topple v" << TOPPLE_VER << std::endl;
                 std::cout << "id author Vincent Tang" << std::endl;
                 std::cout << "uciok" << std::endl;
             } else if (cmd == "isready") {
@@ -68,9 +71,18 @@ int main(int argc, char *argv[]) {
                     } else if (type == "moves") {
                         if(board != nullptr) {
                             // Read moves
-                            std::string move;
-                            while (iss >> move) {
-                                board->move(board->parse_move(move));
+                            std::string move_str;
+                            while (iss >> move_str) {
+                                move_t move = board->parse_move(move_str);
+                                if(board->is_pseudo_legal(move)) {
+                                    board->move(move);
+                                    if(board->is_illegal()) {
+                                        std::cout << "illegal move: " << move << std::endl;
+                                        board->unmove();
+                                    }
+                                } else {
+                                    std::cout << "invalid move: " << move << std::endl;
+                                }
                             }
                         } else {
                             std::cout << "board=nullptr" << std::endl;

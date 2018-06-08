@@ -77,6 +77,8 @@ U64 perft(board_t &board, int depth) {
     while (gen.has_next()) {
         move_t next = gen.next();
 
+        REQUIRE(board.is_pseudo_legal(next));
+
         board.move(next);
 
         if (!board.is_illegal()) {
