@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.8)
 project(Topple)
 
 set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_FLAGS "-march=ivybridge -O3 -g -static -std=c++17 -pedantic -Wall")
+set(CMAKE_CXX_FLAGS "-march=ivybridge -O3 -s -static -std=c++17 -pedantic -Wall")
 
 set(SOURCE_FILES board.cpp board.h endgame.h endgame.cpp bb.h bb.cpp types.h hash.h hash.cpp movegen.cpp movegen.h move.h eval.cpp eval.h search.cpp search.h)
 add_executable(Topple ${SOURCE_FILES} main.cpp)
