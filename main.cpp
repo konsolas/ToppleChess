@@ -7,8 +7,9 @@
 #include "movegen.h"
 #include "search.h"
 #include "eval.h"
+#include "endgame.h"
 
-#define TOPPLE_VER "0.0.2"
+#define TOPPLE_VER "0.0.3"
 
 const unsigned int MB = 1048576;
 
@@ -19,6 +20,7 @@ int main(int argc, char *argv[]) {
     init_tables();
     zobrist::init_hashes();
     eval_init();
+    eg_init();
 
     // Setup input
     std::ios_base::sync_with_stdio(false);
@@ -63,25 +65,26 @@ int main(int argc, char *argv[]) {
                 std::cout << "option name Clear Hash type button" << std::endl;
 
                 std::cout << "uciok" << std::endl;
-            } else if(cmd == "setoption") {
+            } else if (cmd == "setoption") {
                 std::string name;
 
                 // Read "name <name>", or just "<name>"
-                iss >> name; if(name == "name") iss >> name;
+                iss >> name;
+                if (name == "name") iss >> name;
 
-                if(name == "Hash") {
-                    std::string value; iss >> value; if(value == "value");
+                if (name == "Hash") {
+                    std::string value; iss >> value; // Skip value
                     iss >> hash_size;
 
                     // Resize hash
                     delete tt;
                     tt = new tt::hash_t(hash_size * MB);
-                } else if(name == "Threads") {
-                    std::string value; iss >> value; if(value == "value");
+                } else if (name == "Threads") {
+                    std::string value; iss >> value; // Skip value
                     iss >> threads;
-                } else if(name == "Clear") {
+                } else if (name == "Clear") {
                     iss >> name;
-                    if(name == "Hash") {
+                    if (name == "Hash") {
                         // Recreate hash
                         delete tt;
                         tt = new tt::hash_t(hash_size * MB);
@@ -198,26 +201,26 @@ int main(int argc, char *argv[]) {
                     delete search;
                     search_abort = false;
 
-                    if (time_control.enabled) {
-                        search = new search_t(*board, tt, threads, search_limits_t(board->now,
-                                                                             time_control.time,
-                                                                             time_control.inc,
-                                                                             time_control.moves));
-                    } else {
-                        search = new search_t(*board, tt, threads, search_limits_t(max_time,
-                                                                             max_depth,
-                                                                             max_nodes,
-                                                                             root_moves));
-                    }
+                    search_limits_t limits = time_control.enabled ?
+                                             search_limits_t(board->now,
+                                                             time_control.time,
+                                                             time_control.inc,
+                                                             time_control.moves)
+                                                                  :
+                                             search_limits_t(max_time,
+                                                             max_depth,
+                                                             max_nodes,
+                                                             root_moves);
+                    search = new search_t(*board, tt, threads, limits);
 
                     // Start search
                     future = std::async(std::launch::async,
-                                        [search, &search_abort, max_time, max_depth] {
+                                        [search, &search_abort, limits] {
                                             std::future<move_t> bm = std::async(std::launch::async, &search_t::think,
                                                                                 search, std::ref(search_abort));
 
                                             move_t best_move{};
-                                            if (bm.wait_for(std::chrono::milliseconds(max_time)) ==
+                                            if (bm.wait_for(std::chrono::milliseconds(limits.time_limit)) ==
                                                 std::future_status::ready) {
                                                 best_move = bm.get();
                                             } else {
@@ -228,6 +231,12 @@ int main(int argc, char *argv[]) {
                                             std::cout << "bestmove " << best_move << std::endl;
                                         }
                     );
+                } else {
+                    std::cout << "board=nullptr" << std::endl;
+                }
+            } else if (cmd == "eval") {
+                if (board != nullptr) {
+                    std::cout << eval(*board) << std::endl;
                 } else {
                     std::cout << "board=nullptr" << std::endl;
                 }

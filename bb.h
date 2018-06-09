@@ -53,6 +53,24 @@ U64 single_bit(uint8_t square);
 U64 bits_between(uint8_t a, uint8_t b);
 
 /**
+ * Determine whether squares a and b are the same colour
+ *
+ * @param a square a
+ * @param b square b
+ * @return true if the squares are of the same colour
+ */
+bool same_colour(uint8_t a, uint8_t b);
+
+/**
+ * Find the distance (in king moves) between two squares
+ *
+ * @param a first square
+ * @param b second square
+ * @return
+ */
+int distance(uint8_t a, uint8_t b);
+
+/**
  * Convert a file and a rank to a square index in the board
  *
  * @param file file

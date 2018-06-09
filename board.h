@@ -15,7 +15,7 @@
 
 // Piece values: pnbrqk
 // Used for SEE
-const int VAL[] = {100, 300, 300, 500, 900, INF};
+constexpr int VAL[] = {100, 300, 300, 500, 900, INF};
 
 /**
  * Represents a state in the game. It contains the move used to reach the state, and necessary variables within the state.

@@ -22,19 +22,19 @@ move_t search_t::think(const std::atomic_bool &aborted) {
         // Helper threads
         std::vector<std::future<int>> helper_threads(threads - 1);
         std::vector<board_t> helper_boards(threads - 1);
-        for (int i = 0; i < threads - 1; i++) {
+        for (unsigned int i = 0; i < threads - 1; i++) {
             helper_boards[i] = board;
         }
         std::atomic_bool helper_thread_aborted;
 
-        int prev_score;
+        int prev_score = 0;
         for (int depth = 1; keep_searching(depth); depth++) {
             sel_depth = 0;
             helper_thread_aborted = false;
 
             // Start helper threads (lazy SMP)
             if(depth > 5) {
-                for (int i = 0; i < threads - 1; i++) {
+                for (unsigned int i = 0; i < threads - 1; i++) {
                     helper_threads[i] = std::async(std::launch::async,
                                                    &search_t::search_ab<true>, this,
                                                    std::ref(helper_boards[i]), -INF, INF, 0, depth, true,
@@ -43,11 +43,9 @@ move_t search_t::think(const std::atomic_bool &aborted) {
             }
 
             prev_score = search_aspiration(prev_score, depth, aborted);
+            helper_thread_aborted = true;
 
-            if (!is_aborted(aborted)) {
-                // Abort helper threads
-                helper_thread_aborted = true;
-            } else {
+            if (is_aborted(aborted)) {
                 break;
             }
         }
@@ -218,7 +216,9 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
     move_t best_move{};
 
     // Game state
-    if (board.record[board.now].halfmove_clock >= 100 || board.is_repetition_draw(ply, 2)) return 0;
+    if (board.record[board.now].halfmove_clock >= 100
+        || board.is_repetition_draw(ply, 2)
+           || board.is_repetition_draw(100, 3)) return 0;
 
     // Mate distance pruning
     if (ply) {
@@ -385,7 +385,7 @@ void search_t::save_pv() {
 }
 
 bool search_t::has_pv() {
-    return last_pv[0] != EMPTY_MOVE;
+    return last_pv[0] != EMPTY_MOVE && last_pv_len > 1;
 }
 
 bool search_t::keep_searching(int depth) {

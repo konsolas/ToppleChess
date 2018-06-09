@@ -83,7 +83,7 @@ void tt::hash_t::save(Bound bound, U64 hash, int depth, int ply, int eval, move_
 
 int tt::hash_t::hash_full() {
     int cnt = 0;
-    for (int i = 0; i < num_entries; i++) {
+    for (size_t i = 0; i < num_entries; i++) {
         if(table[i].hash) {
             cnt++;
         }

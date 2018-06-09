@@ -423,7 +423,8 @@ namespace bb_normal_moves {
     inline void update_array(U64 *arr, const uint8_t &file, const uint8_t &rank,
                              int file_offset, int rank_offset) {
         if (valid_square(file + file_offset, rank + rank_offset)) {
-            arr[bb_util::sq_index[file][rank]] |= bb_util::single_bit[bb_util::sq_index[file + file_offset][rank + rank_offset]];
+            arr[bb_util::sq_index[file][rank]] |= bb_util::single_bit[bb_util::sq_index[file + file_offset][rank +
+                                                                                                            rank_offset]];
         }
     }
 
@@ -524,7 +525,8 @@ void init_tables() {
     bb_normal_moves::init_normal_moves();
 }
 
-template <> U64 find_moves<PAWN>(Team side, uint8_t square, U64 occupied) {
+template<>
+U64 find_moves<PAWN>(Team side, uint8_t square, U64 occupied) {
     U64 result = 0;
     result |= occupied & bb_normal_moves::pawn_caps[side][square];
     if (!(occupied & bb_normal_moves::pawn_moves_x1[side][square])) {
@@ -536,23 +538,28 @@ template <> U64 find_moves<PAWN>(Team side, uint8_t square, U64 occupied) {
     return result;
 }
 
-template <> U64 find_moves<KNIGHT>(Team side, uint8_t square, U64 occupied) {
+template<>
+U64 find_moves<KNIGHT>(Team side, uint8_t square, U64 occupied) {
     return bb_normal_moves::knight_moves[square];
 }
 
-template <> U64 find_moves<BISHOP>(Team side, uint8_t square, U64 occupied) {
+template<>
+U64 find_moves<BISHOP>(Team side, uint8_t square, U64 occupied) {
     return bb_magics::bishop_moves(square, occupied);
 }
 
-template <> U64 find_moves<ROOK>(Team side, uint8_t square, U64 occupied) {
+template<>
+U64 find_moves<ROOK>(Team side, uint8_t square, U64 occupied) {
     return bb_magics::rook_moves(square, occupied);
 }
 
-template <> U64 find_moves<QUEEN>(Team side, uint8_t square, U64 occupied) {
+template<>
+U64 find_moves<QUEEN>(Team side, uint8_t square, U64 occupied) {
     return bb_magics::bishop_moves(square, occupied) | bb_magics::rook_moves(square, occupied);
 }
 
-template <> U64 find_moves<KING>(Team side, uint8_t square, U64 occupied) {
+template<>
+U64 find_moves<KING>(Team side, uint8_t square, U64 occupied) {
     return bb_normal_moves::king_moves[square];
 }
 
@@ -562,6 +569,14 @@ U64 single_bit(uint8_t square) {
 
 U64 bits_between(uint8_t a, uint8_t b) {
     return bb_util::between[a][b];
+}
+
+bool same_colour(uint8_t a, uint8_t b) {
+    return ((uint8_t) (9 * (a ^ b)) & uint8_t(8)) == 0;
+}
+
+int distance(uint8_t a, uint8_t b) {
+    return std::max(std::abs(rank_index(a) - rank_index(b)), std::abs(file_index(a) - file_index(b)));
 }
 
 uint8_t square_index(uint8_t file, uint8_t rank) {
@@ -589,7 +604,6 @@ uint8_t bit_scan(U64 bb) {
     return bb_intrin::lsb(bb);
 }
 
-
 int pop_count(U64 bb) {
     return bb_intrin::pop_count(bb);
 }
@@ -604,70 +618,134 @@ uint8_t to_sq(char file, char rank) {
 
 std::string from_sq(uint8_t sq) {
     switch (Square(sq)) {
-        case A1: return std::string("a1");
-        case B1: return std::string("b1");
-        case C1: return std::string("c1");
-        case D1: return std::string("d1");
-        case E1: return std::string("e1");
-        case F1: return std::string("f1");
-        case G1: return std::string("g1");
-        case H1: return std::string("h1");
-        case A2: return std::string("a2");
-        case B2: return std::string("b2");
-        case C2: return std::string("c2");
-        case D2: return std::string("d2");
-        case E2: return std::string("e2");
-        case F2: return std::string("f2");
-        case G2: return std::string("g2");
-        case H2: return std::string("h2");
-        case A3: return std::string("a3");
-        case B3: return std::string("b3");
-        case C3: return std::string("c3");
-        case D3: return std::string("d3");
-        case E3: return std::string("e3");
-        case F3: return std::string("f3");
-        case G3: return std::string("g3");
-        case H3: return std::string("h3");
-        case A4: return std::string("a4");
-        case B4: return std::string("b4");
-        case C4: return std::string("c4");
-        case D4: return std::string("d4");
-        case E4: return std::string("e4");
-        case F4: return std::string("f4");
-        case G4: return std::string("g4");
-        case H4: return std::string("h4");
-        case A5: return std::string("a5");
-        case B5: return std::string("b5");
-        case C5: return std::string("c5");
-        case D5: return std::string("d5");
-        case E5: return std::string("e5");
-        case F5: return std::string("f5");
-        case G5: return std::string("g5");
-        case H5: return std::string("h5");
-        case A6: return std::string("a6");
-        case B6: return std::string("b6");
-        case C6: return std::string("c6");
-        case D6: return std::string("d6");
-        case E6: return std::string("e6");
-        case F6: return std::string("f6");
-        case G6: return std::string("g6");
-        case H6: return std::string("h6");
-        case A7: return std::string("a7");
-        case B7: return std::string("b7");
-        case C7: return std::string("c7");
-        case D7: return std::string("d7");
-        case E7: return std::string("e7");
-        case F7: return std::string("f7");
-        case G7: return std::string("g7");
-        case H7: return std::string("h7");
-        case A8: return std::string("a8");
-        case B8: return std::string("b8");
-        case C8: return std::string("c8");
-        case D8: return std::string("d8");
-        case E8: return std::string("e8");
-        case F8: return std::string("f8");
-        case G8: return std::string("g8");
-        case H8: return std::string("h8");
+        case A1:
+            return std::string("a1");
+        case B1:
+            return std::string("b1");
+        case C1:
+            return std::string("c1");
+        case D1:
+            return std::string("d1");
+        case E1:
+            return std::string("e1");
+        case F1:
+            return std::string("f1");
+        case G1:
+            return std::string("g1");
+        case H1:
+            return std::string("h1");
+        case A2:
+            return std::string("a2");
+        case B2:
+            return std::string("b2");
+        case C2:
+            return std::string("c2");
+        case D2:
+            return std::string("d2");
+        case E2:
+            return std::string("e2");
+        case F2:
+            return std::string("f2");
+        case G2:
+            return std::string("g2");
+        case H2:
+            return std::string("h2");
+        case A3:
+            return std::string("a3");
+        case B3:
+            return std::string("b3");
+        case C3:
+            return std::string("c3");
+        case D3:
+            return std::string("d3");
+        case E3:
+            return std::string("e3");
+        case F3:
+            return std::string("f3");
+        case G3:
+            return std::string("g3");
+        case H3:
+            return std::string("h3");
+        case A4:
+            return std::string("a4");
+        case B4:
+            return std::string("b4");
+        case C4:
+            return std::string("c4");
+        case D4:
+            return std::string("d4");
+        case E4:
+            return std::string("e4");
+        case F4:
+            return std::string("f4");
+        case G4:
+            return std::string("g4");
+        case H4:
+            return std::string("h4");
+        case A5:
+            return std::string("a5");
+        case B5:
+            return std::string("b5");
+        case C5:
+            return std::string("c5");
+        case D5:
+            return std::string("d5");
+        case E5:
+            return std::string("e5");
+        case F5:
+            return std::string("f5");
+        case G5:
+            return std::string("g5");
+        case H5:
+            return std::string("h5");
+        case A6:
+            return std::string("a6");
+        case B6:
+            return std::string("b6");
+        case C6:
+            return std::string("c6");
+        case D6:
+            return std::string("d6");
+        case E6:
+            return std::string("e6");
+        case F6:
+            return std::string("f6");
+        case G6:
+            return std::string("g6");
+        case H6:
+            return std::string("h6");
+        case A7:
+            return std::string("a7");
+        case B7:
+            return std::string("b7");
+        case C7:
+            return std::string("c7");
+        case D7:
+            return std::string("d7");
+        case E7:
+            return std::string("e7");
+        case F7:
+            return std::string("f7");
+        case G7:
+            return std::string("g7");
+        case H7:
+            return std::string("h7");
+        case A8:
+            return std::string("a8");
+        case B8:
+            return std::string("b8");
+        case C8:
+            return std::string("c8");
+        case D8:
+            return std::string("d8");
+        case E8:
+            return std::string("e8");
+        case F8:
+            return std::string("f8");
+        case G8:
+            return std::string("g8");
+        case H8:
+            return std::string("h8");
     }
 
     return std::string(); // Can't happen

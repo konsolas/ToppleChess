@@ -93,10 +93,7 @@ namespace search_heur {
     };
 }
 
-class search_limits_t {
-    friend class search_t;
-
-public:
+struct search_limits_t {
     // Game situation
     explicit search_limits_t(int now, int time, int inc, int moves_to_go) {
         // Set other limits
@@ -106,17 +103,17 @@ public:
         // Handle time control
         {
             // Try and use a consistent amount of time per move
-            time_limit = time /
-                         (moves_to_go > 0 ? moves_to_go : std::max(50 - now, 20));
+            time_limit = (time /
+                         (moves_to_go > 0 ? moves_to_go : std::max(60 - now, 40)));
 
             // Handle increment: Look to gain some time if there isn't much left
-            time_limit += inc - (inc / 4);
+            time_limit += inc / 2;
+
+            // Add a 25ms buffer to prevent losses from timeout.
+            time_limit = std::min(time_limit, time - 25);
 
             // Ensure time is valid (if a time of zero is given, search will be depth 1)
             time_limit = std::max(time_limit, 0);
-
-            // Add a 10ms buffer to prevent losses from timeout.
-            time_limit = std::min(time_limit, time - 10);
         }
     }
 
@@ -124,7 +121,6 @@ public:
     explicit search_limits_t(int move_time, int depth, U64 max_nodes, std::vector<move_t> root_moves) :
             time_limit(move_time), depth_limit(depth), node_limit(max_nodes), root_moves(std::move(root_moves)) {}
 
-private:
     int time_limit;
     int depth_limit;
     U64 node_limit;
@@ -156,14 +152,14 @@ private:
 
     void print_stats(int score, int depth, tt::Bound bound);
 
-    // Limits
-    unsigned int threads;
-    search_limits_t limits;
-
     // Data
     board_t board;
     tt::hash_t *tt;
     std::chrono::steady_clock::time_point start;
+
+    // Limits
+    unsigned int threads;
+    search_limits_t limits;
 
     // PV
     int pv_table_len[MAX_PLY] = {0};
