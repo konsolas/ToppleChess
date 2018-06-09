@@ -2,6 +2,7 @@
 // Created by Vincent on 30/09/2017.
 //
 
+#include <utility>
 #include <vector>
 
 #include "search.h"
@@ -11,85 +12,41 @@
 
 const int TIMEOUT = -INF * 2;
 
-void print_score(int score) {
-    if(score > MINCHECKMATE) {
-        std::cout << " score mate " << ((TO_MATE_PLY(score) + 1) / 2);
-    } else if (score < -MINCHECKMATE) {
-        std::cout << " score mate -" << ((TO_MATE_PLY(-score) + 1) / 2);
-    } else {
-        std::cout << " score cp " << score;
-    }
-}
+search_t::search_t(board_t board, tt::hash_t *tt, unsigned int threads, search_limits_t limits)
+        : board(board), tt(tt), threads(threads), limits(std::move(limits)) {}
 
-move_t search_t::think(unsigned int n_threads, int max_depth, const std::atomic_bool &aborted) {
-    const int ASPIRATION_SIZE[] = {90, INF};
-
+move_t search_t::think(const std::atomic_bool &aborted) {
     nodes = 0;
-    int alpha = -INF, beta = INF;
-    auto start = engine_clock::now();
-    if (n_threads > 0) {
+    start = engine_clock::now();
+    if (threads > 0) {
         // Helper threads
-        std::vector<std::future<int>> helper_threads(n_threads - 1);
-        std::vector<board_t> helper_boards(n_threads - 1);
-        for (int i = 0; i < n_threads - 1; i++) {
+        std::vector<std::future<int>> helper_threads(threads - 1);
+        std::vector<board_t> helper_boards(threads - 1);
+        for (int i = 0; i < threads - 1; i++) {
             helper_boards[i] = board;
         }
         std::atomic_bool helper_thread_aborted;
 
         int prev_score;
-        for (int depth = 1; depth <= max_depth; depth++) {
+        for (int depth = 1; keep_searching(depth); depth++) {
             sel_depth = 0;
             helper_thread_aborted = false;
 
             // Start helper threads (lazy SMP)
-            for (int i = 0; i < n_threads - 1; i++) {
-                helper_threads[i] = std::async(std::launch::async,
-                                               &search_t::searchAB<true>, this,
-                                               std::ref(helper_boards[i]), -INF, INF, 0, depth, true,
-                                               std::ref(helper_thread_aborted));
+            if(depth > 5) {
+                for (int i = 0; i < threads - 1; i++) {
+                    helper_threads[i] = std::async(std::launch::async,
+                                                   &search_t::search_ab<true>, this,
+                                                   std::ref(helper_boards[i]), -INF, INF, 0, depth, true,
+                                                   std::ref(helper_thread_aborted));
+                }
             }
 
-            int researches = 0;
-            int score = searchAB<false>(board, alpha, beta, 0, depth, true, aborted);
-
-            // Check if we need to search again
-            while (score >= beta || score <= alpha) {
-                researches++;
-                if(score >= beta) beta = prev_score + ASPIRATION_SIZE[researches];
-                else if(score <= alpha) alpha = prev_score - ASPIRATION_SIZE[researches];
-
-                std::cout << "info string aspiration window research" << std::endl;
-                score = searchAB<false>(board, alpha, beta, 0, depth, true, aborted);
-            }
-
-            // Update aspiration windows
-            prev_score = score;
-            alpha = prev_score - ASPIRATION_SIZE[0];
-            beta = prev_score + ASPIRATION_SIZE[0];
-
-            // Abort helper threads
-            helper_thread_aborted = true;
+            prev_score = search_aspiration(prev_score, depth, aborted);
 
             if (!is_aborted(aborted)) {
-                save_pv();
-
-                auto current = engine_clock::now();
-                auto time = CHRONO_DIFF(start, current);
-                std::cout << "info depth " << depth << " seldepth " << sel_depth;
-                print_score(score);
-                std::cout << " time " << time
-                          << " nodes " << nodes
-                          << " nps " << (nodes / (time + 1)) * 1000;
-                if (time > 2000) {
-                    std::cout << " hashfull " << tt->hash_full()
-                              << " beta " << ((double) fhf / fh);
-                }
-                std::cout << " pv ";
-                for (int i = 0; i < last_pv_len; i++) {
-                    std::cout << from_sq(last_pv[i].info.from) << from_sq(last_pv[i].info.to) << " ";
-                }
-
-                std::cout << std::endl;
+                // Abort helper threads
+                helper_thread_aborted = true;
             } else {
                 break;
             }
@@ -99,11 +56,150 @@ move_t search_t::think(unsigned int n_threads, int max_depth, const std::atomic_
     return last_pv[0];
 }
 
-search_t::search_t(board_t board, tt::hash_t *tt) : board(board), tt(tt) {}
+int search_t::search_aspiration(int prev_score, int depth, const std::atomic_bool &aborted) {
+    const int ASPIRATION_SIZE[] = {25, 100, INF};
+
+    int alpha;
+    int beta;
+
+    if(depth > 4) {
+        alpha = prev_score - ASPIRATION_SIZE[0];
+        beta = prev_score + ASPIRATION_SIZE[0];
+    } else {
+        alpha = -INF, beta = INF;
+    }
+
+    int researches = 0;
+    int score = search_root(board, alpha, beta, depth, aborted);
+
+    if(score == TIMEOUT) return score;
+
+    // Check if we need to search again
+    while (score >= beta || score <= alpha) {
+        researches++;
+        if (score >= beta) {
+            print_stats(score, depth, tt::LOWER);
+            beta = prev_score + ASPIRATION_SIZE[researches];
+        } else if (score <= alpha) {
+            print_stats(score, depth, tt::UPPER);
+            alpha = prev_score - ASPIRATION_SIZE[researches];
+        }
+
+        score = search_root(board, alpha, beta, depth, aborted);
+        if(score == TIMEOUT) return score;
+    }
+
+    save_pv();
+    print_stats(score, depth, tt::EXACT);
+
+    return score;
+}
+
+int search_t::search_root(board_t &board, int alpha, int beta, int depth, const std::atomic_bool &aborted) {
+    nodes++;
+    pv_table_len[0] = 0;
+
+    // Check extension
+    bool in_check = board.is_incheck();
+    if (in_check) depth++;
+
+    // Search variables
+    int score;
+    const int old_alpha = alpha;
+    move_t best_move{};
+
+    // Probe transposition table
+    tt::entry_t h = {0}; tt->probe(board.record[board.now].hash, h);
+
+    GenStage stage = GEN_NONE;
+    int move_score;
+    movegen_t gen(board);
+    gen.gen_normal();
+    int n_legal = 0;
+    while (gen.has_next()) {
+        move_t move = gen.next(stage, move_score, *this, h.move, 0);
+
+        if(!is_root_move(move)) {
+            continue;
+        }
+
+        board.move(move);
+        if (board.is_illegal()) {
+            board.unmove();
+            continue;
+        } else {
+            n_legal++; // Legal move
+
+            // Display current move information
+            if(CHRONO_DIFF(start, engine_clock::now()) > 1200) {
+                std::cout << "info currmove " << move << " currmovenumber " << n_legal << std::endl;
+            }
+
+            if (n_legal == 1) {
+                score = -search_ab<false>(board, -beta, -alpha, 1, depth - 1, true, aborted);
+            } else {
+                score = -search_ab<false>(board, -alpha - 1, -alpha, 1, depth - 1, true, aborted);
+                if (alpha < score && score < beta) {
+                    // Research if the zero window search failed.
+                    score = -search_ab<false>(board, -beta, -alpha, 1, depth - 1, true, aborted);
+                }
+            }
+            board.unmove();
+
+            if (is_aborted(aborted)) return TIMEOUT;
+
+            if (score > alpha) {
+                alpha = score;
+                best_move = move;
+
+                pv_table[0][0] = move;
+                for (int i = 1; i < pv_table_len[1]; i++) {
+                    pv_table[0][i] = pv_table[1][i];
+                }
+                pv_table_len[0] = pv_table_len[1];
+
+                if (score >= beta) {
+                    if (n_legal == 1) {
+                        fhf++;
+                    }
+                    fh++;
+
+                    tt->save(tt::LOWER, board.record[board.now].hash, depth, 0, score, best_move);
+
+                    if (!move.info.is_capture) {
+                        int len;
+                        move_t *moves = gen.get_searched(len);
+                        history_heur.update(move, moves, len, depth);
+                        killer_heur.update(move, 0);
+                    }
+
+                    return beta; // Fail hard
+                }
+            }
+        }
+    }
+
+    if (n_legal == 0) {
+        if (in_check) {
+            return -TO_MATE_SCORE(0);
+        } else {
+            return 0;
+        }
+    }
+
+    if (alpha > old_alpha) {
+        tt->save(tt::EXACT, board.record[board.now].hash, depth, 0, alpha, best_move);
+        if (!best_move.info.is_capture) history_heur.update(best_move, nullptr, 0, depth);
+    } else {
+        tt->save(tt::UPPER, board.record[board.now].hash, depth, 0, alpha, best_move);
+    }
+
+    return alpha;
+}
 
 template<bool H>
-int search_t::searchAB(board_t &board, int alpha, int beta, int ply, int depth, bool can_null,
-                       const std::atomic_bool &aborted) {
+int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth, bool can_null,
+                        const std::atomic_bool &aborted) {
     nodes++;
     if (!H) pv_table_len[ply] = ply;
 
@@ -114,10 +210,12 @@ int search_t::searchAB(board_t &board, int alpha, int beta, int ply, int depth, 
     }
 
     // Quiescence search
-    if (depth < 1) return searchQS<H>(board, alpha, beta, ply + 1, aborted);
+    if (depth < 1) return search_qs<H>(board, alpha, beta, ply + 1, aborted);
 
     // Search variables
-    int score; const int old_alpha = alpha; move_t best_move{};
+    int score;
+    const int old_alpha = alpha;
+    move_t best_move{};
 
     // Game state
     if (board.record[board.now].halfmove_clock >= 100 || board.is_repetition_draw(ply, 2)) return 0;
@@ -145,19 +243,12 @@ int search_t::searchAB(board_t &board, int alpha, int beta, int ply, int depth, 
     }
 
     GenStage stage = GEN_NONE;
-    GenStage prev_stage = GEN_NONE;
     int move_score;
     movegen_t gen(board);
     gen.gen_normal();
     int n_legal = 0;
     while (gen.has_next()) {
         move_t move = gen.next(stage, move_score, *this, h.move, ply);
-
-        if(stage < prev_stage) {
-            std::cout << "stage mismatch! " << prev_stage << " -> " << stage << std::endl;
-        } else {
-            prev_stage = stage;
-        }
 
         board.move(move);
         if (board.is_illegal()) {
@@ -167,12 +258,12 @@ int search_t::searchAB(board_t &board, int alpha, int beta, int ply, int depth, 
             n_legal++; // Legal move
 
             if (PV && n_legal == 1) {
-                score = -searchAB<H>(board, -beta, -alpha, ply + 1, depth - 1, can_null, aborted);
+                score = -search_ab<H>(board, -beta, -alpha, ply + 1, depth - 1, can_null, aborted);
             } else {
-                score = -searchAB<H>(board, -alpha - 1, -alpha, ply + 1, depth - 1, can_null, aborted);
+                score = -search_ab<H>(board, -alpha - 1, -alpha, ply + 1, depth - 1, can_null, aborted);
                 if (alpha < score && score < beta) {
                     // Research if the zero window search failed.
-                    score = -searchAB<H>(board, -beta, -alpha, ply + 1, depth - 1, can_null, aborted);
+                    score = -search_ab<H>(board, -beta, -alpha, ply + 1, depth - 1, can_null, aborted);
                 }
             }
             board.unmove();
@@ -231,7 +322,7 @@ int search_t::searchAB(board_t &board, int alpha, int beta, int ply, int depth, 
 }
 
 template<bool H>
-int search_t::searchQS(board_t &board, int alpha, int beta, int ply, const std::atomic_bool &aborted) {
+int search_t::search_qs(board_t &board, int alpha, int beta, int ply, const std::atomic_bool &aborted) {
     nodes++;
 
     if (!H) pv_table_len[ply] = ply;
@@ -261,7 +352,7 @@ int search_t::searchQS(board_t &board, int alpha, int beta, int ply, const std::
             board.unmove();
             continue;
         } else {
-            int score = -searchQS<H>(board, -beta, -alpha, ply + 1, aborted);
+            int score = -search_qs<H>(board, -beta, -alpha, ply + 1, aborted);
             board.unmove();
 
             if (is_aborted(aborted)) return TIMEOUT;
@@ -297,6 +388,51 @@ bool search_t::has_pv() {
     return last_pv[0] != EMPTY_MOVE;
 }
 
+bool search_t::keep_searching(int depth) {
+    return nodes <= limits.node_limit
+           && depth <= limits.depth_limit
+           && CHRONO_DIFF(start, engine_clock::now()) <= limits.time_limit * 0.9;
+}
+
 bool search_t::is_aborted(const std::atomic_bool &aborted) {
     return aborted && has_pv();
+}
+
+bool search_t::is_root_move(move_t move) {
+    return limits.root_moves.empty() ||
+           (std::find(limits.root_moves.begin(), limits.root_moves.end(), move) != limits.root_moves.end());
+}
+
+void search_t::print_stats(int score, int depth, tt::Bound bound) {
+    auto current = engine_clock::now();
+    auto time = CHRONO_DIFF(start, current);
+    std::cout << "info depth " << depth << " seldepth " << sel_depth;
+
+    if (score > MINCHECKMATE) {
+        std::cout << " score mate " << ((TO_MATE_PLY(score) + 1) / 2);
+    } else if (score < -MINCHECKMATE) {
+        std::cout << " score mate -" << ((TO_MATE_PLY(-score) + 1) / 2);
+    } else {
+        std::cout << " score cp " << score;
+    }
+
+    if (bound == tt::UPPER) {
+        std::cout << " upperbound";
+    } else if (bound == tt::LOWER) {
+        std::cout << " lowerbound";
+    }
+
+    std::cout << " time " << time
+              << " nodes " << nodes
+              << " nps " << (nodes / (time + 1)) * 1000;
+    if (time > 2000) {
+        std::cout << " hashfull " << tt->hash_full()
+                  << " beta " << ((double) fhf / fh);
+    }
+    std::cout << " pv ";
+    for (int i = 0; i < last_pv_len; i++) {
+        std::cout << from_sq(last_pv[i].info.from) << from_sq(last_pv[i].info.to) << " ";
+    }
+
+    std::cout << std::endl;
 }

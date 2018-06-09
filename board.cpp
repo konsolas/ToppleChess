@@ -273,12 +273,21 @@ board_t::board_t(std::string fen) {
 //  - if promotion is actually possible
 //  - if the piece can actually make the move
 //  - if the piece actually exists
+// If the move cannot be parsed, 0000 is returned
 move_t board_t::parse_move(const std::string &str) {
     move_t move = {0};
 
+    if(str.length() != 4 && str.length() != 5) {
+        return EMPTY_MOVE;
+    }
+
     // Location
-    move.info.from = to_sq(str[0], str[1]);
-    move.info.to = to_sq(str[2], str[3]);
+    try {
+        move.info.from = to_sq(str[0], str[1]);
+        move.info.to = to_sq(str[2], str[3]);
+    } catch (std::runtime_error &e) {
+        return EMPTY_MOVE;
+    }
 
     // Piece
     move.info.team = sq_data[move.info.from].team;
@@ -305,7 +314,7 @@ move_t board_t::parse_move(const std::string &str) {
                 move.info.promotion_type = QUEEN;
                 break;
             default:
-                throw std::runtime_error("invalid promotion type");
+                return EMPTY_MOVE;
         }
     }
 
@@ -388,6 +397,8 @@ bool board_t::is_attacked(uint8_t sq, Team side) {
 }
 
 bool board_t::is_pseudo_legal(move_t move) {
+    if(move == EMPTY_MOVE) return false;
+
     auto team = Team(move.info.team);
     auto x_team = Team(!move.info.team);
 

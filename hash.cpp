@@ -32,12 +32,12 @@ namespace zobrist {
     }
 }
 
-tt::hash_t::hash_t(unsigned int size) {
+tt::hash_t::hash_t(size_t size) {
     // Divide size by the sizeof an entry
     size /= sizeof(tt::entry_t);
 
     if (size & (size - 1)) { // Check if size is a power of 2
-        for (int i = 1; i < 32; i++) {
+        for (unsigned int i = 1; i < 64; i++) {
             size |= size >> i; // Fill bits to the right
         }
 

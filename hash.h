@@ -43,7 +43,7 @@ namespace tt {
 
     class hash_t {
     public:
-        explicit hash_t(unsigned int size);
+        explicit hash_t(size_t size);
 
         ~hash_t();
 
@@ -53,7 +53,7 @@ namespace tt {
     private:
         const int BUCKET_SIZE = 4;
 
-        int num_entries;
+        size_t num_entries;
         entry_t *table;
     };
 }

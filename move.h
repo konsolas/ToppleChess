@@ -48,24 +48,28 @@ inline bool operator!=(const move_t& lhs, const move_t& rhs)
 }
 
 inline std::ostream& operator<<(std::ostream& stream, const move_t &move) {
-    stream << from_sq(move.info.from) << from_sq(move.info.to);
+    if(move == EMPTY_MOVE) {
+        stream << "0000";
+    } else {
+        stream << from_sq(move.info.from) << from_sq(move.info.to);
 
-    if(move.info.is_promotion) {
-        switch (move.info.promotion_type) {
-            case KNIGHT:
-                stream << "n";
-                break;
-            case BISHOP:
-                stream << "b";
-                break;
-            case ROOK:
-                stream << "r";
-                break;
-            case QUEEN:
-                stream << "q";
-                break;
-            default:
-                throw std::runtime_error("invalid promotion type");
+        if (move.info.is_promotion) {
+            switch (move.info.promotion_type) {
+                case KNIGHT:
+                    stream << "n";
+                    break;
+                case BISHOP:
+                    stream << "b";
+                    break;
+                case ROOK:
+                    stream << "r";
+                    break;
+                case QUEEN:
+                    stream << "q";
+                    break;
+                default:
+                    throw std::runtime_error("invalid promotion type");
+            }
         }
     }
 

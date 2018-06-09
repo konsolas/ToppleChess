@@ -8,8 +8,6 @@
 #include <cstdint>
 #include <chrono>
 
-#define TOPPLE_VER "0.0.1"
-
 #define INF 32767
 #define TO_MATE_SCORE(ply) (INF - (ply))
 #define TO_MATE_PLY(score) (INF - (score))
