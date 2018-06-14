@@ -9,7 +9,7 @@
 #include "eval.h"
 #include "endgame.h"
 
-#define TOPPLE_VER "0.0.3"
+#define TOPPLE_VER "0.0.4"
 
 const unsigned int MB = 1048576;
 
@@ -247,6 +247,7 @@ int main(int argc, char *argv[]) {
                     std::cout << *board << std::endl;
                 }
             } else if (cmd == "quit") {
+                search_abort = true;
                 std::cout << "exiting" << std::endl;
                 break;
             }

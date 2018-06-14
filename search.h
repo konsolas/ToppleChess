@@ -89,7 +89,7 @@ namespace search_heur {
         }
 
     private:
-        move_t killers[MAX_PLY][2] = {0};
+        move_t killers[MAX_PLY][2] = {{EMPTY_MOVE}};
     };
 }
 
@@ -104,7 +104,7 @@ struct search_limits_t {
         {
             // Try and use a consistent amount of time per move
             time_limit = (time /
-                         (moves_to_go > 0 ? moves_to_go : std::max(60 - now, 40)));
+                         (moves_to_go > 0 ? moves_to_go + 1: std::max(60 - now, 40)));
 
             // Handle increment: Look to gain some time if there isn't much left
             time_limit += inc / 2;
