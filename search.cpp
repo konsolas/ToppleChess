@@ -346,6 +346,7 @@ int search_t::search_qs(board_t &board, int alpha, int beta, int ply, const std:
 
         if (move.info.captured_type == KING) return INF; // Ignore this position in case of a king capture
         if (stage == GEN_BAD_CAPT) break; // SEE Pruning
+        if (stage + move_score - CAPT_BASE < alpha - 128) break; // Delta pruning
 
         board.move(move);
         if (board.is_illegal()) {

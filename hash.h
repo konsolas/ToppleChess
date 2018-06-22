@@ -49,7 +49,7 @@ namespace tt {
 
         bool probe(U64 hash, entry_t &entry);
         void save(Bound bound, U64 hash, int depth, int ply, int eval, move_t move);
-        int hash_full();
+        size_t hash_full();
     private:
         const int BUCKET_SIZE = 4;
 

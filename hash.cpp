@@ -81,13 +81,13 @@ void tt::hash_t::save(Bound bound, U64 hash, int depth, int ply, int eval, move_
     table[loc].move = move;
 }
 
-int tt::hash_t::hash_full() {
-    int cnt = 0;
+size_t tt::hash_t::hash_full() {
+    size_t cnt = 0;
     for (size_t i = 0; i < num_entries; i++) {
         if(table[i].hash) {
             cnt++;
         }
     }
 
-    return cnt;
+    return (cnt * 1000000) / num_entries;
 }

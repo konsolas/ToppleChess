@@ -148,8 +148,16 @@ constexpr S ROOK_SEMI_OPEN_FILE = S{21, 12};
 constexpr S ROOK_OPEN_FILE = S{29, 12};
 
 /// mobility
-constexpr S MOBILITY[6] = {S{0, 10}, S{2, 5}, S{2, 3}, S{1, 10}, S{0, 1},
-                           S{0, 0}}; // Piece type
+constexpr S MOBILITY[6][32] = {
+        {},
+        {S{-37, -38}, S{-33, -35}, S{-4, -13}, S{-1, -5}, S{3, 2}, S{7, 5}, S{11, 13}, S{15, 14}, S{18, 14}},
+        {S{-24, -29}, S{-15, -9}, S{8, -1}, S{13, 6}, S{18, 11}, S{25, 21}, S{27, 27}, S{31, 29}, S{32, 31},
+         S{35, 35}, S{39, 37}, S{40, 43}, S{46, 45}, S{48, 47}},
+        {S{-28, -39}, S{-12, -9}, S{-5, 13}, S{-2, 27}, S{-2, 35}, S{0, 40}, S{4, 54}, S{7, 60}, S{10, 64},
+         S{11, 71}, S{15, 77}, S{16, 80}, S{21, 82}, S{24, 84}, S{29, 84}},
+        {S{-20, -20}, S{-20, -20}},
+        {}
+};
 constexpr S BLOCKED_PAWN = S{-12, -15};
 
 /// king safety
@@ -159,7 +167,7 @@ const int KING_MIN_WEIGHT = -1000;
 
 /* linear king safety function */
 const score_t KING_DANGER_M = score_t{3, 2};
-const score_t KING_DANGER_C = score_t{-31, -120};
+const score_t KING_DANGER_C = score_t{-31, -150};
 
 /// tempo
 constexpr int TEMPO = 5;
@@ -399,7 +407,7 @@ score_t eval_knights(Team side, const board_t &board, eval_data_t &dat) {
                     (~dat.attacked_by_pawn[xside] | board.bb_side[xside]); // Find non-losing moves
 
         // Mobility
-        score += MOBILITY[KNIGHT] * pop_count(moves);
+        score += MOBILITY[KNIGHT][pop_count(moves)];
 
         // King safety
         dat.king_danger_balance[side] -= ((moves & dat.king_shield[side]) != 0) * KING_DEFENDER_WEIGHT[KNIGHT];
@@ -426,7 +434,7 @@ score_t eval_bishops(Team side, const board_t &board, eval_data_t &dat) {
                     (~dat.attacked_by_pawn[xside] | board.bb_side[xside]); // Find non-losing moves
 
         // Mobility
-        score += MOBILITY[BISHOP] * pop_count(moves);
+        score += MOBILITY[BISHOP][pop_count(moves)];
 
         // King safety
         dat.king_danger_balance[side] -= ((moves & dat.king_shield[side]) != 0) * KING_DEFENDER_WEIGHT[BISHOP];
@@ -456,7 +464,7 @@ score_t eval_rooks(Team side, const board_t &board, eval_data_t &dat) {
                     (~dat.attacked_by_pawn[xside] | board.bb_side[xside]); // Find non-losing moves
 
         // Mobility
-        score += MOBILITY[ROOK] * pop_count(moves);
+        score += MOBILITY[ROOK][pop_count(moves)];
 
         // King safety
         dat.king_danger_balance[side] -= ((moves & dat.king_shield[side]) != 0) * KING_DEFENDER_WEIGHT[ROOK];
@@ -491,7 +499,7 @@ score_t eval_queens(Team side, const board_t &board, eval_data_t &dat) {
                     (~dat.attacked_by_pawn[xside] | board.bb_side[xside]); // Find non-losing moves
 
         // Mobility
-        score += MOBILITY[QUEEN] * pop_count(moves);
+        score += MOBILITY[QUEEN][pop_count(moves)];
 
         // King safety
         dat.king_danger_balance[side] -= ((moves & dat.king_shield[side]) != 0) * KING_DEFENDER_WEIGHT[QUEEN];
