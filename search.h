@@ -178,6 +178,8 @@ private:
     U64 nodes = 0;
     U64 fhf = 0;
     U64 fh = 0;
+    U64 nulltries = 0;
+    U64 nullcuts = 0;
 };
 
 #endif //TOPPLE_SEARCH_H
