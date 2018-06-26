@@ -304,7 +304,6 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
 
             if (score < reduced_beta) {
                 ex = 1;
-                std::cout << "extended";
             }
         }
 
