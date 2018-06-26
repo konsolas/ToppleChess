@@ -37,7 +37,7 @@ move_t search_t::think(const std::atomic_bool &aborted) {
                 for (unsigned int i = 0; i < threads - 1; i++) {
                     helper_threads[i] = std::async(std::launch::async,
                                                    &search_t::search_ab<true>, this,
-                                                   std::ref(helper_boards[i]), -INF, INF, 0, depth, true,
+                                                   std::ref(helper_boards[i]), -INF, INF, 0, depth, true, EMPTY_MOVE,
                                                    std::ref(helper_thread_aborted));
                 }
             }
@@ -139,12 +139,12 @@ int search_t::search_root(board_t &board, int alpha, int beta, int depth, const 
             }
 
             if (n_legal == 1) {
-                score = -search_ab<false>(board, -beta, -alpha, 1, depth - 1, true, aborted);
+                score = -search_ab<false>(board, -beta, -alpha, 1, depth - 1, true, EMPTY_MOVE, aborted);
             } else {
-                score = -search_ab<false>(board, -alpha - 1, -alpha, 1, depth - 1, true, aborted);
+                score = -search_ab<false>(board, -alpha - 1, -alpha, 1, depth - 1, true, EMPTY_MOVE, aborted);
                 if (alpha < score && score < beta) {
                     // Research if the zero window search failed.
-                    score = -search_ab<false>(board, -beta, -alpha, 1, depth - 1, true, aborted);
+                    score = -search_ab<false>(board, -beta, -alpha, 1, depth - 1, true, EMPTY_MOVE, aborted);
                 }
             }
             board.unmove();
@@ -201,7 +201,7 @@ int search_t::search_root(board_t &board, int alpha, int beta, int depth, const 
 }
 
 template<bool H>
-int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth, bool can_null,
+int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth, bool can_null, move_t excluded,
                         const std::atomic_bool &aborted) {
     nodes++;
     if (!H) pv_table_len[ply] = ply;
@@ -228,7 +228,9 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
     // Mate distance pruning
     if (ply) {
         alpha = std::max(-TO_MATE_SCORE(ply), alpha);
-        beta = std::min(TO_MATE_SCORE(ply + 1), beta);
+        if(beta <= -TO_MATE_SCORE(ply)) return -TO_MATE_SCORE(ply);
+        beta = std::min(TO_MATE_SCORE(ply), beta);
+        if(alpha >= TO_MATE_SCORE(ply)) return TO_MATE_SCORE(ply);
     }
 
     bool in_check = board.is_incheck();
@@ -236,7 +238,7 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
     // Probe transposition table
     tt::entry_t h = {0};
     int stand_pat;
-    if (tt->probe(board.record[board.now].hash, h)) {
+    if (excluded == EMPTY_MOVE && tt->probe(board.record[board.now].hash, h)) {
         stand_pat = score = h.value(ply);
 
         if (!PV && h.depth >= depth) {
@@ -250,13 +252,13 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
 
     // Null move pruning
     int null_score = 0;
-    if(can_null && !in_check && !PV && stand_pat >= beta) {
+    if(can_null && !in_check && !PV && excluded == EMPTY_MOVE && stand_pat >= beta) {
         if((board.bb_side[board.record[board.now].next_move] ^ board.bb_pieces[board.record[board.now].next_move][PAWN])
                 != 0) {
             board.move(EMPTY_MOVE);
 
             int R = 2 + depth / 4;
-            null_score = -search_ab<H>(board, -beta, -beta + 1, ply + 1, depth - R - 1, false, aborted);
+            null_score = -search_ab<H>(board, -beta, -beta + 1, ply + 1, depth - R - 1, false, EMPTY_MOVE, aborted);
             board.unmove();
 
             if(is_aborted(aborted)) return TIMEOUT;
@@ -271,7 +273,8 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
 
     // Internal iterative deepening
     if(depth > 6 && h.move == EMPTY_MOVE) {
-        search_ab<H>(board, alpha, beta, ply, depth - 6, can_null, aborted);
+        search_ab<H>(board, alpha, beta, ply, depth - 6, can_null, EMPTY_MOVE, aborted);
+        if (is_aborted(aborted)) return TIMEOUT;
         tt->probe(board.record[board.now].hash, h);
     }
 
@@ -282,6 +285,28 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
     int n_legal = 0;
     while (gen.has_next()) {
         move_t move = gen.next(stage, move_score, *this, h.move, ply);
+        if(excluded == move) {
+            continue;
+        }
+
+        int ex = 0;
+
+        // Singular extension
+        if (depth >= 8 && move == h.move
+                 && (h.bound == tt::LOWER || h.bound == tt::EXACT)
+                 && excluded == EMPTY_MOVE
+                 && h.depth >= depth - 3
+                 && abs(h.value(ply) < MINCHECKMATE)) {
+            int reduced_beta = (h.value(ply)) - depth;
+            score = search_ab<H>(board, reduced_beta - 1, reduced_beta, ply + 1, depth / 2,
+                                 can_null, move, aborted);
+            if (is_aborted(aborted)) return TIMEOUT;
+
+            if (score < reduced_beta) {
+                ex = 1;
+                std::cout << "extended";
+            }
+        }
 
         board.move(move);
         if (board.is_illegal()) {
@@ -290,7 +315,6 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
         } else {
             n_legal++; // Legal move
 
-            int extension = 0;
             bool move_is_check = board.is_incheck();
 
             // Futility pruning
@@ -301,8 +325,10 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
                 }
             }
 
-            // Check extensions
-            extension += move_is_check;
+            // Check
+            if (move_is_check) {
+                ex = 1;
+            }
 
             // LMR
             bool normal_search = true;
@@ -310,19 +336,23 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
                 int R = !PV + depth / 8 + n_legal / 8 - 1;
 
                 if(R > 0) {
-                    score = -search_ab<H>(board, -alpha - 1, -alpha, ply + 1, depth - R - 1, can_null, aborted);
+                    score = -search_ab<H>(board, -alpha - 1, -alpha, ply + 1, depth - R - 1 + ex,
+                            can_null, EMPTY_MOVE, aborted);
                     normal_search = score > alpha;
                 }
             }
 
             if(normal_search) {
                 if (PV && n_legal == 1) {
-                    score = -search_ab<H>(board, -beta, -alpha, ply + 1, depth - 1 + extension, can_null, aborted);
+                    score = -search_ab<H>(board, -beta, -alpha, ply + 1, depth - 1 + ex,
+                            can_null, EMPTY_MOVE, aborted);
                 } else {
-                    score = -search_ab<H>(board, -alpha - 1, -alpha, ply + 1, depth - 1 + extension, can_null, aborted);
+                    score = -search_ab<H>(board, -alpha - 1, -alpha, ply + 1, depth - 1 + ex,
+                            can_null, EMPTY_MOVE, aborted);
                     if (alpha < score && score < beta) {
                         // Research if the zero window search failed.
-                        score = -search_ab<H>(board, -beta, -alpha, ply + 1, depth - 1 + extension, can_null, aborted);
+                        score = -search_ab<H>(board, -beta, -alpha, ply + 1, depth - 1 + ex,
+                                can_null, EMPTY_MOVE, aborted);
                     }
                 }
             }
@@ -375,7 +405,7 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
     if (alpha > old_alpha) {
         tt->save(tt::EXACT, board.record[board.now].hash, depth, ply, alpha, best_move);
         if (!best_move.info.is_capture) history_heur.update(best_move, nullptr, 0, depth);
-    } else {
+    } else if (excluded == EMPTY_MOVE) {
         tt->save(tt::UPPER, board.record[board.now].hash, depth, ply, alpha, best_move);
     }
 

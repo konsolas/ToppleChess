@@ -139,7 +139,7 @@ private:
     int search_aspiration(int prev_score, int depth, const std::atomic_bool &aborted);
     int search_root(board_t &board, int alpha, int beta, int depth, const std::atomic_bool &aborted);
 
-    template<bool H> int search_ab(board_t &board, int alpha, int beta, int ply, int depth, bool can_null,
+    template<bool H> int search_ab(board_t &board, int alpha, int beta, int ply, int depth, bool can_null, move_t excluded,
                   const std::atomic_bool &aborted);
     template<bool H> int search_qs(board_t &board, int alpha, int beta, int ply, const std::atomic_bool &aborted);
 

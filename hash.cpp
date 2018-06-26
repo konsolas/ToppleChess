@@ -89,5 +89,5 @@ size_t tt::hash_t::hash_full() {
         }
     }
 
-    return (cnt * 1000000) / num_entries;
+    return (cnt * 1000) / num_entries;
 }
