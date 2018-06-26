@@ -9,7 +9,7 @@
 #include "eval.h"
 #include "endgame.h"
 
-#define TOPPLE_VER "0.0.4"
+#define TOPPLE_VER "0.1.0"
 
 const unsigned int MB = 1048576;
 
