@@ -134,7 +134,7 @@ int search_t::search_root(board_t &board, int alpha, int beta, int depth, const 
             n_legal++; // Legal move
 
             // Display current move information
-            if(CHRONO_DIFF(start, engine_clock::now()) > 2000) {
+            if(CHRONO_DIFF(start, engine_clock::now()) > 1000) {
                 std::cout << "info currmove " << move << " currmovenumber " << n_legal << std::endl;
             }
 
@@ -155,11 +155,12 @@ int search_t::search_root(board_t &board, int alpha, int beta, int depth, const 
                 alpha = score;
                 best_move = move;
 
-                pv_table[0][0] = move;
-                for (int i = 1; i < pv_table_len[1]; i++) {
-                    pv_table[0][i] = pv_table[1][i];
+                update_pv(0, move);
+
+                if(depth > 1 && CHRONO_DIFF(start, engine_clock::now()) > 1000) {
+                    save_pv();
+                    print_stats(score, depth, tt::LOWER);
                 }
-                pv_table_len[0] = pv_table_len[1];
 
                 if (score >= beta) {
                     if (n_legal == 1) {
@@ -170,13 +171,15 @@ int search_t::search_root(board_t &board, int alpha, int beta, int depth, const 
                     tt->save(tt::LOWER, board.record[board.now].hash, depth, 0, score, best_move);
 
                     if (!move.info.is_capture) {
-                        int len;
-                        move_t *moves = gen.get_searched(len);
-                        history_heur.update(move, moves, len, depth);
+                        history_heur.history(move, depth);
                         killer_heur.update(move, 0);
                     }
 
                     return beta; // Fail hard
+                } else {
+                    if(!move.info.is_capture) {
+                        history_heur.butterfly(move, depth);
+                    }
                 }
             }
         }
@@ -192,7 +195,7 @@ int search_t::search_root(board_t &board, int alpha, int beta, int depth, const 
 
     if (alpha > old_alpha) {
         tt->save(tt::EXACT, board.record[board.now].hash, depth, 0, alpha, best_move);
-        if (!best_move.info.is_capture) history_heur.update(best_move, nullptr, 0, depth);
+        if(!best_move.info.is_capture) history_heur.history(best_move, depth);
     } else {
         tt->save(tt::UPPER, board.record[board.now].hash, depth, 0, alpha, best_move);
     }
@@ -367,11 +370,7 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
                 best_move = move;
 
                 if (!H && PV) {
-                    pv_table[ply][ply] = move;
-                    for (int i = ply + 1; i < pv_table_len[ply + 1]; i++) {
-                        pv_table[ply][i] = pv_table[ply + 1][i];
-                    }
-                    pv_table_len[ply] = pv_table_len[ply + 1];
+                    update_pv(ply, move);
                 }
 
                 if (score >= beta) {
@@ -383,13 +382,15 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
                     tt->save(tt::LOWER, board.record[board.now].hash, depth, ply, score, best_move);
 
                     if (!move.info.is_capture) {
-                        int len;
-                        move_t *moves = gen.get_searched(len);
-                        history_heur.update(move, moves, len, depth);
+                        history_heur.history(move, depth);
                         killer_heur.update(move, ply);
                     }
 
                     return beta; // Fail hard
+                } else {
+                    if (!move.info.is_capture) {
+                        history_heur.butterfly(move, depth);
+                    }
                 }
             }
         }
@@ -405,7 +406,7 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
 
     if (alpha > old_alpha) {
         tt->save(tt::EXACT, board.record[board.now].hash, depth, ply, alpha, best_move);
-        if (!best_move.info.is_capture) history_heur.update(best_move, nullptr, 0, depth);
+        if(!best_move.info.is_capture) history_heur.history(best_move, depth);
     } else if (excluded == EMPTY_MOVE) {
         tt->save(tt::UPPER, board.record[board.now].hash, depth, ply, alpha, best_move);
     }
@@ -457,17 +458,22 @@ int search_t::search_qs(board_t &board, int alpha, int beta, int ply, const std:
                 alpha = score;
 
                 if (!H && PV) {
-                    pv_table[ply][ply] = move;
-                    for (int i = ply + 1; i < pv_table_len[ply + 1]; i++) {
-                        pv_table[ply][i] = pv_table[ply + 1][i];
-                    }
-                    pv_table_len[ply] = pv_table_len[ply + 1];
+                    update_pv(ply, move);
                 }
             }
         }
     }
 
     return alpha;
+}
+
+
+void search_t::update_pv(int ply, move_t move) {
+    pv_table[ply][ply] = move;
+    for (int i = ply + 1; i < pv_table_len[ply + 1]; i++) {
+        pv_table[ply][i] = pv_table[ply + 1][i];
+    }
+    pv_table_len[ply] = pv_table_len[ply + 1];
 }
 
 void search_t::save_pv() {

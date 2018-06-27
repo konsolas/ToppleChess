@@ -11,8 +11,10 @@
 #include <chrono>
 #include <utility>
 #include <vector>
+#include <cmath>
 
 #include "board.h"
+#include "move.h"
 
 namespace search_heur {
     // History heuristic
@@ -22,46 +24,40 @@ namespace search_heur {
             memset(historyTable, 0, sizeof(historyTable));
         }
 
-        void update(move_t good_move, move_t *previous, int len, int depth) {
-            int bonus = depth * depth;
+        void history(move_t good_move, int depth) {
+            int bonus = 1;
 
-            table(good_move, bonus);
+            tableHist(good_move, bonus);
+        }
 
-            for (int i = 0; i < len; i++) {
-                move_t prev = previous[i];
-                if (!prev.info.is_capture) {
-                    table(prev, -depth);
-                }
-            }
+        void butterfly(move_t good_move, int depth) {
+            int bonus = 1;
 
-            if (get(good_move) > 20000) {
-                throttle();
-            }
+            tableFly(good_move, bonus);
         }
 
         int get(move_t move) {
-            return historyTable[move.info.team][move.info.piece][move.info.to];
+            return historyTable[move.info.team][move.info.piece][move.info.to]
+                   / (butterflyTable[move.info.team][move.info.piece][move.info.to] + 1);
         }
 
     private:
-        int historyTable[2][6][64] = {0}; // Indexed by [TEAM][PIECE][TO]
+        // Indexed by [TEAM][PIECE][TO]
+        int historyTable[2][6][64] = {0};
+        int butterflyTable[2][6][64] = {0};
 
         // Intenal update routine
-        void table(move_t move, int delta) {
+        void tableHist(move_t move, int delta) {
             historyTable[move.info.team][move.info.piece][move.info.to] += delta;
             if (historyTable[move.info.team][move.info.piece][move.info.to] < 0) {
                 historyTable[move.info.team][move.info.piece][move.info.to] = 0;
             }
         }
 
-        // Throttle the history heuristic to be bounded by +- 20000
-        void throttle() {
-            // Divide everything in the history table by 2.
-            for (int i = 0; i < 6; i++) {
-                for (int j = 0; j < 64; j++) {
-                    historyTable[0][i][j] /= 2;
-                    historyTable[1][i][j] /= 2;
-                }
+        void tableFly(move_t move, int delta) {
+            butterflyTable[move.info.team][move.info.piece][move.info.to] += delta;
+            if (butterflyTable[move.info.team][move.info.piece][move.info.to] < 0) {
+                butterflyTable[move.info.team][move.info.piece][move.info.to] = 0;
             }
         }
     };
@@ -145,6 +141,7 @@ private:
 
     void save_pv();
     bool has_pv();
+    void update_pv(int ply, move_t move);
 
     bool keep_searching(int depth);
     bool is_aborted(const std::atomic_bool &aborted);
