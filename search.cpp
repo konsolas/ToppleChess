@@ -253,7 +253,9 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
     // Null move pruning
     int null_score = 0;
     if(can_null && !in_check && !PV && excluded == EMPTY_MOVE && stand_pat >= beta) {
-        if((board.bb_side[board.record[board.now].next_move] ^ board.bb_pieces[board.record[board.now].next_move][PAWN])
+        if((board.bb_side[board.record[board.now].next_move]
+            ^ board.bb_pieces[board.record[board.now].next_move][PAWN]
+            ^ board.bb_pieces[board.record[board.now].next_move][KING])
                 != 0) {
             board.move(EMPTY_MOVE);
 
