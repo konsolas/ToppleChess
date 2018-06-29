@@ -9,7 +9,7 @@
 #include "eval.h"
 #include "endgame.h"
 
-#define TOPPLE_VER "0.1.1"
+#define TOPPLE_VER "0.1.2"
 
 const unsigned int MB = 1048576;
 
@@ -123,11 +123,11 @@ int main(int argc, char *argv[]) {
                                 if (board->is_pseudo_legal(move)) {
                                     board->move(move);
                                     if (board->is_illegal()) {
-                                        std::cout << "illegal move: " << move << std::endl;
+                                        std::cout << "illegal move: " << move_str << std::endl;
                                         board->unmove();
                                     }
                                 } else {
-                                    std::cout << "invalid move: " << move << std::endl;
+                                    std::cout << "invalid move: " << move_str << std::endl;
                                 }
                             }
                         } else {

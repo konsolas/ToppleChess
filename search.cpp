@@ -484,7 +484,7 @@ void search_t::save_pv() {
 }
 
 bool search_t::has_pv() {
-    return last_pv[0] != EMPTY_MOVE && last_pv_len > 1;
+    return last_pv[0] != EMPTY_MOVE && last_pv_len > 0;
 }
 
 bool search_t::keep_searching(int depth) {

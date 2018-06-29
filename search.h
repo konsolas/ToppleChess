@@ -100,13 +100,13 @@ struct search_limits_t {
         {
             // Try and use a consistent amount of time per move
             time_limit = (time /
-                         (moves_to_go > 0 ? moves_to_go + 1: std::max(60 - now, 40)));
+                         (moves_to_go > 0 ? moves_to_go + 1: std::max(50 - now, 30)));
 
             // Handle increment: Look to gain some time if there isn't much left
             time_limit += inc / 2;
 
             // Add a 25ms buffer to prevent losses from timeout.
-            time_limit = std::min(time_limit, time - 25);
+            time_limit = std::min(time_limit, time - 50);
 
             // Ensure time is valid (if a time of zero is given, search will be depth 1)
             time_limit = std::max(time_limit, 0);
