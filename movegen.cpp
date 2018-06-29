@@ -200,11 +200,13 @@ move_t movegen_t::next(GenStage &stage, int &move_score, search_t &search, move_
 
             if (!move.info.is_capture) {
                 if (search.killer_heur.primary(ply) == move) {
-                    buf_scores[i] = 20003;
-                } else if (search.killer_heur.primary(ply) == move) {
-                    buf_scores[i] = 20002;
+                    buf_scores[i] = KILLER_BASE + 3;
+                } else if (search.killer_heur.secondary(ply) == move) {
+                    buf_scores[i] = KILLER_BASE + 2;
                 } else if (ply >= 2 && (search.killer_heur.primary(ply - 2) == move)) {
-                    buf_scores[i] = 20001;
+                    buf_scores[i] = KILLER_BASE + 1;
+                } else if (ply >= 2 && (search.killer_heur.secondary(ply - 2) == move)) {
+                    buf_scores[i] = KILLER_BASE;
                 } else {
                     buf_scores[i] = search.history_heur.get(move);
                 }

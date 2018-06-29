@@ -9,7 +9,8 @@
 #include "board.h"
 #include "search.h"
 
-#define CAPT_BASE 100000
+constexpr int CAPT_BASE = 100000;
+constexpr int KILLER_BASE = 80000;
 
 class board_t;
 
