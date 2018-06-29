@@ -21,7 +21,9 @@ namespace zobrist {
 }
 
 namespace tt {
-    enum Bound : uint8_t {UPPER, LOWER, EXACT};
+    enum Bound : uint8_t {
+        UPPER, LOWER, EXACT
+    };
 
     struct entry_t { // 16 bytes
         U64 hash; // 8 bytes
@@ -31,7 +33,7 @@ namespace tt {
         uint8_t bound; // 1 byte]
 
         int value(int ply) {
-            if(internal_value >= MINCHECKMATE) {
+            if (internal_value >= MINCHECKMATE) {
                 return internal_value - ply;
             } else if (internal_value <= -MINCHECKMATE) {
                 return internal_value + ply;

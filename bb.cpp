@@ -563,6 +563,10 @@ U64 find_moves<KING>(Team side, uint8_t square, U64 occupied) {
     return bb_normal_moves::king_moves[square];
 }
 
+U64 pawn_caps(Team side, uint8_t square) {
+    return bb_normal_moves::pawn_caps[side][square];
+}
+
 U64 single_bit(uint8_t square) {
     return bb_util::single_bit[square];
 }

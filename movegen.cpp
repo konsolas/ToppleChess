@@ -37,7 +37,7 @@ int movegen_t::gen_caps() {
         uint8_t from = pop_bit(team, bb_pawns);
         move.info.from = from;
 
-        U64 bb_targets = find_moves<PAWN>(team, from, board.bb_all) & board.bb_side[x_team];
+        U64 bb_targets = pawn_caps(team, from) & board.bb_side[x_team];
 
         while (bb_targets) {
             uint8_t to = pop_bit(x_team, bb_targets);
@@ -117,8 +117,7 @@ void movegen_t::gen_ep() {
 
     // Generate en-passant capture
     if (record.ep_square != 0) {
-        U64 ep_attacks = find_moves<PAWN>(x_team, record.ep_square, board.bb_pieces[team][PAWN])
-                         & board.bb_pieces[team][PAWN];
+        U64 ep_attacks = pawn_caps(x_team, record.ep_square) & board.bb_pieces[team][PAWN];
 
         while (ep_attacks) {
             uint8_t from = pop_bit(WHITE, ep_attacks);
@@ -213,10 +212,11 @@ move_t movegen_t::next(GenStage &stage, int &move_score, search_t &search, move_
             } else {
                 int see_score = board.see(move);
 
-                if(see_score >= 0) {
+                if (see_score >= 0) {
                     buf_scores[i] = CAPT_BASE;
                     buf_scores[i] += (see_score
-                                      + (record.next_move ? rank_index(move.info.to) + 1 : 8 - rank_index(move.info.to)));
+                                      +
+                                      (record.next_move ? rank_index(move.info.to) + 1 : 8 - rank_index(move.info.to)));
                 } else {
                     buf_scores[i] = see_score - CAPT_BASE;
                 }
@@ -266,11 +266,6 @@ void movegen_t::buf_swap(int i, int j) {
     int temp_score = buf_scores[i];
     buf_scores[i] = buf_scores[j];
     buf_scores[j] = temp_score;
-}
-
-move_t *movegen_t::get_searched(int &len) {
-    len = idx;
-    return buf;
 }
 
 template<Piece TYPE>

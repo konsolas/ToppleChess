@@ -84,7 +84,8 @@ int eval_kbnk(const board_t &board, Team team) {
     uint8_t x_team_king = bit_scan(board.bb_pieces[x_team][KING]);
 
     // Force king to the correct corner
-    eval += (same_colour(bit_scan(board.bb_pieces[team][BISHOP]), A1)) ? KBNK[x_team_king] : KBNK[MIRROR_TABLE[x_team_king]];
+    eval += (same_colour(bit_scan(board.bb_pieces[team][BISHOP]), A1)) ? KBNK[x_team_king]
+                                                                       : KBNK[MIRROR_TABLE[x_team_king]];
 
     return eval;
 }

@@ -334,7 +334,7 @@ score_t eval_pawns(Team side, const board_t &board, eval_data_t &dat) {
         // Material & PST
         score += MATERIAL[PAWN] + read(PST[PAWN], sq, side);
 
-        U64 moves = find_moves<PAWN>(side, sq, 0xffffffffffffffff);
+        U64 moves = pawn_caps(side, sq);
         dat.attacked_by_pawn[side] |= moves;
 
         // Update holes bitmap

@@ -73,14 +73,16 @@ int main(int argc, char *argv[]) {
                 if (name == "name") iss >> name;
 
                 if (name == "Hash") {
-                    std::string value; iss >> value; // Skip value
+                    std::string value;
+                    iss >> value; // Skip value
                     iss >> hash_size;
 
                     // Resize hash
                     delete tt;
                     tt = new tt::hash_t(hash_size * MB);
                 } else if (name == "Threads") {
-                    std::string value; iss >> value; // Skip value
+                    std::string value;
+                    iss >> value; // Skip value
                     iss >> threads;
                 } else if (name == "Clear") {
                     iss >> name;

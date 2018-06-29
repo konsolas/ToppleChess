@@ -71,22 +71,22 @@ struct board_t {
     U64 bb_side[2] = {0}; // [Team]
     U64 bb_all = {0}; // All occupied squares
     /* Board representation (Square array) */
-    sq_data_t sq_data[64] = {{ 0 }};
+    sq_data_t sq_data[64] = {{0}};
 
     /* Game history */
     int now = 0; // Index for record array
-    game_record_t record[4096] = {{ 0 }}; // Record (supporting games of up to 4096 moves)
+    game_record_t record[4096] = {{0}}; // Record (supporting games of up to 4096 moves)
 
     /* Internal methods */
-    template <bool HASH>
+    template<bool HASH>
     void switch_piece(Team side, Piece piece, uint8_t sq);
 };
 
-inline std::ostream& operator<<(std::ostream& stream, const board_t &board) {
+inline std::ostream &operator<<(std::ostream &stream, const board_t &board) {
     stream << std::endl;
 
-    for(int i = 1; i <= board.now; i++) {
-        if(i % 2 != 0) {
+    for (int i = 1; i <= board.now; i++) {
+        if (i % 2 != 0) {
             stream << " " << ((i + 1) / 2) << ". ";
         }
 
@@ -95,11 +95,11 @@ inline std::ostream& operator<<(std::ostream& stream, const board_t &board) {
 
     stream << std::endl;
 
-    for(int i = 7; i >= 0; i--) {
-        for(int j = 0; j < 8; j++) {
+    for (int i = 7; i >= 0; i--) {
+        for (int j = 0; j < 8; j++) {
             auto file = uint8_t(j);
             auto rank = uint8_t(i);
-            if(board.sq_data[square_index(file, rank)].occupied) {
+            if (board.sq_data[square_index(file, rank)].occupied) {
                 switch (board.sq_data[square_index(file, rank)].piece) {
                     case PAWN:
                         stream << (board.sq_data[square_index(file, rank)].team ? "p" : "P");

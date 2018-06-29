@@ -28,7 +28,7 @@ union move_t {
                 castle: 1,
                 castle_side: 1,
                 is_ep: 1,
-        : 1; // 16 bits
+                : 1; // 16 bits
     } info;
 
     uint32_t move_bytes;
@@ -37,18 +37,16 @@ union move_t {
 
 static const move_t EMPTY_MOVE = {0};
 
-inline bool operator==(const move_t& lhs, const move_t& rhs)
-{
+inline bool operator==(const move_t &lhs, const move_t &rhs) {
     return lhs.move_bytes == rhs.move_bytes;
 }
 
-inline bool operator!=(const move_t& lhs, const move_t& rhs)
-{
+inline bool operator!=(const move_t &lhs, const move_t &rhs) {
     return lhs.move_bytes != rhs.move_bytes;
 }
 
-inline std::ostream& operator<<(std::ostream& stream, const move_t &move) {
-    if(move == EMPTY_MOVE) {
+inline std::ostream &operator<<(std::ostream &stream, const move_t &move) {
+    if (move == EMPTY_MOVE) {
         stream << "0000";
     } else {
         stream << from_sq(move.info.from) << from_sq(move.info.to);

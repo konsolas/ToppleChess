@@ -76,14 +76,6 @@ public:
      * @return true if there are more moves (and next() should be called)
      */
     bool has_next();
-
-    /**
-     * Return a list of move already searched
-     *
-     * @param len number of moves
-     * @return pointer to the first move
-     */
-    move_t *get_searched(int &len);
 private:
     board_t &board;
 

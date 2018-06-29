@@ -33,7 +33,7 @@ move_t search_t::think(const std::atomic_bool &aborted) {
             helper_thread_aborted = false;
 
             // Start helper threads (lazy SMP)
-            if(depth > 5) {
+            if (depth > 5) {
                 for (unsigned int i = 0; i < threads - 1; i++) {
                     helper_threads[i] = std::async(std::launch::async,
                                                    &search_t::search_ab<true>, this,
@@ -65,7 +65,7 @@ int search_t::search_aspiration(int prev_score, int depth, const std::atomic_boo
     int alpha;
     int beta;
 
-    if(depth > 4) {
+    if (depth > 4) {
         alpha = prev_score - ASPIRATION_SIZE[0];
         beta = prev_score + ASPIRATION_SIZE[0];
     } else {
@@ -75,7 +75,7 @@ int search_t::search_aspiration(int prev_score, int depth, const std::atomic_boo
     int researches = 0;
     int score = search_root(board, alpha, beta, depth, aborted);
 
-    if(score == TIMEOUT) return score;
+    if (score == TIMEOUT) return score;
 
     // Check if we need to search again
     while (score >= beta || score <= alpha) {
@@ -89,7 +89,7 @@ int search_t::search_aspiration(int prev_score, int depth, const std::atomic_boo
         }
 
         score = search_root(board, alpha, beta, depth, aborted);
-        if(score == TIMEOUT) return score;
+        if (score == TIMEOUT) return score;
     }
 
     save_pv();
@@ -112,7 +112,8 @@ int search_t::search_root(board_t &board, int alpha, int beta, int depth, const 
     move_t best_move{};
 
     // Probe transposition table
-    tt::entry_t h = {0}; tt->probe(board.record[board.now].hash, h);
+    tt::entry_t h = {0};
+    tt->probe(board.record[board.now].hash, h);
 
     GenStage stage = GEN_NONE;
     int move_score;
@@ -122,7 +123,7 @@ int search_t::search_root(board_t &board, int alpha, int beta, int depth, const 
     while (gen.has_next()) {
         move_t move = gen.next(stage, move_score, *this, h.move, 0);
 
-        if(!is_root_move(move)) {
+        if (!is_root_move(move)) {
             continue;
         }
 
@@ -134,7 +135,7 @@ int search_t::search_root(board_t &board, int alpha, int beta, int depth, const 
             n_legal++; // Legal move
 
             // Display current move information
-            if(CHRONO_DIFF(start, engine_clock::now()) > 1000) {
+            if (CHRONO_DIFF(start, engine_clock::now()) > 1000) {
                 std::cout << "info currmove " << move << " currmovenumber " << n_legal << std::endl;
             }
 
@@ -157,7 +158,7 @@ int search_t::search_root(board_t &board, int alpha, int beta, int depth, const 
 
                 update_pv(0, move);
 
-                if(depth > 1 && CHRONO_DIFF(start, engine_clock::now()) > 1000) {
+                if (depth > 1 && CHRONO_DIFF(start, engine_clock::now()) > 1000) {
                     save_pv();
                     print_stats(score, depth, tt::LOWER);
                 }
@@ -177,7 +178,7 @@ int search_t::search_root(board_t &board, int alpha, int beta, int depth, const 
 
                     return beta; // Fail hard
                 } else {
-                    if(!move.info.is_capture) {
+                    if (!move.info.is_capture) {
                         history_heur.butterfly(move, depth);
                     }
                 }
@@ -195,7 +196,7 @@ int search_t::search_root(board_t &board, int alpha, int beta, int depth, const 
 
     if (alpha > old_alpha) {
         tt->save(tt::EXACT, board.record[board.now].hash, depth, 0, alpha, best_move);
-        if(!best_move.info.is_capture) history_heur.history(best_move, depth);
+        if (!best_move.info.is_capture) history_heur.history(best_move, depth);
     } else {
         tt->save(tt::UPPER, board.record[board.now].hash, depth, 0, alpha, best_move);
     }
@@ -226,14 +227,15 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
     // Game state
     if (board.record[board.now].halfmove_clock >= 100
         || board.is_repetition_draw(ply, 2)
-           || board.is_repetition_draw(100, 3)) return 0;
+        || board.is_repetition_draw(100, 3))
+        return 0;
 
     // Mate distance pruning
     if (ply) {
         alpha = std::max(-TO_MATE_SCORE(ply), alpha);
-        if(beta <= -TO_MATE_SCORE(ply)) return -TO_MATE_SCORE(ply);
+        if (beta <= -TO_MATE_SCORE(ply)) return -TO_MATE_SCORE(ply);
         beta = std::min(TO_MATE_SCORE(ply), beta);
-        if(alpha >= TO_MATE_SCORE(ply)) return TO_MATE_SCORE(ply);
+        if (alpha >= TO_MATE_SCORE(ply)) return TO_MATE_SCORE(ply);
     }
 
     bool in_check = board.is_incheck();
@@ -255,21 +257,21 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
 
     // Null move pruning
     int null_score = 0;
-    if(can_null && !in_check && !PV && excluded == EMPTY_MOVE && stand_pat >= beta) {
-        if((board.bb_side[board.record[board.now].next_move]
-            ^ board.bb_pieces[board.record[board.now].next_move][PAWN]
-            ^ board.bb_pieces[board.record[board.now].next_move][KING])
-                != 0) {
+    if (can_null && !in_check && !PV && excluded == EMPTY_MOVE && stand_pat >= beta) {
+        if ((board.bb_side[board.record[board.now].next_move]
+             ^ board.bb_pieces[board.record[board.now].next_move][PAWN]
+             ^ board.bb_pieces[board.record[board.now].next_move][KING])
+            != 0) {
             board.move(EMPTY_MOVE);
 
             int R = 2 + depth / 4;
             null_score = -search_ab<H>(board, -beta, -beta + 1, ply + 1, depth - R - 1, false, EMPTY_MOVE, aborted);
             board.unmove();
 
-            if(is_aborted(aborted)) return TIMEOUT;
+            if (is_aborted(aborted)) return TIMEOUT;
             nulltries++;
 
-            if(null_score >= beta) {
+            if (null_score >= beta) {
                 nullcuts++;
                 return beta;
             }
@@ -277,7 +279,7 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
     }
 
     // Internal iterative deepening
-    if(depth > 6 && h.move == EMPTY_MOVE) {
+    if (depth > 6 && h.move == EMPTY_MOVE) {
         search_ab<H>(board, alpha, beta, ply, depth - 6, can_null, EMPTY_MOVE, aborted);
         if (is_aborted(aborted)) return TIMEOUT;
         tt->probe(board.record[board.now].hash, h);
@@ -290,7 +292,7 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
     int n_legal = 0;
     while (gen.has_next()) {
         move_t move = gen.next(stage, move_score, *this, h.move, ply);
-        if(excluded == move) {
+        if (excluded == move) {
             continue;
         }
 
@@ -298,10 +300,10 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
 
         // Singular extension
         if (depth >= 8 && move == h.move
-                 && (h.bound == tt::LOWER || h.bound == tt::EXACT)
-                 && excluded == EMPTY_MOVE
-                 && h.depth >= depth - 3
-                 && abs(h.value(ply) < MINCHECKMATE)) {
+            && (h.bound == tt::LOWER || h.bound == tt::EXACT)
+            && excluded == EMPTY_MOVE
+            && h.depth >= depth - 3
+            && abs(h.value(ply) < MINCHECKMATE)) {
             int reduced_beta = (h.value(ply)) - depth;
             score = search_ab<H>(board, reduced_beta - 1, reduced_beta, ply + 1, depth / 2,
                                  can_null, move, aborted);
@@ -322,8 +324,8 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
             bool move_is_check = board.is_incheck();
 
             // Futility pruning
-            if(!in_check && !move_is_check) {
-                if(stand_pat + 64 < alpha && (stage == GEN_QUIETS || stage == GEN_BAD_CAPT) ) {
+            if (!in_check && !move_is_check) {
+                if (stand_pat + 64 < alpha && (stage == GEN_QUIETS || stage == GEN_BAD_CAPT)) {
                     board.unmove();
                     break;
                 }
@@ -336,27 +338,27 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
 
             // LMR
             bool normal_search = true;
-            if(depth > 3 && n_legal > 1 && !move_is_check && stage == GEN_QUIETS) {
+            if (depth > 3 && n_legal > 1 && !move_is_check && stage == GEN_QUIETS) {
                 int R = !PV + depth / 8 + n_legal / 8 - 1;
 
-                if(R > 0) {
+                if (R > 0) {
                     score = -search_ab<H>(board, -alpha - 1, -alpha, ply + 1, depth - R - 1 + ex,
-                            can_null, EMPTY_MOVE, aborted);
+                                          can_null, EMPTY_MOVE, aborted);
                     normal_search = score > alpha;
                 }
             }
 
-            if(normal_search) {
+            if (normal_search) {
                 if (PV && n_legal == 1) {
                     score = -search_ab<H>(board, -beta, -alpha, ply + 1, depth - 1 + ex,
-                            can_null, EMPTY_MOVE, aborted);
+                                          can_null, EMPTY_MOVE, aborted);
                 } else {
                     score = -search_ab<H>(board, -alpha - 1, -alpha, ply + 1, depth - 1 + ex,
-                            can_null, EMPTY_MOVE, aborted);
+                                          can_null, EMPTY_MOVE, aborted);
                     if (alpha < score && score < beta) {
                         // Research if the zero window search failed.
                         score = -search_ab<H>(board, -beta, -alpha, ply + 1, depth - 1 + ex,
-                                can_null, EMPTY_MOVE, aborted);
+                                              can_null, EMPTY_MOVE, aborted);
                     }
                 }
             }
@@ -406,7 +408,7 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
 
     if (alpha > old_alpha) {
         tt->save(tt::EXACT, board.record[board.now].hash, depth, ply, alpha, best_move);
-        if(!best_move.info.is_capture) history_heur.history(best_move, depth);
+        if (!best_move.info.is_capture) history_heur.history(best_move, depth);
     } else if (excluded == EMPTY_MOVE) {
         tt->save(tt::UPPER, board.record[board.now].hash, depth, ply, alpha, best_move);
     }

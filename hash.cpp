@@ -71,8 +71,8 @@ bool tt::hash_t::probe(U64 hash, tt::entry_t &entry) {
 void tt::hash_t::save(Bound bound, U64 hash, int depth, int ply, int eval, move_t move) {
     const size_t loc = hash & num_entries;
 
-    if(eval >= MINCHECKMATE) eval += ply;
-    if(eval <= -MINCHECKMATE) eval -= ply;
+    if (eval >= MINCHECKMATE) eval += ply;
+    if (eval <= -MINCHECKMATE) eval -= ply;
 
     table[loc].hash = hash;
     table[loc].bound = bound;
@@ -84,7 +84,7 @@ void tt::hash_t::save(Bound bound, U64 hash, int depth, int ply, int eval, move_
 size_t tt::hash_t::hash_full() {
     size_t cnt = 0;
     for (size_t i = 0; i < num_entries; i++) {
-        if(table[i].hash) {
+        if (table[i].hash) {
             cnt++;
         }
     }
