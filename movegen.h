@@ -14,6 +14,10 @@ constexpr int KILLER_BASE = 80000;
 
 class board_t;
 
+enum GenMode {
+
+};
+
 enum GenStage {
     GEN_NONE = 0,
     GEN_HASH = 1,
@@ -83,9 +87,9 @@ private:
 
     int buf_size = 0;
     int idx = 0;
-    move_t buf[256] = {0};
+    move_t buf[256] = {};
     bool scored = false;
-    int buf_scores[256] = {0};
+    int buf_scores[256] = {};
 
     Team team;
     Team x_team;

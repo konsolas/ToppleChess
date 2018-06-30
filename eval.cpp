@@ -327,7 +327,7 @@ score_t eval_pawns(Team side, const board_t &board, eval_data_t &dat) {
 
     U64 pawns = board.bb_pieces[side][PAWN];
     while (pawns) {
-        uint8_t sq = pop_bit(side, pawns);
+        uint8_t sq = pop_bit(pawns);
 
         dat.counts[side][PAWN]++;
 
@@ -391,7 +391,7 @@ score_t eval_knights(Team side, const board_t &board, eval_data_t &dat) {
 
     U64 knights = board.bb_pieces[side][KNIGHT];
     while (knights) {
-        uint8_t sq = pop_bit(side, knights);
+        uint8_t sq = pop_bit(knights);
 
         dat.counts[side][KNIGHT]++;
 
@@ -418,7 +418,7 @@ score_t eval_bishops(Team side, const board_t &board, eval_data_t &dat) {
 
     U64 bishops = board.bb_pieces[side][BISHOP];
     while (bishops) {
-        uint8_t sq = pop_bit(side, bishops);
+        uint8_t sq = pop_bit(bishops);
 
         dat.counts[side][BISHOP]++;
 
@@ -449,7 +449,7 @@ score_t eval_rooks(Team side, const board_t &board, eval_data_t &dat) {
 
     U64 rooks = board.bb_pieces[side][ROOK];
     while (rooks) {
-        uint8_t sq = pop_bit(side, rooks);
+        uint8_t sq = pop_bit(rooks);
 
         dat.counts[side][ROOK]++;
 
@@ -484,7 +484,7 @@ score_t eval_queens(Team side, const board_t &board, eval_data_t &dat) {
 
     U64 queens = board.bb_pieces[side][QUEEN];
     while (queens) {
-        uint8_t sq = pop_bit(side, queens);
+        uint8_t sq = pop_bit(queens);
 
         dat.counts[side][QUEEN]++;
 

@@ -60,8 +60,32 @@ U64 single_bit(uint8_t square);
  *
  * @param a first square
  * @param b second square
+ * @return bitboard containing bits between the two squares
  */
 U64 bits_between(uint8_t a, uint8_t b);
+
+/**
+ * Generates a bitboard containing a line that crosses both squares.
+ *
+ * If the arguments are not on the same rank or diagonal, an empty bitboard is returned.
+ *
+ * @param a first square
+ * @param b second square
+ * @return bitboard containing a line which crosses the two squares
+ */
+U64 line(uint8_t a, uint8_t b);
+
+/**
+ * Generates a bitboard containing a line that starts at the origin and continues to the edge of the board in the given
+ * direction.
+ *
+ * If the arguments are not on the same rank or diagonal, an empty bitboard is returned.
+ *
+ * @param origin origin of line
+ * @param direction direction of line
+ * @return bitboard containing the ray
+ */
+U64 ray(uint8_t origin, uint8_t direction);
 
 /**
  * Determine whether squares a and b are the same colour
@@ -71,6 +95,23 @@ U64 bits_between(uint8_t a, uint8_t b);
  * @return true if the squares are of the same colour
  */
 bool same_colour(uint8_t a, uint8_t b);
+
+/**
+ * Determine whether squares a and b are on the same line
+ * @param a square a
+ * @param b square b
+ * @return true if the squares are aligned
+ */
+bool aligned(uint8_t a, uint8_t b);
+
+/**
+ * Determine whether squares a, b and c are on the same line
+ * @param a square a
+ * @param b square b
+ * @param c square c
+ * @return true if the squares are aligned
+ */
+bool aligned(uint8_t a, uint8_t b, uint8_t c);
 
 /**
  * Find the distance (in king moves) between two squares
@@ -101,7 +142,7 @@ uint8_t file_index(uint8_t sq_index);
  * @param bb bitboard to pop from
  * @return index of LSB
  */
-uint8_t pop_bit(Team team, U64 &bb);
+uint8_t pop_bit(U64 &bb);
 
 /**
  * Returns the index of the least significant bit in the given bitboard without removing it from the board

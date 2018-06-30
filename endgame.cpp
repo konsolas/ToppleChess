@@ -59,7 +59,7 @@ int eval_universal(const board_t &board, Team team) {
     for (uint8_t piece = KNIGHT; piece <= KING; piece++) {
         U64 piece_bb = board.bb_pieces[team][piece];
         while (piece_bb) {
-            uint8_t sq = pop_bit(team, piece_bb);
+            uint8_t sq = pop_bit(piece_bb);
 
             eval += TOGETHER[distance(x_team_king, sq)];
         }
@@ -68,7 +68,7 @@ int eval_universal(const board_t &board, Team team) {
     for (uint8_t piece = KNIGHT; piece < KING; piece++) {
         U64 piece_bb = board.bb_pieces[x_team][piece];
         while (piece_bb) {
-            uint8_t sq = pop_bit(team, piece_bb);
+            uint8_t sq = pop_bit(piece_bb);
 
             eval -= TOGETHER[distance(x_team_king, sq)];
         }

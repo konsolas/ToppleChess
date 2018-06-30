@@ -34,13 +34,13 @@ int movegen_t::gen_caps() {
     U64 bb_pawns = board.bb_pieces[team][PAWN];
 
     while (bb_pawns) {
-        uint8_t from = pop_bit(team, bb_pawns);
+        uint8_t from = pop_bit(bb_pawns);
         move.info.from = from;
 
         U64 bb_targets = pawn_caps(team, from) & board.bb_side[x_team];
 
         while (bb_targets) {
-            uint8_t to = pop_bit(x_team, bb_targets);
+            uint8_t to = pop_bit(bb_targets);
             move.info.to = to;
             move.info.captured_type = board.sq_data[to].piece;
 
@@ -120,7 +120,7 @@ void movegen_t::gen_ep() {
         U64 ep_attacks = pawn_caps(x_team, record.ep_square) & board.bb_pieces[team][PAWN];
 
         while (ep_attacks) {
-            uint8_t from = pop_bit(WHITE, ep_attacks);
+            uint8_t from = pop_bit(ep_attacks);
 
             move.info.from = from;
             move.info.piece = PAWN;
@@ -145,13 +145,13 @@ int movegen_t::gen_quiets() {
     U64 bb_pawns = board.bb_pieces[team][PAWN];
 
     while (bb_pawns) {
-        uint8_t from = pop_bit(team, bb_pawns);
+        uint8_t from = pop_bit(bb_pawns);
         move.info.from = from;
 
         U64 bb_targets = find_moves<PAWN>(team, from, board.bb_all) & mask;
 
         while (bb_targets) {
-            uint8_t to = pop_bit(x_team, bb_targets);
+            uint8_t to = pop_bit(bb_targets);
             move.info.to = to;
 
             // Promotions
@@ -273,13 +273,13 @@ void movegen_t::gen_piece_quiets(move_t move, U64 mask) {
     U64 bb_piece = board.bb_pieces[team][TYPE];
 
     while (bb_piece) {
-        uint8_t from = pop_bit(team, bb_piece);
+        uint8_t from = pop_bit(bb_piece);
         move.info.from = from;
 
         U64 bb_targets = find_moves<TYPE>(team, from, board.bb_all) & mask;
 
         while (bb_targets) {
-            uint8_t to = pop_bit(x_team, bb_targets);
+            uint8_t to = pop_bit(bb_targets);
             move.info.to = to;
 
             buf[buf_size++] = move;
@@ -293,13 +293,13 @@ void movegen_t::gen_piece_caps(move_t move) {
     U64 bb_piece = board.bb_pieces[team][TYPE];
 
     while (bb_piece) {
-        uint8_t from = pop_bit(team, bb_piece);
+        uint8_t from = pop_bit(bb_piece);
         move.info.from = from;
 
         U64 bb_targets = find_moves<TYPE>(team, from, board.bb_all) & board.bb_side[x_team];
 
         while (bb_targets) {
-            uint8_t to = pop_bit(x_team, bb_targets);
+            uint8_t to = pop_bit(bb_targets);
             move.info.to = to;
             move.info.captured_type = board.sq_data[to].piece;
 

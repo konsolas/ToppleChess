@@ -30,17 +30,17 @@ TEST_CASE("Bitboard engine") {
                             0, 0, 0, 0, 0, 1, 0, 0,
                             0, 0, 1, 1, 1, 0, 0, 0});
 
-            REQUIRE(pop_bit(WHITE, bb) == C1);
-            REQUIRE(pop_bit(WHITE, bb) == D1);
-            REQUIRE(pop_bit(WHITE, bb) == E1);
-            REQUIRE(pop_bit(WHITE, bb) == F2);
-            REQUIRE(pop_bit(WHITE, bb) == F4);
-            REQUIRE(pop_bit(WHITE, bb) == A5);
-            REQUIRE(pop_bit(WHITE, bb) == F6);
-            REQUIRE(pop_bit(WHITE, bb) == B7);
-            REQUIRE(pop_bit(WHITE, bb) == D7);
-            REQUIRE(pop_bit(WHITE, bb) == H7);
-            REQUIRE(pop_bit(WHITE, bb) == G8);
+            REQUIRE(pop_bit(bb) == C1);
+            REQUIRE(pop_bit(bb) == D1);
+            REQUIRE(pop_bit(bb) == E1);
+            REQUIRE(pop_bit(bb) == F2);
+            REQUIRE(pop_bit(bb) == F4);
+            REQUIRE(pop_bit(bb) == A5);
+            REQUIRE(pop_bit(bb) == F6);
+            REQUIRE(pop_bit(bb) == B7);
+            REQUIRE(pop_bit(bb) == D7);
+            REQUIRE(pop_bit(bb) == H7);
+            REQUIRE(pop_bit(bb) == G8);
 
             REQUIRE(bb == 0);
         }
@@ -99,6 +99,22 @@ TEST_CASE("Bitboard engine") {
                 REQUIRE(from_sq(H8) == "h8");
                 REQUIRE(from_sq(D4) == "d4");
             }
+        }
+
+        SECTION("Alignment") {
+            REQUIRE(aligned(A1, B2));
+            REQUIRE(aligned(A1, B1));
+            REQUIRE(aligned(A1, A2));
+            REQUIRE(!aligned(E4, B5));
+            REQUIRE(aligned(B2, G7));
+            REQUIRE(!aligned(A1, C2));
+
+            REQUIRE(aligned(A1, B2, F6));
+            REQUIRE(aligned(A1, D1, G1));
+            REQUIRE(aligned(B2, B6, B4));
+            REQUIRE(!aligned(E4, B5));
+            REQUIRE(!aligned(B2, D5, G7));
+            REQUIRE(!aligned(A1, C2));
         }
 
         SECTION("Population count") {

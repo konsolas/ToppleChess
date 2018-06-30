@@ -67,15 +67,15 @@ struct board_t {
     void mirror();
 
     /* Board representation (Bitboard) */
-    U64 bb_pieces[2][6] = {0}; // [Team][Piece]
-    U64 bb_side[2] = {0}; // [Team]
-    U64 bb_all = {0}; // All occupied squares
+    U64 bb_pieces[2][6] = {}; // [Team][Piece]
+    U64 bb_side[2] = {}; // [Team]
+    U64 bb_all = {}; // All occupied squares
     /* Board representation (Square array) */
-    sq_data_t sq_data[64] = {{0}};
+    sq_data_t sq_data[64] = {{}};
 
     /* Game history */
     int now = 0; // Index for record array
-    game_record_t record[4096] = {{0}}; // Record (supporting games of up to 4096 moves)
+    game_record_t record[4096] = {{}}; // Record (supporting games of up to 4096 moves)
 
     /* Internal methods */
     template<bool HASH>
