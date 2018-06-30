@@ -323,17 +323,22 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
 
             bool move_is_check = board.is_incheck();
 
-            // Futility pruning
-            if (!in_check && !move_is_check) {
-                if (stand_pat + 64 < alpha && (stage == GEN_QUIETS || stage == GEN_BAD_CAPT)) {
-                    board.unmove();
-                    break;
-                }
-            }
-
             // Check
             if (move_is_check) {
                 ex = 1;
+            }
+
+            // Futility pruning
+            if (!in_check && ex == 0) {
+                if (depth <= 6 && stand_pat + 64 + 32 * depth < alpha && stage == GEN_QUIETS) {
+                    board.unmove();
+                    break;
+                }
+
+                if(depth <= 2 && stage == GEN_BAD_CAPT) {
+                    board.unmove();
+                    break;
+                }
             }
 
             // LMR

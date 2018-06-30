@@ -214,8 +214,7 @@ move_t movegen_t::next(GenStage &stage, int &move_score, search_t &search, move_
 
                 if (see_score >= 0) {
                     buf_scores[i] = CAPT_BASE;
-                    buf_scores[i] += (see_score
-                                      +
+                    buf_scores[i] += (see_score +
                                       (record.next_move ? rank_index(move.info.to) + 1 : 8 - rank_index(move.info.to)));
                 } else {
                     buf_scores[i] = see_score - CAPT_BASE;
@@ -239,7 +238,7 @@ move_t movegen_t::next(GenStage &stage, int &move_score, search_t &search, move_
     move_t move = next();
     if (move.info.is_capture && move_score >= CAPT_BASE) {
         stage = GEN_GOOD_CAPT;
-    } else if (move_score > 20000) {
+    } else if (move_score > KILLER_BASE) {
         stage = GEN_KILLERS;
     } else if (!move.info.is_capture) {
         stage = GEN_QUIETS;

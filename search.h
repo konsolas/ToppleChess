@@ -20,10 +20,6 @@ namespace search_heur {
     // History heuristic
     class history_heur_t {
     public:
-        history_heur_t() {
-            memset(historyTable, 0, sizeof(historyTable));
-        }
-
         void history(move_t good_move, int depth) {
             int bonus = 1;
 
@@ -43,8 +39,8 @@ namespace search_heur {
 
     private:
         // Indexed by [TEAM][PIECE][TO]
-        int historyTable[2][6][64] = {0};
-        int butterflyTable[2][6][64] = {0};
+        int historyTable[2][6][64] = {};
+        int butterflyTable[2][6][64] = {};
 
         // Intenal update routine
         void tableHist(move_t move, int delta) {
@@ -65,10 +61,6 @@ namespace search_heur {
     // Killer heuristic
     class killer_heur_t {
     public:
-        killer_heur_t() {
-            memset(killers, 0, sizeof(killers));
-        }
-
         void update(move_t killer, int ply) {
             if (!killer.info.is_capture) {
                 killers[ply][1] = killers[ply][0];
@@ -85,7 +77,7 @@ namespace search_heur {
         }
 
     private:
-        move_t killers[MAX_PLY][2] = {{EMPTY_MOVE}};
+        move_t killers[MAX_PLY][2] = {{}};
     };
 }
 
@@ -161,10 +153,10 @@ private:
     search_limits_t limits;
 
     // PV
-    int pv_table_len[MAX_PLY] = {0};
-    move_t pv_table[MAX_PLY][MAX_PLY] = {{EMPTY_MOVE}};
+    int pv_table_len[MAX_PLY] = {};
+    move_t pv_table[MAX_PLY][MAX_PLY] = {{}};
     int last_pv_len = 0;
-    move_t last_pv[MAX_PLY] = {EMPTY_MOVE};
+    move_t last_pv[MAX_PLY] = {};
 
     // Heuristics
     search_heur::killer_heur_t killer_heur;
