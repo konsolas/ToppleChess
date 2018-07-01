@@ -7,7 +7,7 @@
 
 #include "search.h"
 #include "eval.h"
-#include "movegen.h"
+#include "movesort.h"
 #include "move.h"
 
 const int TIMEOUT = -INF * 2;
@@ -73,6 +73,8 @@ int search_t::search_aspiration(int prev_score, int depth, const std::atomic_boo
     }
 
     int researches = 0;
+
+
     int score = search_root(board, alpha, beta, depth, aborted);
 
     if (score == TIMEOUT) return score;
@@ -115,14 +117,10 @@ int search_t::search_root(board_t &board, int alpha, int beta, int depth, const 
     tt::entry_t h = {0};
     tt->probe(board.record[board.now].hash, h);
 
-    GenStage stage = GEN_NONE;
-    int move_score;
-    movegen_t gen(board);
-    gen.gen_normal();
+    GenStage stage = GEN_NONE; move_t move{}; int move_score;
+    movesort_t gen(NORMAL, *this, h.move, 0);
     int n_legal = 0;
-    while (gen.has_next()) {
-        move_t move = gen.next(stage, move_score, *this, h.move, 0);
-
+    while ((move = gen.next(stage, move_score)) != EMPTY_MOVE) {
         if (!is_root_move(move)) {
             continue;
         }
@@ -285,13 +283,12 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
         tt->probe(board.record[board.now].hash, h);
     }
 
-    GenStage stage = GEN_NONE;
-    int move_score;
-    movegen_t gen(board);
-    gen.gen_normal();
+    GenStage stage = GEN_NONE; move_t move{}; int move_score;
+    movesort_t gen(NORMAL, *this, h.move, ply);
+    int n_searched = 0;
     int n_legal = 0;
-    while (gen.has_next()) {
-        move_t move = gen.next(stage, move_score, *this, h.move, ply);
+    while ((move = gen.next(stage, move_score)) != EMPTY_MOVE) {
+        n_searched++;
         if (excluded == move) {
             continue;
         }
@@ -332,12 +329,12 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
             if (!in_check && ex == 0) {
                 if (depth <= 6 && stand_pat + 64 + 32 * depth < alpha && stage == GEN_QUIETS) {
                     board.unmove();
-                    break;
+                    continue;
                 }
 
                 if(depth <= 2 && stage == GEN_BAD_CAPT) {
                     board.unmove();
-                    break;
+                    continue;
                 }
             }
 
@@ -403,6 +400,11 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
         }
     }
 
+    move_t buf[256];
+    if(n_searched != movegen_t(board).gen_normal(buf)) {
+        std::cout << " MISMATCH " << n_searched << " vs " << movegen_t(board).gen_normal(buf) << std::endl;
+    }
+
     if (n_legal == 0) {
         if (in_check) {
             return -TO_MATE_SCORE(ply);
@@ -437,16 +439,12 @@ int search_t::search_qs(board_t &board, int alpha, int beta, int ply, const std:
     if (stand_pat >= beta) return beta;
     if (alpha < stand_pat) alpha = stand_pat;
 
-    GenStage stage;
-    int move_score;
-    movegen_t gen(board);
-    gen.gen_caps();
-    while (gen.has_next()) {
-        move_t move = gen.next(stage, move_score, *this, EMPTY_MOVE, ply);
-
+    GenStage stage = GEN_NONE; move_t move{}; int move_score;
+    movesort_t gen(QUIESCENCE, *this, EMPTY_MOVE, 0);
+    while ((move = gen.next(stage, move_score)) != EMPTY_MOVE) {
         if (move.info.captured_type == KING) return INF; // Ignore this position in case of a king capture
         if (stage == GEN_BAD_CAPT) break; // SEE Pruning
-        if (stage + move_score - CAPT_BASE < alpha - 128) break; // Delta pruning
+        if (stand_pat + move_score < alpha - 128) break; // Delta pruning
 
         board.move(move);
         if (board.is_illegal()) {

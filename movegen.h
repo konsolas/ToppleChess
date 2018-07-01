@@ -9,23 +9,7 @@
 #include "board.h"
 #include "search.h"
 
-constexpr int CAPT_BASE = 100000;
-constexpr int KILLER_BASE = 80000;
-
 class board_t;
-
-enum GenMode {
-
-};
-
-enum GenStage {
-    GEN_NONE = 0,
-    GEN_HASH = 1,
-    GEN_GOOD_CAPT = 2,
-    GEN_KILLERS = 3,
-    GEN_QUIETS = 4,
-    GEN_BAD_CAPT = 5
-};
 
 class movegen_t {
 public:
@@ -41,65 +25,33 @@ public:
      *
      * @return the number of moves in {@code buf}
      */
-    int gen_normal();
+    int gen_normal(move_t *buf);
 
     /**
      * Generate captures only, ordered MVV/LVA
      *
      * @return the number of moves in {@code buf}
      */
-    int gen_caps();
+    int gen_caps(move_t *buf);
 
     /**
      * Generate non-captures only, unordered.
      *
      * @return the number of moves in {@code buf}
      */
-    int gen_quiets();
-
-    /**
-     * Generate next move (selection sort)
-     *
-     * @param stage current generation stage
-     * @param search search to generate for
-     * @param hash_move move from hash table
-     * @param ply current depth
-     * @return next move
-     */
-    move_t next(GenStage &stage, int &score, search_t &search, move_t hash_move, int ply);
-
-    /**
-     * Generate next move without sorting
-     * @return next move
-     */
-    move_t next();
-
-    /**
-     * Check if this generator has any moves remaining
-     *
-     * @return true if there are more moves (and next() should be called)
-     */
-    bool has_next();
+    int gen_quiets(move_t *buf);
 private:
     board_t &board;
-
-    void buf_swap(int i, int j);
-
-    int buf_size = 0;
-    int idx = 0;
-    move_t buf[256] = {};
-    bool scored = false;
-    int buf_scores[256] = {};
 
     Team team;
     Team x_team;
     game_record_t record;
 
-    void gen_castling();
-    void gen_ep();
+    int gen_castling(move_t *buf);
+    int gen_ep(move_t *buf);
 
-    template <Piece TYPE> void gen_piece_quiets(move_t move, U64 mask);
-    template <Piece TYPE> void gen_piece_caps(move_t move);
+    template <Piece TYPE> void gen_piece_quiets(move_t *buf, int &buf_size, move_t move, U64 mask);
+    template <Piece TYPE> void gen_piece_caps(move_t *buf, int &buf_size, move_t move);
 };
 
 

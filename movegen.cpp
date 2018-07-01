@@ -4,26 +4,22 @@
 
 #include "movegen.h"
 
-movegen_t::movegen_t(board_t &board) : board(board) {}
-
-int movegen_t::gen_normal() {
+movegen_t::movegen_t(board_t &board) : board(board) {
     record = board.record[board.now];
     team = record.next_move;
     x_team = Team(!record.next_move);
-
-    gen_caps();
-    gen_quiets();
-
-    return buf_size;
 }
 
-int movegen_t::gen_caps() {
-    record = board.record[board.now];
-    team = record.next_move;
-    x_team = Team(!record.next_move);
+int movegen_t::gen_normal(move_t *buf) {
+    int caps = gen_caps(buf);
+    int quiets = gen_quiets(buf + caps);
 
+    return caps + quiets;
+}
+
+int movegen_t::gen_caps(move_t *buf) {
     // En-passant capture
-    gen_ep();
+    int buf_size = gen_ep(buf);
 
     move_t move = EMPTY_MOVE;
     move.info.team = team;
@@ -62,16 +58,17 @@ int movegen_t::gen_caps() {
     }
 
     // Generate piece caps (not pawns)
-    gen_piece_caps<KNIGHT>(move);
-    gen_piece_caps<BISHOP>(move);
-    gen_piece_caps<ROOK>(move);
-    gen_piece_caps<QUEEN>(move);
-    gen_piece_caps<KING>(move);
+    gen_piece_caps<KNIGHT>(buf, buf_size, move);
+    gen_piece_caps<BISHOP>(buf, buf_size, move);
+    gen_piece_caps<ROOK>(buf, buf_size, move);
+    gen_piece_caps<QUEEN>(buf, buf_size, move);
+    gen_piece_caps<KING>(buf, buf_size, move);
 
     return buf_size;
 }
 
-void movegen_t::gen_castling() {
+int movegen_t::gen_castling(move_t *buf) {
+    int buf_size = 0;
     move_t move{};
 
     // Generate castling kingside
@@ -109,9 +106,12 @@ void movegen_t::gen_castling() {
             buf[buf_size++] = move;
         }
     }
+
+    return buf_size;
 }
 
-void movegen_t::gen_ep() {
+int movegen_t::gen_ep(move_t *buf) {
+    int buf_size = 0;
     move_t move = EMPTY_MOVE;
     move.info.team = team;
 
@@ -129,13 +129,15 @@ void movegen_t::gen_ep() {
             buf[buf_size++] = move;
         }
     }
+
+    return buf_size;
 }
 
-int movegen_t::gen_quiets() {
+int movegen_t::gen_quiets(move_t *buf) {
+    int buf_size = gen_castling(buf);
+
     // Generates quiet moves only
     U64 mask = ~board.bb_all;
-
-    gen_castling();
 
     // Pawn moves
     move_t move{};
@@ -172,103 +174,18 @@ int movegen_t::gen_quiets() {
     }
 
     // Generate piece moves (not pawns)
-    gen_piece_quiets<KNIGHT>(move, mask);
-    gen_piece_quiets<BISHOP>(move, mask);
-    gen_piece_quiets<ROOK>(move, mask);
-    gen_piece_quiets<QUEEN>(move, mask);
-    gen_piece_quiets<KING>(move, mask);
+    gen_piece_quiets<KNIGHT>(buf, buf_size, move, mask);
+    gen_piece_quiets<BISHOP>(buf, buf_size, move, mask);
+    gen_piece_quiets<ROOK>(buf, buf_size, move, mask);
+    gen_piece_quiets<QUEEN>(buf, buf_size, move, mask);
+    gen_piece_quiets<KING>(buf, buf_size, move, mask);
 
     return buf_size;
 }
 
-move_t movegen_t::next(GenStage &stage, int &move_score, search_t &search, move_t hash_move, int ply) {
-    if (stage < GEN_HASH && hash_move != EMPTY_MOVE) {
-        for (int i = idx; i < buf_size; i++) {
-            if (hash_move == buf[i]) {
-                buf_swap(i, idx);
-                stage = GEN_HASH;
-                return next();
-            }
-        }
-    }
-
-    // Score moves
-    if (!scored) {
-        for (int i = idx; i < buf_size; i++) {
-            move_t move = buf[i];
-
-            if (!move.info.is_capture) {
-                if (search.killer_heur.primary(ply) == move) {
-                    buf_scores[i] = KILLER_BASE + 3;
-                } else if (search.killer_heur.secondary(ply) == move) {
-                    buf_scores[i] = KILLER_BASE + 2;
-                } else if (ply >= 2 && (search.killer_heur.primary(ply - 2) == move)) {
-                    buf_scores[i] = KILLER_BASE + 1;
-                } else if (ply >= 2 && (search.killer_heur.secondary(ply - 2) == move)) {
-                    buf_scores[i] = KILLER_BASE;
-                } else {
-                    buf_scores[i] = search.history_heur.get(move);
-                }
-            } else {
-                int see_score = board.see(move);
-
-                if (see_score >= 0) {
-                    buf_scores[i] = CAPT_BASE;
-                    buf_scores[i] += (see_score +
-                                      (record.next_move ? rank_index(move.info.to) + 1 : 8 - rank_index(move.info.to)));
-                } else {
-                    buf_scores[i] = see_score - CAPT_BASE;
-                }
-            }
-        }
-
-        scored = true;
-    }
-
-    // Pick moves
-    int best_idx = idx;
-    for (int i = idx; i < buf_size; i++) {
-        if (buf_scores[i] > buf_scores[best_idx]) {
-            best_idx = i;
-        }
-    }
-
-    buf_swap(best_idx, idx);
-    move_score = buf_scores[idx];
-    move_t move = next();
-    if (move.info.is_capture && move_score >= CAPT_BASE) {
-        stage = GEN_GOOD_CAPT;
-    } else if (move_score > KILLER_BASE) {
-        stage = GEN_KILLERS;
-    } else if (!move.info.is_capture) {
-        stage = GEN_QUIETS;
-    } else {
-        stage = GEN_BAD_CAPT;
-    }
-
-    return move;
-}
-
-move_t movegen_t::next() {
-    return buf[idx++];
-}
-
-bool movegen_t::has_next() {
-    return idx < buf_size;
-}
-
-void movegen_t::buf_swap(int i, int j) {
-    move_t temp = buf[i];
-    buf[i] = buf[j];
-    buf[j] = temp;
-
-    int temp_score = buf_scores[i];
-    buf_scores[i] = buf_scores[j];
-    buf_scores[j] = temp_score;
-}
 
 template<Piece TYPE>
-void movegen_t::gen_piece_quiets(move_t move, U64 mask) {
+void movegen_t::gen_piece_quiets(move_t *buf, int &buf_size, move_t move, U64 mask) {
     move.info.piece = TYPE;
     U64 bb_piece = board.bb_pieces[team][TYPE];
 
@@ -288,7 +205,7 @@ void movegen_t::gen_piece_quiets(move_t move, U64 mask) {
 }
 
 template<Piece TYPE>
-void movegen_t::gen_piece_caps(move_t move) {
+void movegen_t::gen_piece_caps(move_t *buf, int &buf_size, move_t move) {
     move.info.piece = TYPE;
     U64 bb_piece = board.bb_pieces[team][TYPE];
 

@@ -69,11 +69,11 @@ namespace search_heur {
         }
 
         move_t primary(int ply) {
-            return killers[ply][0];
+            return ply >= 0 ? killers[ply][0] : EMPTY_MOVE;
         }
 
         move_t secondary(int ply) {
-            return killers[ply][1];
+            return ply >= 0 ? killers[ply][1] : EMPTY_MOVE;
         }
 
     private:
@@ -116,13 +116,11 @@ struct search_limits_t {
 };
 
 class search_t {
-    friend class movegen_t;
-
+    friend class movesort_t;
 public:
     explicit search_t(board_t board, tt::hash_t *tt, unsigned int threads, search_limits_t limits);
 
     move_t think(const std::atomic_bool &aborted);
-
 private:
     int search_aspiration(int prev_score, int depth, const std::atomic_bool &aborted);
     int search_root(board_t &board, int alpha, int beta, int depth, const std::atomic_bool &aborted);

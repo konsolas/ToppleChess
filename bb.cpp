@@ -590,6 +590,26 @@ U64 find_moves<KING>(Team side, uint8_t square, U64 occupied) {
     return bb_normal_moves::king_moves[square];
 }
 
+U64 find_moves(Piece type, Team side, uint8_t square, U64 occupied) {
+    switch (type) {
+        case PAWN:
+            return find_moves<PAWN>(side, square, occupied);
+        case KNIGHT:
+            return find_moves<KNIGHT>(side, square, occupied);
+        case BISHOP:
+            return find_moves<BISHOP>(side, square, occupied);
+        case ROOK:
+            return find_moves<ROOK>(side, square, occupied);
+        case QUEEN:
+            return find_moves<QUEEN>(side, square, occupied);
+        case KING:
+            return find_moves<KING>(side, square, occupied);
+        default:
+            return 0;
+    }
+}
+
+
 U64 pawn_caps(Team side, uint8_t square) {
     return bb_normal_moves::pawn_caps[side][square];
 }

@@ -9,6 +9,7 @@
 
 #include "board.h"
 #include "testing/catch.hpp"
+#include "move.h"
 
 void board_t::move(move_t move) {
     // Copy the record
@@ -350,6 +351,9 @@ bool board_t::is_illegal() {
 
 bool board_t::is_incheck() {
     Team side = record[now].next_move;
+    if(bb_pieces[side][KING] == 0) {
+        std::cout << *this << std::endl;
+    }
     uint8_t king_square = bit_scan(bb_pieces[side][KING]);
 
     return is_attacked(king_square, Team(!side));
@@ -424,6 +428,18 @@ bool board_t::is_pseudo_legal(move_t move) {
 
     if (move.info.is_capture) {
         if ((bb_pieces[x_team][move.info.captured_type] & single_bit(move.info.to)) == 0) return false;
+    } else {
+        if ((bb_pieces[x_team][move.info.captured_type] & single_bit(move.info.to)) != 0) return false;
+    }
+
+    if(move.info.is_ep) {
+        if(record[now].ep_square == 0 || move.info.to != record[now].ep_square) {
+            return false;
+        }
+    } else {
+        if ((find_moves(Piece(move.info.piece), team, move.info.from, bb_all) & single_bit(move.info.to)) == 0) {
+            return false;
+        }
     }
 
     return (bb_pieces[team][move.info.piece] & single_bit(move.info.from)) &&

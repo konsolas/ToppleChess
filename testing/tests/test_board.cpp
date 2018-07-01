@@ -226,6 +226,10 @@ TEST_CASE("Board representation") {
 }
 
 TEST_CASE("Legality") {
-    board_t board("2bq1bn1/2pppk2/np2N3/r3P1pB/p2N4/8/PPPPKPP1/RNB2r2 b - - 1 2");
-    REQUIRE(board.is_incheck());
+    board_t board1("2bq1bn1/2pppk2/np2N3/r3P1pB/p2N4/8/PPPPKPP1/RNB2r2 b - - 1 2");
+    REQUIRE(board1.is_incheck());
+
+    board_t board2("rnbqkb1r/ppp2ppp/3p4/8/4n3/3N4/PPPP1PPP/RNBQKB1R w KQkq - 0 5");
+    INFO(((find_moves(PAWN, WHITE, D2, board2.bb_all) & single_bit(D4)) == 0))
+    REQUIRE(!board2.is_pseudo_legal(board2.parse_move("d2d4")));
 }

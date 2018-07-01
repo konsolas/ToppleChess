@@ -56,7 +56,7 @@ const void hash_check(const board_t &board) {
         hash ^= zobrist::ep[board.record[board.now].ep_square];
     }
 
-    INFO("position: " << board);
+    INFO("position: " << board << " lastmove: " << board.record[board.now].prev_move);
     REQUIRE(hash == board.record[board.now].hash);
 }
 
@@ -71,12 +71,12 @@ U64 perft(board_t &board, int depth) {
     U64 count = 0;
     board_t snapshot = board;
 
-    movegen_t gen(board);
-    gen.gen_normal();
+    movegen_t gen(board); move_t next{};
+    move_t buf[256] = {}; gen.gen_normal(buf);
+    int idx = 0;
 
-    while (gen.has_next()) {
-        move_t next = gen.next();
-
+    while ((next = buf[idx++]) != EMPTY_MOVE) {
+        INFO(next);
         REQUIRE(board.is_pseudo_legal(next));
 
         board.move(next);
@@ -87,7 +87,7 @@ U64 perft(board_t &board, int depth) {
 
         board.unmove();
 
-        if(board != snapshot) {
+        if(board != snapshot || board.record[board.now].hash != snapshot.record[snapshot.now].hash) {
             FAIL("Unmake move failed at position: " << board
                                                     << "expecting " << snapshot
                                                     << " move=" << from_sq(next.info.from) << from_sq(next.info.to));

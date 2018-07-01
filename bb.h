@@ -34,6 +34,7 @@ void init_tables();
  */
 template<Piece TYPE>
 U64 find_moves(Team side, uint8_t square, U64 occupied);
+U64 find_moves(Piece type, Team side, uint8_t square, U64 occupied);
 
 /**
  * Generates a bitboard of diagonal pawn captures from a pawn of team side, at the given square. Assumes the board is
