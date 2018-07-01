@@ -175,10 +175,6 @@ int search_t::search_root(board_t &board, int alpha, int beta, int depth, const 
                     }
 
                     return beta; // Fail hard
-                } else {
-                    if (!move.info.is_capture) {
-                        history_heur.butterfly(move, depth);
-                    }
                 }
             }
         }
@@ -285,10 +281,8 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
 
     GenStage stage = GEN_NONE; move_t move{}; int move_score;
     movesort_t gen(NORMAL, *this, h.move, ply);
-    int n_searched = 0;
     int n_legal = 0;
     while ((move = gen.next(stage, move_score)) != EMPTY_MOVE) {
-        n_searched++;
         if (excluded == move) {
             continue;
         }
@@ -329,12 +323,12 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
             if (!in_check && ex == 0) {
                 if (depth <= 6 && stand_pat + 64 + 32 * depth < alpha && stage == GEN_QUIETS) {
                     board.unmove();
-                    continue;
+                    break;
                 }
 
                 if(depth <= 2 && stage == GEN_BAD_CAPT) {
                     board.unmove();
-                    continue;
+                    break;
                 }
             }
 
@@ -391,18 +385,9 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
                     }
 
                     return beta; // Fail hard
-                } else {
-                    if (!move.info.is_capture) {
-                        history_heur.butterfly(move, depth);
-                    }
                 }
             }
         }
-    }
-
-    move_t buf[256];
-    if(n_searched != movegen_t(board).gen_normal(buf)) {
-        std::cout << " MISMATCH " << n_searched << " vs " << movegen_t(board).gen_normal(buf) << std::endl;
     }
 
     if (n_legal == 0) {

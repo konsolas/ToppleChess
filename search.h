@@ -21,39 +21,22 @@ namespace search_heur {
     class history_heur_t {
     public:
         void history(move_t good_move, int depth) {
-            int bonus = 1;
-
+            int bonus = (depth < 16) * depth * depth;
             tableHist(good_move, bonus);
         }
 
-        void butterfly(move_t good_move, int depth) {
-            int bonus = 1;
-
-            tableFly(good_move, bonus);
-        }
-
         int get(move_t move) {
-            return historyTable[move.info.team][move.info.piece][move.info.to]
-                   / (butterflyTable[move.info.team][move.info.piece][move.info.to] + 1);
+            return historyTable[move.info.team][move.info.from][move.info.to];
         }
-
     private:
-        // Indexed by [TEAM][PIECE][TO]
-        int historyTable[2][6][64] = {};
-        int butterflyTable[2][6][64] = {};
+        // Indexed by [TEAM][FROM][TO]
+        int historyTable[2][64][64] = {};
 
         // Intenal update routine
         void tableHist(move_t move, int delta) {
-            historyTable[move.info.team][move.info.piece][move.info.to] += delta;
-            if (historyTable[move.info.team][move.info.piece][move.info.to] < 0) {
-                historyTable[move.info.team][move.info.piece][move.info.to] = 0;
-            }
-        }
-
-        void tableFly(move_t move, int delta) {
-            butterflyTable[move.info.team][move.info.piece][move.info.to] += delta;
-            if (butterflyTable[move.info.team][move.info.piece][move.info.to] < 0) {
-                butterflyTable[move.info.team][move.info.piece][move.info.to] = 0;
+            historyTable[move.info.team][move.info.from][move.info.to] += delta;
+            if (historyTable[move.info.team][move.info.from][move.info.to] < 0) {
+                historyTable[move.info.team][move.info.from][move.info.to] = 0;
             }
         }
     };
@@ -69,11 +52,11 @@ namespace search_heur {
         }
 
         move_t primary(int ply) {
-            return ply >= 0 ? killers[ply][0] : EMPTY_MOVE;
+            return killers[ply][0];
         }
 
         move_t secondary(int ply) {
-            return ply >= 0 ? killers[ply][1] : EMPTY_MOVE;
+            return killers[ply][1];
         }
 
     private:

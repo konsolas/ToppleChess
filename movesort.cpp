@@ -92,7 +92,7 @@ move_t movesort_t::next(GenStage &stage, int &score) {
                     goto retry;
                 }
 
-                if(main_scores[main_idx] > KILLER_BASE) stage = GEN_KILLER;
+                if(main_scores[main_idx] >= KILLER_BASE) stage = GEN_KILLER;
                 else stage = GEN_QUIETS;
                 score = main_scores[main_idx];
                 return main_buf[main_idx++];

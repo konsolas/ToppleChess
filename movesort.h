@@ -20,7 +20,7 @@ enum GenStage {
     GEN_BAD_CAPT,
 };
 
-constexpr int KILLER_BASE = 100000;
+constexpr int KILLER_BASE = 1000000000;
 
 class movesort_t {
 public:
