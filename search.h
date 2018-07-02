@@ -35,8 +35,14 @@ namespace search_heur {
         // Intenal update routine
         void tableHist(move_t move, int delta) {
             historyTable[move.info.team][move.info.from][move.info.to] += delta;
-            if (historyTable[move.info.team][move.info.from][move.info.to] < 0) {
-                historyTable[move.info.team][move.info.from][move.info.to] = 0;
+            if (historyTable[move.info.team][move.info.from][move.info.to] > 1000000000) {
+                for (auto &h : historyTable) {
+                    for (auto &i : h) {
+                        for (int &j : i) {
+                            j /= 16;
+                        }
+                    }
+                }
             }
         }
     };
