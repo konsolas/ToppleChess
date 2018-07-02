@@ -9,7 +9,7 @@
 #include "eval.h"
 #include "endgame.h"
 
-#define TOPPLE_VER "0.1.2"
+#define TOPPLE_VER "0.2.0"
 
 const unsigned int MB = 1048576;
 
@@ -21,9 +21,6 @@ int main(int argc, char *argv[]) {
     zobrist::init_hashes();
     eval_init();
     eg_init();
-
-    // Setup input
-    std::ios_base::sync_with_stdio(false);
 
     // Board
     board_t *board = nullptr;

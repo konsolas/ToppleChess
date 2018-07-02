@@ -36,7 +36,7 @@ move_t search_t::think(const std::atomic_bool &aborted) {
             if (depth > 5) {
                 for (unsigned int i = 0; i < threads - 1; i++) {
                     helper_threads[i] = std::async(std::launch::async,
-                                                   &search_t::search_ab<true>, this,
+                                                   &search_t::search_ab<true, true>, this,
                                                    std::ref(helper_boards[i]), -INF, INF, 0, depth, true, EMPTY_MOVE,
                                                    std::ref(helper_thread_aborted));
                 }
@@ -138,12 +138,12 @@ int search_t::search_root(board_t &board, int alpha, int beta, int depth, const 
             }
 
             if (n_legal == 1) {
-                score = -search_ab<false>(board, -beta, -alpha, 1, depth - 1, true, EMPTY_MOVE, aborted);
+                score = -search_ab<true, false>(board, -beta, -alpha, 1, depth - 1, true, EMPTY_MOVE, aborted);
             } else {
-                score = -search_ab<false>(board, -alpha - 1, -alpha, 1, depth - 1, true, EMPTY_MOVE, aborted);
+                score = -search_ab<false, false>(board, -alpha - 1, -alpha, 1, depth - 1, true, EMPTY_MOVE, aborted);
                 if (alpha < score && score < beta) {
                     // Research if the zero window search failed.
-                    score = -search_ab<false>(board, -beta, -alpha, 1, depth - 1, true, EMPTY_MOVE, aborted);
+                    score = -search_ab<true, false>(board, -beta, -alpha, 1, depth - 1, true, EMPTY_MOVE, aborted);
                 }
             }
             board.unmove();
@@ -198,20 +198,18 @@ int search_t::search_root(board_t &board, int alpha, int beta, int depth, const 
     return alpha;
 }
 
-template<bool H>
+template<bool PV, bool H>
 int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth, bool can_null, move_t excluded,
                         const std::atomic_bool &aborted) {
     nodes++;
     if (!H) pv_table_len[ply] = ply;
-
-    const bool PV = alpha + 1 < beta;
 
     if (is_aborted(aborted)) {
         return TIMEOUT;
     }
 
     // Quiescence search
-    if (depth < 1) return search_qs<H>(board, alpha, beta, ply + 1, aborted);
+    if (depth < 1) return search_qs<PV, H>(board, alpha, beta, ply + 1, aborted);
 
     // Search variables
     int score;
@@ -259,7 +257,7 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
             board.move(EMPTY_MOVE);
 
             int R = 2 + depth / 4;
-            null_score = -search_ab<H>(board, -beta, -beta + 1, ply + 1, depth - R - 1, false, EMPTY_MOVE, aborted);
+            null_score = -search_ab<false, H>(board, -beta, -beta + 1, ply + 1, depth - R - 1, false, EMPTY_MOVE, aborted);
             board.unmove();
 
             if (is_aborted(aborted)) return TIMEOUT;
@@ -274,7 +272,7 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
 
     // Internal iterative deepening
     if (depth > 6 && h.move == EMPTY_MOVE) {
-        search_ab<H>(board, alpha, beta, ply, depth - 6, can_null, EMPTY_MOVE, aborted);
+        search_ab<false, H>(board, alpha, beta, ply, depth - 6, can_null, EMPTY_MOVE, aborted);
         if (is_aborted(aborted)) return TIMEOUT;
         tt->probe(board.record[board.now].hash, h);
     }
@@ -296,7 +294,7 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
             && h.depth >= depth - 3
             && abs(h.value(ply) < MINCHECKMATE)) {
             int reduced_beta = (h.value(ply)) - depth;
-            score = search_ab<H>(board, reduced_beta - 1, reduced_beta, ply + 1, depth / 2,
+            score = search_ab<false, H>(board, reduced_beta - 1, reduced_beta, ply + 1, depth / 2,
                                  can_null, move, aborted);
             if (is_aborted(aborted)) return TIMEOUT;
 
@@ -342,7 +340,7 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
                     if(board.see(reverse(move)) < 0) R--;
 
                     if (R > 0) {
-                        score = -search_ab<H>(board, -alpha - 1, -alpha, ply + 1, depth - R - 1 + ex,
+                        score = -search_ab<false, H>(board, -alpha - 1, -alpha, ply + 1, depth - R - 1 + ex,
                                               can_null, EMPTY_MOVE, aborted);
                         normal_search = score > alpha;
                     }
@@ -357,14 +355,14 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
 
             if (normal_search) {
                 if (PV && n_legal == 1) {
-                    score = -search_ab<H>(board, -beta, -alpha, ply + 1, depth - 1 + ex,
+                    score = -search_ab<PV, H>(board, -beta, -alpha, ply + 1, depth - 1 + ex,
                                           can_null, EMPTY_MOVE, aborted);
                 } else {
-                    score = -search_ab<H>(board, -alpha - 1, -alpha, ply + 1, depth - 1 + ex,
+                    score = -search_ab<false, H>(board, -alpha - 1, -alpha, ply + 1, depth - 1 + ex,
                                           can_null, EMPTY_MOVE, aborted);
                     if (alpha < score && score < beta) {
                         // Research if the zero window search failed.
-                        score = -search_ab<H>(board, -beta, -alpha, ply + 1, depth - 1 + ex,
+                        score = -search_ab<true, H>(board, -beta, -alpha, ply + 1, depth - 1 + ex,
                                               can_null, EMPTY_MOVE, aborted);
                     }
                 }
@@ -419,12 +417,11 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
     return alpha;
 }
 
-template<bool H>
+template<bool PV, bool H>
 int search_t::search_qs(board_t &board, int alpha, int beta, int ply, const std::atomic_bool &aborted) {
     nodes++;
 
     if (!H) pv_table_len[ply] = ply;
-    const bool PV = alpha + 1 < beta;
 
     sel_depth = std::max(sel_depth, ply);
 
@@ -447,7 +444,7 @@ int search_t::search_qs(board_t &board, int alpha, int beta, int ply, const std:
             board.unmove();
             continue;
         } else {
-            int score = -search_qs<H>(board, -beta, -alpha, ply + 1, aborted);
+            int score = -search_qs<PV, H>(board, -beta, -alpha, ply + 1, aborted);
             board.unmove();
 
             if (is_aborted(aborted)) return TIMEOUT;
