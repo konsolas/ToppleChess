@@ -332,15 +332,26 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
                 }
             }
 
-            // LMR
             bool normal_search = true;
-            if (depth > 3 && n_legal > 1 && !move_is_check && stage == GEN_QUIETS) {
-                int R = !PV + depth / 8 + n_legal / 8 - 1;
+            if(n_legal > 1 && !move_is_check && stage == GEN_QUIETS) {
+                if (depth >= 3) {
+                    // LMR
+                    int R = !PV + depth / 8 + n_legal / 8;
+                    if(move_score <= n_legal) R++;
+                    if(h.move.info.is_capture) R++;
+                    if(board.see(reverse(move)) < 0) R--;
 
-                if (R > 0) {
-                    score = -search_ab<H>(board, -alpha - 1, -alpha, ply + 1, depth - R - 1 + ex,
-                                          can_null, EMPTY_MOVE, aborted);
-                    normal_search = score > alpha;
+                    if (R > 0) {
+                        score = -search_ab<H>(board, -alpha - 1, -alpha, ply + 1, depth - R - 1 + ex,
+                                              can_null, EMPTY_MOVE, aborted);
+                        normal_search = score > alpha;
+                    }
+                } else if(ply) {
+                    // History pruning
+                    if(n_legal > move_score) {
+                        board.unmove();
+                        break;
+                    }
                 }
             }
 

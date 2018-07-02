@@ -74,5 +74,16 @@ inline std::ostream &operator<<(std::ostream &stream, const move_t &move) {
     return stream;
 }
 
+inline move_t reverse(move_t &move) {
+    if(!move.info.is_ep && !move.info.is_capture && !move.info.is_promotion && !move.info.castle) {
+        move_t reversed = move;
+        reversed.info.from = move.info.to;
+        reversed.info.to = move.info.from;
+
+        return reversed;
+    }
+
+    return EMPTY_MOVE;
+}
 
 #endif //TOPPLE_MOVE_H

@@ -484,6 +484,9 @@ void board_t::mirror() {
 }
 
 int board_t::see(move_t move) {
+    if(move == EMPTY_MOVE)
+        return 0;
+
     // State
     U64 attackers = attacks_to(move.info.to, Team(move.info.team)) | attacks_to(move.info.to, Team(!move.info.team));
     U64 occupation_mask = ONES;
