@@ -1,7 +1,7 @@
 # Topple
 
 Chess engine with a mostly complete implementation of the UCI interface.
-Estimated rating is around 2100 (CCRL 40/4 conditions).
+Topple v0.1.1 is rated 2338 in CCRL 40/4 and 2360 in CCRL 40/40.
 
 ## Techniques used
  - Alpha-beta Principal Variation Search
