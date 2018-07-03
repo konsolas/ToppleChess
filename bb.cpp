@@ -618,6 +618,10 @@ U64 single_bit(uint8_t square) {
     return bb_util::single_bit[square];
 }
 
+bool multiple_bits(U64 bb) {
+    return (bb & (bb - 1)) != 0;
+}
+
 U64 bits_between(uint8_t a, uint8_t b) {
     return bb_util::between[a][b];
 }
@@ -814,3 +818,4 @@ uint8_t rank_index(uint8_t sq_index) {
 uint8_t file_index(uint8_t sq_index) {
     return bb_util::file_index[sq_index];
 }
+

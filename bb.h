@@ -55,6 +55,14 @@ U64 pawn_caps(Team side, uint8_t square);
 U64 single_bit(uint8_t square);
 
 /**
+ * Returns true if more than one bit is set on the given bitboard
+ *
+ * @param bb bitboard to check
+ * @return true if more than one bit is set.
+ */
+bool multiple_bits(U64 bb);
+
+/**
  * Generate a bitboard containing the squares between two squares, excluding the square themselves.
  *
  * If the arguments are not on the same rank or diagonal, an empty bitboard is returned.

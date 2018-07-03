@@ -696,4 +696,13 @@ TEST_CASE("Bitboard engine") {
             REQUIRE(find_moves<ROOK>(BLACK, square, occupied) == expected);
         }
     }
+
+    SECTION("Utility") {
+        REQUIRE(E4 + rel_offset(WHITE, D_N) == E5);
+        REQUIRE(E5 + rel_offset(BLACK, D_N) == E4);
+        REQUIRE(E4 + rel_offset(WHITE, D_NE) == F5);
+        REQUIRE(E4 + rel_offset(WHITE, D_NW) == D5);
+        REQUIRE(E5 + rel_offset(BLACK, D_NE) == D4);
+        REQUIRE(E5 + rel_offset(BLACK, D_NW) == F4);
+    }
 }

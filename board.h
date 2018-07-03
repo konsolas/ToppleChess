@@ -63,6 +63,7 @@ struct board_t {
     bool is_repetition_draw(int ply, int reps);
 
     int see(move_t move);
+    U64 non_pawn_material(Team side);
 
     void mirror();
 

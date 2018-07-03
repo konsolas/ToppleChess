@@ -573,3 +573,7 @@ int board_t::see(move_t move) {
 
     return material[0];
 }
+
+U64 board_t::non_pawn_material(Team side) {
+    return (bb_side[side] ^ bb_pieces[side][PAWN] ^ bb_pieces[side][KING]);
+}
