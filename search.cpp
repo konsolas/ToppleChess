@@ -526,7 +526,7 @@ void search_t::print_stats(int score, int depth, tt::Bound bound) {
     }
     std::cout << " pv ";
     for (int i = 0; i < last_pv_len; i++) {
-        std::cout << from_sq(last_pv[i].info.from) << from_sq(last_pv[i].info.to) << " ";
+        std::cout << last_pv[i] << " ";
     }
 
     std::cout << std::endl;
