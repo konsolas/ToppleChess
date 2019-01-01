@@ -277,7 +277,7 @@ board_t::board_t(std::string fen) {
 //  - if the piece actually exists
 // If the move cannot be parsed, 0000 is returned
 move_t board_t::parse_move(const std::string &str) {
-    move_t move = {0};
+    move_t move = {};
 
     if (str.length() != 4 && str.length() != 5) {
         return EMPTY_MOVE;
@@ -492,7 +492,7 @@ int board_t::see(move_t move) {
     U64 occupation_mask = ONES;
     int current_target_val = 0;
     bool prom_rank = rank_index(move.info.to) == 0 || rank_index(move.info.to) == 7;
-    Team next_move = Team(move.info.team);
+    auto next_move = Team(move.info.team);
 
     // Material table
     int num_capts = 0;

@@ -92,8 +92,8 @@ int eval_kbnk(const board_t &board, Team team) {
 
 eg_eval_t eval_eg(const board_t &board) {
     // Count material
-    int mat[2][6] = {0};
-    int total_mat[2] = {0};
+    int mat[2][6] = {};
+    int total_mat[2] = {};
     for (uint8_t team = WHITE; team <= BLACK; team++) {
         for (uint8_t piece = PAWN; piece <= KING; piece++) {
             int count = pop_count(board.bb_pieces[team][piece]);

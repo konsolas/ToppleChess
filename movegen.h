@@ -9,7 +9,7 @@
 #include "board.h"
 #include "search.h"
 
-class board_t;
+struct board_t;
 
 class movegen_t {
 public:

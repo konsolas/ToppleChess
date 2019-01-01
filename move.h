@@ -35,7 +35,7 @@ union move_t {
 };
 #pragma pack(pop)
 
-static const move_t EMPTY_MOVE = {0};
+static const move_t EMPTY_MOVE = {};
 
 inline bool operator==(const move_t &lhs, const move_t &rhs) {
     return lhs.move_bytes == rhs.move_bytes;

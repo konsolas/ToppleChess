@@ -13,7 +13,7 @@
 
 // Eval metadata
 struct eval_data_t {
-    uint8_t king_loc[2];
+    uint8_t king_loc[2] = {0};
 
     U64 king_shield[2] = {0};
     int king_danger_balance[2] = {0, 0};
@@ -267,7 +267,7 @@ int eval(const board_t &board) {
     }
 
     score_t eval = {0, 0};
-    eval_data_t dat = {0};
+    eval_data_t dat = {};
 
     {
         dat.king_loc[WHITE] = bit_scan(board.bb_pieces[WHITE][KING]);

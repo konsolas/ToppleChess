@@ -289,7 +289,7 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
             && (h.bound == tt::LOWER || h.bound == tt::EXACT)
             && excluded == EMPTY_MOVE
             && h.depth >= depth - 3
-            && abs(h.value(ply) < MINCHECKMATE)) {
+            && abs(h.value(ply)) < MINCHECKMATE) {
             int reduced_beta = (h.value(ply)) - depth;
             score = search_ab<false, H>(board, reduced_beta - 1, reduced_beta, ply + 1, depth / 2,
                                  can_null, move, aborted);
