@@ -331,10 +331,8 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
             if(n_legal > 1 && !move_is_check && stage == GEN_QUIETS) {
                 if (depth >= 3) {
                     // LMR
-                    int R = !PV + depth / 8 + n_legal / 8;
+                    int R = !PV + depth / 8 + n_legal / 8 - 1;
                     if(move_score <= n_legal) R++;
-                    if(h.move.info.is_capture) R++;
-                    if(board.see(reverse(move)) < 0) R--;
 
                     if (R > 0) {
                         score = -search_ab<false, H>(board, -alpha - 1, -alpha, ply + 1, depth - R - 1 + ex,
