@@ -8,6 +8,11 @@
 #include "types.h"
 
 #include <string>
+#include <cassert>
+
+#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
+#include <intrin.h>
+#endif
 
 namespace bb_magics {
     extern const unsigned int b_shift[64];

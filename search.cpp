@@ -12,8 +12,8 @@
 
 const int TIMEOUT = -INF * 2;
 
-search_t::search_t(board_t board, tt::hash_t *tt, unsigned int threads, search_limits_t limits)
-        : board(board), tt(tt), threads(threads), limits(std::move(limits)) {}
+search_t::search_t(board_t board, evaluator_t evaluator, tt::hash_t *tt, unsigned int threads, search_limits_t limits)
+        : board(board), evaluator(evaluator), tt(tt), threads(threads), limits(std::move(limits)) {}
 
 move_t search_t::think(const std::atomic_bool &aborted) {
     nodes = 0;
@@ -244,7 +244,7 @@ int search_t::search_ab(board_t &board, int alpha, int beta, int ply, int depth,
             if (h.bound == tt::EXACT) return score;
         }
     } else {
-        stand_pat = eval(board);
+        stand_pat = evaluator.evaluate(board);
     }
 
     // Null move pruning
@@ -422,7 +422,7 @@ int search_t::search_qs(board_t &board, int alpha, int beta, int ply, const std:
 
     if (is_aborted(aborted)) return TIMEOUT;
 
-    int stand_pat = eval(board);
+    int stand_pat = evaluator.evaluate(board);
 
     if (stand_pat >= beta) return beta;
     if (alpha < stand_pat) alpha = stand_pat;

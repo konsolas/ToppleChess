@@ -2,13 +2,8 @@
 // Created by Vincent on 22/09/2017.
 //
 
-#include <cassert>
 #include <stdexcept>
 #include <iostream>
-
-#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
-#include <intrin.h>
-#endif
 
 #include "bb.h"
 

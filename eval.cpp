@@ -2,34 +2,11 @@
 // Created by Vincent on 30/09/2017.
 //
 
+#include "eval.h"
 #include "board.h"
 #include "endgame.h"
 #include <sstream>
 #include <algorithm>
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// Evaluation datatypes
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// Evaluation parameters
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-int material[6] = {100, 300, 300, 500, 900, 0};
-int control[6] = {9, 5, 3, 3, 1, 0};
-int hole = 2;
-int passed = 5;
-int occupied_critical = 5;
-
-// Reading eval tables
-template<typename T>
-T read(T *table, int sq, Team side) {
-    if (side) {
-        return table[sq];
-    } else {
-        return table[MIRROR_TABLE[sq]];
-    }
-}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Utility tables
@@ -44,7 +21,7 @@ U64 BB_KING_CIRCLE[64] = {0};
 
 U64 BB_CENTRE = 0;
 
-void eval_init() {
+void evaluator_t::eval_init() {
     for (uint8_t sq = 0; sq < 64; sq++) {
         BB_HOLE[WHITE][sq] = 0xffffffffffffffff;
 
@@ -102,75 +79,160 @@ void eval_init() {
 /// Main evaluation functions
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+evaluator_t::evaluator_t(eval_params_t params, size_t pawn_hash_entries) {
+    this->pawn_hash_entries = pawn_hash_entries;
+    pawn_hash_table = new pawn_entry_t[pawn_hash_entries];
 
-int eval(const board_t &board) {
+    // Material tables
+    for (int i = 0; i < 5; ++i) {
+        mat[i][MG] = params.mat_mg[i];
+        mat[i][EG] = params.mat_eg[i];
+    }
+
+    // Four-way mirrored tables
+    constexpr uint8_t square_mapping[16][4] = {{A4, A5, H4, H5},
+                                               {B4, B5, G4, G5},
+                                               {C4, C5, F4, F5},
+                                               {D4, D5, E4, E5},
+                                               {A3, A6, H3, H6},
+                                               {B3, B6, G3, G6},
+                                               {C3, C6, F3, F6},
+                                               {D3, D6, E3, E6},
+                                               {A2, A7, H2, H7},
+                                               {B2, B7, G2, G7},
+                                               {C2, C7, F2, F7},
+                                               {D2, D7, E2, E7},
+                                               {A1, A8, H1, H8},
+                                               {B1, B8, G1, G8},
+                                               {C1, C8, F1, F8},
+                                               {D1, D8, E1, E8}};
+    for (int i = 0; i < 16; i++) {
+        for (int j = 0; j < 4; j++) {
+            pst[WHITE][KNIGHT][square_mapping[i][j]][MG] = params.n_pst_mg[i];
+            pst[WHITE][KNIGHT][square_mapping[i][j]][EG] = params.n_pst_eg[i];
+            pst[WHITE][QUEEN][square_mapping[i][j]][MG] = params.q_pst_mg[i];
+            pst[WHITE][QUEEN][square_mapping[i][j]][EG] = params.q_pst_eg[i];
+            pst[WHITE][KING][square_mapping[i][j]][EG] = params.k_pst_eg[i];
+        }
+    }
+
+    // Vertically mirrored tables
+    for (uint8_t sq = 0; sq < 64; sq++) {
+        int param_index = 32 - ((file_index(sq) % 4) + rank_index(sq) * 4);
+
+        if (sq >= 8 && sq < 56) {
+            pst[WHITE][PAWN][sq][MG] = params.p_pst_mg[param_index - 4];
+            pst[WHITE][PAWN][sq][EG] = params.p_pst_eg[param_index - 4];
+        }
+        pst[WHITE][BISHOP][sq][MG] = params.b_pst_mg[param_index];
+        pst[WHITE][BISHOP][sq][EG] = params.b_pst_eg[param_index];
+        pst[WHITE][ROOK][sq][MG] = params.r_pst_mg[param_index];
+        pst[WHITE][ROOK][sq][EG] = params.r_pst_eg[param_index];
+    }
+
+    // King middlegame pst
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 8; ++j) {
+            pst[WHITE][KING][(2 - i) * 8 + j][MG] = params.k_pst_mg[i * 8 + j];
+        }
+    }
+
+    for (int i = 24; i < 64; i++) {
+        pst[WHITE][KING][i][MG] = params.k_pst_exposed_mg;
+    }
+
+    // Mirror PST for black
+    for (int piece = 0; piece < 6; piece++) {
+        for (int square = 0; square < 64; square++) {
+            pst[BLACK][piece][MIRROR_TABLE[square]][MG] = pst[WHITE][piece][square][MG];
+            pst[BLACK][piece][MIRROR_TABLE[square]][EG] = pst[WHITE][piece][square][EG];
+        }
+    }
+}
+
+evaluator_t::~evaluator_t() {
+    delete[] pawn_hash_table;
+}
+
+int evaluator_t::evaluate(const board_t &board) const {
     // Check endgame
     eg_eval_t eg_eval = eval_eg(board);
     if (eg_eval.valid) {
         return board.record[board.now].next_move ? -eg_eval.eval : +eg_eval.eval;
     }
 
-    U64 critical = BB_CENTRE
-                   | BB_KING_CIRCLE[bit_scan(board.bb_pieces[WHITE][KING])]
-                   | BB_KING_CIRCLE[bit_scan(board.bb_pieces[BLACK][KING])];
+    // Middlegame and endgame scores
+    int mg = 0;
+    int eg = 0;
 
-    // Evaluate material
-    int pst[64];
-    for(uint8_t i = 0; i < 64; i++) {
-        sq_data_t data = board.sq_data[i];
-        pst[i] = data.occupied * material[data.piece];
+    // Main evaluation function
+    eval_material(board, mg, eg);
+    eval_pst(board, mg, eg);
+    eval_pawns(board, mg, eg);
 
-        if(data.team) {
-            pst[i] = -pst[i];
-        }
-    }
-
-    // Evaluate control
-    for(uint8_t i = 0; i < 64; i++) {
-        pst[i] += control[PAWN] * pop_count(pawn_caps(WHITE, i) & board.bb_pieces[WHITE][PAWN]);
-        pst[i] += control[KNIGHT] * pop_count(find_moves<KNIGHT>(BLACK, i, board.bb_all) & board.bb_pieces[WHITE][KNIGHT]);
-        pst[i] += control[BISHOP] * pop_count(find_moves<BISHOP>(BLACK, i, board.bb_all) & board.bb_pieces[WHITE][BISHOP]);
-        pst[i] += control[ROOK] * pop_count(find_moves<ROOK>(BLACK, i, board.bb_all) & board.bb_pieces[WHITE][ROOK]);
-        pst[i] += control[QUEEN] * pop_count(find_moves<QUEEN>(BLACK, i, board.bb_all) & board.bb_pieces[WHITE][QUEEN]);
-
-        pst[i] -= control[PAWN] * pop_count(pawn_caps(WHITE, i) & board.bb_pieces[BLACK][PAWN]);
-        pst[i] -= control[KNIGHT] * pop_count(find_moves<KNIGHT>(WHITE, i, board.bb_all) & board.bb_pieces[BLACK][KNIGHT]);
-        pst[i] -= control[BISHOP] * pop_count(find_moves<BISHOP>(WHITE, i, board.bb_all) & board.bb_pieces[BLACK][BISHOP]);
-        pst[i] -= control[ROOK] * pop_count(find_moves<ROOK>(WHITE, i, board.bb_all) & board.bb_pieces[BLACK][ROOK]);
-        pst[i] -= control[QUEEN] * pop_count(find_moves<QUEEN>(WHITE, i, board.bb_all) & board.bb_pieces[BLACK][QUEEN]);
-    }
-
-    // Evaluate holes and pawn structure
-    for (uint8_t i = 8; i < 56; i++) {
-        if(!(BB_HOLE[WHITE][i] & board.bb_pieces[BLACK][PAWN])) {
-            pst[i] += hole;
-
-            if(single_bit(uint8_t(i + rel_offset(WHITE, D_N))) & board.bb_pieces[BLACK][PAWN]) {
-                critical = critical | single_bit(i);
-            }
-        }
-
-        if(!(BB_HOLE[BLACK][i] & board.bb_pieces[WHITE][PAWN])) {
-            if(single_bit(uint8_t(i + rel_offset(BLACK, D_N))) & board.bb_pieces[WHITE][PAWN]) {
-                critical = critical | single_bit(i);
-            }
-        }
-    }
-
-    // Final evaluation
-    int total = 0;
-
-    for(uint8_t i = 0; i < 64; i++) {
-        bool square_occupied = board.sq_data[i].occupied;
-        bool square_critical = (single_bit(i) & critical) != 0;
-        if(square_occupied || square_critical) {
-            total += pst[i];
-        }
-
-        if(square_occupied && square_critical) {
-            total += ((pst[i] > 0) - (pst[i] < 0)) * occupied_critical;
-        }
-    }
+    // Interpolate between middlegame and endgame scores
+    double game_process = double(pop_count(board.bb_all) - 2) / 30.0;
+    int total = int(game_process * eg + (1 - game_process) * mg);
 
     return board.record[board.now].next_move ? -total : total;
 }
+
+void evaluator_t::eval_material(const board_t &board, int &mg, int &eg) const {
+    const int pawn_balance = (pop_count(board.bb_pieces[WHITE][PAWN]) - pop_count(board.bb_pieces[BLACK][PAWN]));
+    mg += mat[PAWN][MG] * pawn_balance;
+    eg += mat[PAWN][EG] * pawn_balance;
+
+    const int knight_balance = (pop_count(board.bb_pieces[WHITE][KNIGHT]) - pop_count(board.bb_pieces[BLACK][KNIGHT]));
+    mg += mat[KNIGHT][MG] * knight_balance;
+    eg += mat[KNIGHT][EG] * knight_balance;
+
+    const int bishop_balance = (pop_count(board.bb_pieces[WHITE][BISHOP]) - pop_count(board.bb_pieces[BLACK][BISHOP]));
+    mg += mat[BISHOP][MG] * bishop_balance;
+    eg += mat[BISHOP][EG] * bishop_balance;
+
+    const int rook_balance = (pop_count(board.bb_pieces[WHITE][ROOK]) - pop_count(board.bb_pieces[BLACK][ROOK]));
+    mg += mat[ROOK][MG] * rook_balance;
+    eg += mat[ROOK][EG] * rook_balance;
+
+    const int queen_balance = (pop_count(board.bb_pieces[WHITE][QUEEN]) - pop_count(board.bb_pieces[BLACK][QUEEN]));
+    mg += mat[QUEEN][MG] * queen_balance;
+    eg += mat[QUEEN][EG] * queen_balance;
+}
+
+void evaluator_t::eval_pst(const board_t &board, int &mg, int &eg) const {
+    U64 pieces;
+    for (int type = 1; type < 5; type++) {
+        pieces = board.bb_pieces[WHITE][type];
+        while (pieces) {
+            uint8_t sq = pop_bit(pieces);
+            mg += pst[WHITE][type][sq][MG];
+            eg += pst[WHITE][type][sq][EG];
+        }
+
+        pieces = board.bb_pieces[BLACK][type];
+        while (pieces) {
+            uint8_t sq = pop_bit(pieces);
+            mg -= pst[BLACK][type][sq][MG];
+            eg -= pst[BLACK][type][sq][EG];
+        }
+    }
+}
+
+void evaluator_t::eval_pawns(const board_t &board, int &mg, int &eg) const {
+    // PST
+    U64 pawns;
+    pawns = board.bb_pieces[WHITE][PAWN];
+    while (pawns) {
+        uint8_t sq = pop_bit(pawns);
+        mg += pst[WHITE][PAWN][sq][MG];
+        eg += pst[WHITE][PAWN][sq][EG];
+    }
+
+    pawns = board.bb_pieces[BLACK][PAWN];
+    while (pawns) {
+        uint8_t sq = pop_bit(pawns);
+        mg -= pst[BLACK][PAWN][sq][MG];
+        eg -= pst[BLACK][PAWN][sq][EG];
+    }
+}
+
