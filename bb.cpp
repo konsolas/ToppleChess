@@ -182,15 +182,15 @@ namespace bb_magics {
             };
 
 
-    U64 init_magic_occ(const int *squares, const int numSquares, const U64 linocc) {
-        int i;
+    U64 init_magic_occ(const unsigned int *squares, const int numSquares, const U64 linocc) {
+        unsigned int i;
         U64 ret = 0;
         for (i = 0; i < numSquares; i++)
             if (linocc & (((U64) (1)) << i)) ret |= (((U64) (1)) << squares[i]);
         return ret;
     }
 
-    U64 compute_rookmoves(const int square, const U64 occ) {
+    U64 compute_rookmoves(const unsigned int square, const U64 occ) {
         U64 ret = 0;
         U64 bit;
         U64 rowbits = (((U64) 0xFF) << (8 * (square / 8)));
@@ -220,7 +220,7 @@ namespace bb_magics {
         return ret;
     }
 
-    U64 compute_bishopmoves(const int square, const U64 occ) {
+    U64 compute_bishopmoves(const unsigned int square, const U64 occ) {
         U64 ret = 0;
         U64 bit;
         U64 bit2;
@@ -262,9 +262,9 @@ namespace bb_magics {
     }
 
     void initmagicmoves() {
-        int i;
+        unsigned int i;
 
-        int bitscan_bitpos64[64] = {
+        unsigned int bitscan_bitpos64[64] = {
                 63, 0, 58, 1, 59, 47, 53, 2,
                 60, 39, 48, 27, 54, 33, 42, 3,
                 61, 51, 37, 40, 49, 18, 28, 20,
@@ -315,12 +315,12 @@ namespace bb_magics {
                 };
 
         for (i = 0; i < 64; i++) {
-            int squares[64];
-            int n_squares = 0;
+            unsigned int squares[64];
+            unsigned int n_squares = 0;
             U64 temp = b_mask[i];
             while (temp) {
                 U64 bit = temp & -temp;
-                squares[n_squares++] = bitscan_bitpos64[(bit * (0x07EDD5E59A4E28C2)) >> 58];
+                squares[n_squares++] = bitscan_bitpos64[U64(bit * U64(0x07EDD5E59A4E28C2)) >> 58u];
                 temp ^= bit;
             }
             for (temp = 0; temp < (((U64) (1)) << n_squares); temp++) {
@@ -329,12 +329,12 @@ namespace bb_magics {
             }
         }
         for (i = 0; i < 64; i++) {
-            int squares[64];
-            int n_squares = 0;
+            unsigned int squares[64];
+            unsigned int n_squares = 0;
             U64 temp = r_mask[i];
             while (temp) {
                 U64 bit = temp & -temp;
-                squares[n_squares++] = bitscan_bitpos64[(bit * (0x07EDD5E59A4E28C2)) >> 58];
+                squares[n_squares++] = bitscan_bitpos64[U64(bit * U64(0x07EDD5E59A4E28C2)) >> 58u];
                 temp ^= bit;
             }
             for (temp = 0; temp < (((U64) (1)) << n_squares); temp++) {
@@ -362,8 +362,8 @@ namespace bb_util {
 
     void init_util() {
         single_bit[0] = 0x1;
-        for (int i = 1; i < 64; i++) {
-            single_bit[i] = single_bit[i - 1] << 1;
+        for (unsigned int i = 1; i < 64; i++) {
+            single_bit[i] = single_bit[i - 1] << 1u;
         }
 
         for (uint8_t rank = 0; rank < 8; rank++) {

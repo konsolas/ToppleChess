@@ -25,6 +25,7 @@ const bool operator!=(const board_t& lhs, const board_t& rhs) {
     return !(lhs == rhs);
 }
 
+/*
 const void consistency_check(board_t &board) {
     int score = eval(board);
     board.mirror();
@@ -34,6 +35,7 @@ const void consistency_check(board_t &board) {
     INFO("position: " << board);
     REQUIRE(score == -mirrorscore);
 }
+*/
 
 const void hash_check(const board_t &board) {
     // Generate hash of board
@@ -100,7 +102,7 @@ U64 perft(board_t &board, int depth) {
 TEST_CASE("Perft") {
     init_tables();
     zobrist::init_hashes();
-    eval_init();
+    evaluator_t::eval_init();
 
     // Test perft
     SECTION("(test) rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8 ") {
