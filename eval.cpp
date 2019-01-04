@@ -79,9 +79,12 @@ void evaluator_t::eval_init() {
 /// Main evaluation functions
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-evaluator_t::evaluator_t(eval_params_t params, size_t pawn_hash_entries) {
-    this->pawn_hash_entries = pawn_hash_entries;
-    pawn_hash_table = new pawn_entry_t[pawn_hash_entries];
+evaluator_t::evaluator_t(eval_params_t params, size_t pawn_hash_size) {
+    // Set up pawn hash table
+    pawn_hash_size /= (sizeof(pawn_entry_t) * bucket_size);
+    this->pawn_hash_entries = tt::lower_power_of_2(pawn_hash_size) - 1;
+    pawn_hash_table = new pawn_entry_t[pawn_hash_entries * bucket_size + bucket_size];
+    memset(pawn_hash_table, 0, sizeof(pawn_entry_t) * (pawn_hash_entries * bucket_size + bucket_size));
 
     // Material tables
     for (int i = 0; i < 5; ++i) {
@@ -154,7 +157,7 @@ evaluator_t::~evaluator_t() {
     delete[] pawn_hash_table;
 }
 
-int evaluator_t::evaluate(const board_t &board) const {
+int evaluator_t::evaluate(const board_t &board) {
     // Check endgame
     eg_eval_t eg_eval = eval_eg(board);
     if (eg_eval.valid) {
@@ -168,16 +171,19 @@ int evaluator_t::evaluate(const board_t &board) const {
     // Main evaluation function
     eval_material(board, mg, eg);
     eval_pst(board, mg, eg);
-    eval_pawns(board, mg, eg);
+
+    pawn_entry_t *pawn_data = eval_pawns(board);
+    mg += pawn_data->eval_mg;
+    eg += pawn_data->eval_eg;
 
     // Interpolate between middlegame and endgame scores
     double game_process = double(pop_count(board.bb_all) - 2) / 30.0;
-    int total = int(game_process * eg + (1 - game_process) * mg);
+    auto total = int(game_process * eg + (1 - game_process) * mg);
 
     return board.record[board.now].next_move ? -total : total;
 }
 
-void evaluator_t::eval_material(const board_t &board, int &mg, int &eg) const {
+void evaluator_t::eval_material(const board_t &board, int &mg, int &eg) {
     const int pawn_balance = (pop_count(board.bb_pieces[WHITE][PAWN]) - pop_count(board.bb_pieces[BLACK][PAWN]));
     mg += mat[PAWN][MG] * pawn_balance;
     eg += mat[PAWN][EG] * pawn_balance;
@@ -199,7 +205,7 @@ void evaluator_t::eval_material(const board_t &board, int &mg, int &eg) const {
     eg += mat[QUEEN][EG] * queen_balance;
 }
 
-void evaluator_t::eval_pst(const board_t &board, int &mg, int &eg) const {
+void evaluator_t::eval_pst(const board_t &board, int &mg, int &eg) {
     U64 pieces;
     for (int type = 1; type < 5; type++) {
         pieces = board.bb_pieces[WHITE][type];
@@ -218,21 +224,43 @@ void evaluator_t::eval_pst(const board_t &board, int &mg, int &eg) const {
     }
 }
 
-void evaluator_t::eval_pawns(const board_t &board, int &mg, int &eg) const {
+evaluator_t::pawn_entry_t* evaluator_t::eval_pawns(const board_t &board) {
+    // Return the entry if found
+    pawn_entry_t *bucket = pawn_hash_table + (board.record[board.now].pawn_hash & pawn_hash_entries);
+    pawn_entry_t *entry = bucket;
+    for(size_t i = 0; i < bucket_size; i++) {
+        if((bucket + i)->hash == board.record[board.now].pawn_hash) {
+            (bucket + i)->hits++;
+            return bucket + i;
+        }
+
+        if((bucket + i)->hits < entry->hits) {
+            entry = bucket + i;
+        }
+    }
+
+    // Set up entry
+    entry->hash = board.record[board.now].pawn_hash;
+    entry->hits = 1;
+    entry->eval_mg = 0;
+    entry->eval_eg = 0;
+
     // PST
     U64 pawns;
     pawns = board.bb_pieces[WHITE][PAWN];
     while (pawns) {
         uint8_t sq = pop_bit(pawns);
-        mg += pst[WHITE][PAWN][sq][MG];
-        eg += pst[WHITE][PAWN][sq][EG];
+        entry->eval_mg += pst[WHITE][PAWN][sq][MG];
+        entry->eval_eg += pst[WHITE][PAWN][sq][EG];
     }
 
     pawns = board.bb_pieces[BLACK][PAWN];
     while (pawns) {
         uint8_t sq = pop_bit(pawns);
-        mg -= pst[BLACK][PAWN][sq][MG];
-        eg -= pst[BLACK][PAWN][sq][EG];
+        entry->eval_mg -= pst[BLACK][PAWN][sq][MG];
+        entry->eval_eg -= pst[BLACK][PAWN][sq][EG];
     }
+
+    return entry;
 }
 

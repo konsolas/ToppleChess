@@ -97,16 +97,16 @@ struct eval_params_t {
     int p_pst_mg[24]{
             -8, 0, 0, 0,
             -8, 0, 0, 0,
-            -8, 0, 6, 10,
-            -8, 0, 14, 18,
-            -8, 0, 7, 7,
+            -8, -3, 6, 10,
+            -1, -1, 14, 18,
+            -2, 0, 7, 7,
             0, 0, -5, -9,
     };
     int p_pst_eg[24]{
             20, 25, 30, 35,
             9, 15, 20, 26,
             5, 10, 15, 19,
-            1, 5, 9, 15,
+            1, 5, 4, 15,
             -1, -1, -1, -1,
             -6, -6, -6, -6,
     };
@@ -144,30 +144,31 @@ struct eval_params_t {
 
 class evaluator_t {
     size_t pawn_hash_entries;
+    static constexpr size_t bucket_size = 4;
     struct pawn_entry_t {
-        int partial_eval;
-        U64 holes[2];
-        U64 defended_by[2];
+        U64 hash;
+        uint32_t hits;
+        uint32_t eval_mg;
+        uint32_t eval_eg;
     } *pawn_hash_table = nullptr;
 
     int pst[2][6][64][2] = {}; // [TEAM][PIECE][SQUARE][MG/EG]
     int mat[5][2] = {};
 public:
-    evaluator_t(eval_params_t params, size_t pawn_hash_entries);
+    evaluator_t(eval_params_t params, size_t pawn_hash_size);
 
     ~evaluator_t();
 
-    int evaluate(const board_t &board) const;
+    int evaluate(const board_t &board);
 
     /// Initialise generic evaluation tables
     static void eval_init();
-
 private:
-    void eval_material(const board_t &board, int &mg, int &eg) const;
+    void eval_material(const board_t &board, int &mg, int &eg);
 
-    void eval_pst(const board_t &board, int &mg, int &eg) const;
+    void eval_pst(const board_t &board, int &mg, int &eg);
 
-    void eval_pawns(const board_t &board, int &mg, int &eg) const;
+    pawn_entry_t* eval_pawns(const board_t &board);
 };
 
 #endif //TOPPLE_EVAL_H

@@ -28,6 +28,7 @@ struct game_record_t {
     uint8_t ep_square; // Target square for en-passant after last double pawn move
     int halfmove_clock; // Moves since last pawn move or capture
     U64 hash;
+    U64 pawn_hash;
 };
 
 /**

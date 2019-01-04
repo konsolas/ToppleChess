@@ -376,7 +376,9 @@ void board_t::switch_piece(Team side, Piece piece, uint8_t sq) {
     }
 
     if (HASH) { // Update hash
-        record[now].hash ^= zobrist::squares[sq][side][piece];
+        U64 square_hash = zobrist::squares[sq][side][piece];
+        record[now].hash ^= square_hash;
+        if(piece == PAWN) record[now].pawn_hash ^= square_hash;
     }
 }
 

@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
     board_t *board = nullptr;
 
     // Evaluator
-    evaluator_t evaluator = evaluator_t(eval_params_t(), 4096);
+    evaluator_t evaluator = evaluator_t(eval_params_t(), 32 * MB);
 
     // Hash
     uint64_t hash_size = 128;
