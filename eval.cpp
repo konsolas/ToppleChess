@@ -7,6 +7,7 @@
 #include "endgame.h"
 #include <sstream>
 #include <algorithm>
+#include <cstring>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Utility tables
@@ -226,7 +227,8 @@ void evaluator_t::eval_pst(const board_t &board, int &mg, int &eg) {
 
 evaluator_t::pawn_entry_t* evaluator_t::eval_pawns(const board_t &board) {
     // Return the entry if found
-    pawn_entry_t *bucket = pawn_hash_table + (board.record[board.now].pawn_hash & pawn_hash_entries);
+    size_t index = (board.record[board.now].pawn_hash & pawn_hash_entries);
+    pawn_entry_t *bucket = pawn_hash_table + index;
     pawn_entry_t *entry = bucket;
     for(size_t i = 0; i < bucket_size; i++) {
         if((bucket + i)->hash == board.record[board.now].pawn_hash) {

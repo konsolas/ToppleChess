@@ -108,7 +108,7 @@ struct search_limits_t {
 class search_t {
     friend class movesort_t;
 public:
-    explicit search_t(board_t board, evaluator_t evaluator, tt::hash_t *tt, unsigned int threads, search_limits_t limits);
+    explicit search_t(board_t board, evaluator_t &evaluator, tt::hash_t *tt, unsigned int threads, search_limits_t limits);
 
     move_t think(const std::atomic_bool &aborted);
 private:
@@ -133,7 +133,7 @@ private:
 
     // Data
     board_t board;
-    evaluator_t evaluator;
+    evaluator_t &evaluator;
     tt::hash_t *tt;
     std::chrono::steady_clock::time_point start;
 

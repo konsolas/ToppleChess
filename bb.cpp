@@ -182,7 +182,7 @@ namespace bb_magics {
             };
 
 
-    U64 init_magic_occ(const unsigned int *squares, const int numSquares, const U64 linocc) {
+    U64 init_magic_occ(const unsigned int *squares, const unsigned int numSquares, const U64 linocc) {
         unsigned int i;
         U64 ret = 0;
         for (i = 0; i < numSquares; i++)

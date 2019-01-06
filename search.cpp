@@ -12,7 +12,7 @@
 
 const int TIMEOUT = -INF * 2;
 
-search_t::search_t(board_t board, evaluator_t evaluator, tt::hash_t *tt, unsigned int threads, search_limits_t limits)
+search_t::search_t(board_t board, evaluator_t &evaluator, tt::hash_t *tt, unsigned int threads, search_limits_t limits)
         : board(board), evaluator(evaluator), tt(tt), threads(threads), limits(std::move(limits)) {}
 
 move_t search_t::think(const std::atomic_bool &aborted) {
