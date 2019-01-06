@@ -9,12 +9,17 @@
 #include "../movegen.h"
 #include "../movesort.h"
 
-tuner_t::tuner_t(size_t entries, std::vector<board_t> positions, std::vector<double> results)
-    : entries(entries), positions(std::move(positions)), results(std::move(results)) {
+tuner_t::tuner_t(size_t entries, std::vector<board_t> &positions, std::vector<double> &results)
+    : entries(entries), positions(positions), results(results) {
     if(positions.size() != entries || results.size() != entries) throw std::invalid_argument("invalid entry count");
 
-    // Pick scaling_constant
-    momentum_optimise(&scaling_constant, mean_evaluation_error());
+    current_error = mean_evaluation_error();
+
+    std::cout << "starting error: " << current_error << std::endl;
+
+    // Pick scaling constant
+    current_error = momentum_optimise(&scaling_constant, current_error);
+    std::cout << "scaling constant = " << scaling_constant << std::endl;
 }
 
 int tuner_t::quiesce(board_t &board, int alpha, int beta, evaluator_t &evaluator) {
@@ -53,21 +58,20 @@ int tuner_t::quiesce(board_t &board, int alpha, int beta, evaluator_t &evaluator
     return alpha;
 }
 
-double tuner_t::find_scaling_constant() {
-    return 0;
-}
-
 double tuner_t::sigmoid(double score) {
-    return 1 / (1 + exp(-score * scaling_constant));
+    return 1.0 / (1.0 + exp(-score / scaling_constant));
 }
 
 double tuner_t::mean_evaluation_error() {
-    evaluator_t evaluator(current_params, 0);
+    evaluator_t evaluator(current_params, 4096);
 
     double total_squared_error = 0;
     for(size_t i = 0; i < entries; i++) {
-        double eval = sigmoid(evaluator.evaluate(positions[i]));
+        int raw_eval = evaluator.evaluate(positions[i]);
+        if(positions[i].record[positions[i].now].next_move) raw_eval = -raw_eval;
+        double eval = sigmoid((double) raw_eval);
         double error = eval - results[i];
+
         total_squared_error += error * error;
     }
 
@@ -81,24 +85,156 @@ double tuner_t::momentum_optimise(int *parameter, double current_mea) {
     double adjusted_mea;
     *parameter = original + 1;
     if((adjusted_mea = mean_evaluation_error()) < current_mea) {
+        std::cout << "optimising parameter (increasing): " << *parameter << std::endl;
+
         while(adjusted_mea < current_mea) {
             current_mea = adjusted_mea;
             *parameter += 1;
             adjusted_mea = mean_evaluation_error();
+
+            std::cout << " : parameter: " << *parameter << " -> " << adjusted_mea << std::endl;
         }
 
         *parameter -= 1;
     } else {
+        std::cout << "optimising parameter (decreasing): " << *parameter << std::endl;
+
         *parameter = original - 1;
         adjusted_mea = mean_evaluation_error();
         while(adjusted_mea < current_mea) {
             current_mea = adjusted_mea;
             *parameter -= 1;
             adjusted_mea = mean_evaluation_error();
+
+            std::cout << " : parameter: " << *parameter << " -> " << adjusted_mea << std::endl;
         }
 
         *parameter += 1;
     }
 
+    std::cout << "parameter optimised: " << *parameter << " -> " << current_mea << std::endl;
+
     return current_mea;
+}
+
+void tuner_t::optimise(int *parameter, int count) {
+    for(int i = 0; i < count; i++) {
+        current_error = momentum_optimise(parameter + i, current_error);
+    }
+
+    std::cout << "Final result:";
+    for(int i = 0; i < count; i++) {
+        std::cout << " " << *(parameter + i);
+        if(i < count - 1) {
+            std::cout << ",";
+        }
+    }
+    std::cout << std::endl;
+}
+
+void tuner_t::print_params() {
+    std::cout << "  mat_mg ";
+    for (int param : current_params.mat_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+
+    std::cout << "  mat_eg ";
+    for (int param : current_params.mat_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+
+    std::cout << "  n_pst_mg ";
+    for (int param : current_params.n_pst_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+
+    std::cout << "  q_pst_mg ";
+    for (int param : current_params.q_pst_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+
+    std::cout << "  n_pst_eg ";
+    for (int param : current_params.n_pst_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+
+    std::cout << "  q_pst_eg ";
+    for (int param : current_params.q_pst_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  b_pst_mg ";
+    for (int param : current_params.b_pst_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+
+    std::cout << "  r_pst_mg ";
+    for (int param : current_params.r_pst_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+
+    std::cout << "  b_pst_eg ";
+    for (int param : current_params.b_pst_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+
+    std::cout << "  r_pst_eg ";
+    for (int param : current_params.r_pst_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+
+    std::cout << "  p_pst_mg ";
+    for (int param : current_params.p_pst_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+
+    std::cout << "  p_pst_eg ";
+    for (int param : current_params.p_pst_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+
+    std::cout << "  k_pst_mg ";
+    for (int param : current_params.k_pst_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "k_exposed_mg " << current_params.k_pst_exposed_mg << std::endl;
+
+
+    std::cout << "  b_pst_mg ";
+    for (int param : current_params.b_pst_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+
+    std::cout << "  k_pst_eg ";
+    for (int param : current_params.k_pst_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
 }

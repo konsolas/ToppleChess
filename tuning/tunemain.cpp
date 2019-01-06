@@ -2,6 +2,98 @@
 // Created by Vincent Tang on 2019-01-04.
 //
 
-int main() {
+#include <iostream>
+#include <sstream>
+#include <fstream>
 
+#include "../board.h"
+#include "tuner.h"
+#include "../endgame.h"
+
+#define TOPPLE_TUNE_VER "0.0.1"
+
+double get_result(const std::string &result) {
+    if(result == "1-0") {
+        return 1.0;
+    } else if(result == "1/2-1/2") {
+        return 0.5;
+    } else if(result == "0-1") {
+        return 0.0;
+    } else {
+        throw std::invalid_argument("Invalid result " + result);
+    }
+}
+
+int main(int argc, char *argv[]) {
+    // Initialise engine
+    init_tables();
+    zobrist::init_hashes();
+    evaluator_t::eval_init();
+    eg_init();
+
+    // Startup
+    std::cout << "ToppleTune v" << TOPPLE_TUNE_VER << " (c) Vincent Tang 2019" << std::endl;
+
+    if(argc != 2) {
+        std::cerr << "Usage: ToppleTune <epd file>" << std::endl;
+        return 1;
+    }
+
+    // Load file from first argument
+    std::vector<board_t> boards;
+    std::vector<double> results;
+
+    std::cout << "reading " << argv[1] << std::endl;
+
+    std::ifstream file;
+
+    if((file = std::ifstream(argv[1]))) {
+        std::string line;
+        while (std::getline(file, line)) {
+            std::string::size_type pos = line.find("c9");
+
+            std::string fen = line.substr(0, pos);
+            std::string result = line.substr(pos + 4, line.find(';') - pos - 4 - 1);
+
+            boards.emplace_back(fen);
+            results.push_back(get_result(result));
+        }
+    } else {
+        throw std::invalid_argument("file not found");
+    }
+
+    std::cout << "loaded " << boards.size() << " positions" << std::endl;
+
+    tuner_t tuner = tuner_t(boards.size(), boards, results);
+
+    while (true) {
+        std::string input;
+        std::getline(std::cin, input);
+
+        std::istringstream iss(input);
+
+        {
+            std::string cmd;
+            iss >> cmd;
+
+            if(cmd == "quit") {
+                break;
+            } else if(cmd == "optimise") {
+                std::string parameter;
+                iss >> parameter;
+
+                if(parameter == "all") {
+                    tuner.optimise(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int));
+                } else {
+                    std::string length;
+                    iss >> length;
+
+                    tuner.optimise((reinterpret_cast<int*> (tuner.get_current_params()))
+                            + std::stoi(parameter), std::stoi(length));
+                }
+            } else if(cmd == "print") {
+                tuner.print_params();
+            }
+        }
+    }
 }

@@ -21,7 +21,7 @@ set(TEST_FILES testing/catch.hpp testing/runner.cpp testing/util.h testing/util.
         testing/tests/test_perft.cpp
         testing/tests/test_see.cpp
 )
-set(TUNE_FILES tuning/tunemain.cpp tuning/tuner.cpp tuning/tuner.h)
+set(TUNE_FILES tuning/tunemain.cpp tuning/tuner.cpp tuning/tuner.h tools/pgn.cpp tools/pgn.h)
 
 add_executable(Topple ${SOURCE_FILES} main.cpp)
 add_executable(ToppleTest ${SOURCE_FILES} ${TEST_FILES})

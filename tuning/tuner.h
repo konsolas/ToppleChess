@@ -12,16 +12,22 @@
 
 class tuner_t {
     eval_params_t current_params;
-    double scaling_constant;
+    int scaling_constant = 131;
 
     size_t entries;
-    std::vector<board_t> positions;
-    std::vector<double> results;
+    std::vector<board_t> &positions;
+    std::vector<double> &results;
+
+    double current_error;
 public:
-    tuner_t(size_t entries, std::vector<board_t> positions, std::vector<double> results);
- 
+    tuner_t(size_t entries, std::vector<board_t> &positions, std::vector<double> &results);
+
+    eval_params_t* get_current_params() { return &current_params; }
+    void print_params();
+    double get_current_error() { return current_error; }
+
+    void optimise(int *parameter, int count);
 private:
-    double find_scaling_constant();
     double momentum_optimise(int *parameter, double current_mea);
     int quiesce(board_t &board, int alpha, int beta, evaluator_t &evaluator);
     double sigmoid(double score);

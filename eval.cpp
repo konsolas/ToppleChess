@@ -207,7 +207,7 @@ void evaluator_t::eval_material(const board_t &board, int &mg, int &eg) {
 
 void evaluator_t::eval_pst(const board_t &board, int &mg, int &eg) {
     U64 pieces;
-    for (int type = 1; type < 5; type++) {
+    for (int type = 1; type < 6; type++) {
         pieces = board.bb_pieces[WHITE][type];
         while (pieces) {
             uint8_t sq = pop_bit(pieces);
