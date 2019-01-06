@@ -222,18 +222,70 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
-    std::cout << "k_exposed_mg " << current_params.k_pst_exposed_mg << std::endl;
+    std::cout << "  k_exposed_mg " << current_params.k_pst_exposed_mg << std::endl;
 
-
-    std::cout << "  b_pst_mg ";
-    for (int param : current_params.b_pst_mg) {
+    std::cout << "  k_pst_eg ";
+    for (int param : current_params.k_pst_eg) {
         std::cout << param << ", ";
     }
     std::cout << std::endl;
 
+    std::cout << "  isolated_mg ";
+    for (int *param : current_params.isolated_mg) {
+        std::cout << "{" << param[0] << ", " << param[1] << "}, ";
+    }
+    std::cout << std::endl;
 
-    std::cout << "  k_pst_eg ";
-    for (int param : current_params.k_pst_eg) {
+    std::cout << "  isolated_eg ";
+    for (int *param : current_params.isolated_eg) {
+        std::cout << "{" << param[0] << ", " << param[1] << "}, ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  doubled_mg ";
+    for (int param : current_params.doubled_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  doubled_eg ";
+    for (int param : current_params.doubled_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  blocked_mg ";
+    for (int param : current_params.blocked_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+    
+    std::cout << "  blocked_eg ";
+    for (int param : current_params.blocked_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  chain_mg ";
+    for (int param : current_params.chain_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  chain_eg ";
+    for (int param : current_params.chain_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  passed_mg ";
+    for (int param : current_params.passed_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  passed_eg ";
+    for (int param : current_params.passed_eg) {
         std::cout << param << ", ";
     }
     std::cout << std::endl;

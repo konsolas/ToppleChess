@@ -80,18 +80,12 @@ void evaluator_t::eval_init() {
 /// Main evaluation functions
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-evaluator_t::evaluator_t(eval_params_t params, size_t pawn_hash_size) {
+evaluator_t::evaluator_t(eval_params_t params, size_t pawn_hash_size) : params(params) {
     // Set up pawn hash table
     pawn_hash_size /= (sizeof(pawn_entry_t) * bucket_size);
     this->pawn_hash_entries = tt::lower_power_of_2(pawn_hash_size) - 1;
     pawn_hash_table = new pawn_entry_t[pawn_hash_entries * bucket_size + bucket_size];
     memset(pawn_hash_table, 0, sizeof(pawn_entry_t) * (pawn_hash_entries * bucket_size + bucket_size));
-
-    // Material tables
-    for (int i = 0; i < 5; ++i) {
-        mat[i][MG] = params.mat_mg[i];
-        mat[i][EG] = params.mat_eg[i];
-    }
 
     // Four-way mirrored tables
     constexpr uint8_t square_mapping[16][4] = {{A4, A5, H4, H5},
@@ -186,24 +180,24 @@ int evaluator_t::evaluate(const board_t &board) {
 
 void evaluator_t::eval_material(const board_t &board, int &mg, int &eg) {
     const int pawn_balance = (pop_count(board.bb_pieces[WHITE][PAWN]) - pop_count(board.bb_pieces[BLACK][PAWN]));
-    mg += mat[PAWN][MG] * pawn_balance;
-    eg += mat[PAWN][EG] * pawn_balance;
+    mg += params.mat_mg[PAWN] * pawn_balance;
+    eg += params.mat_eg[PAWN] * pawn_balance;
 
     const int knight_balance = (pop_count(board.bb_pieces[WHITE][KNIGHT]) - pop_count(board.bb_pieces[BLACK][KNIGHT]));
-    mg += mat[KNIGHT][MG] * knight_balance;
-    eg += mat[KNIGHT][EG] * knight_balance;
+    mg += params.mat_mg[KNIGHT] * knight_balance;
+    eg += params.mat_eg[KNIGHT] * knight_balance;
 
     const int bishop_balance = (pop_count(board.bb_pieces[WHITE][BISHOP]) - pop_count(board.bb_pieces[BLACK][BISHOP]));
-    mg += mat[BISHOP][MG] * bishop_balance;
-    eg += mat[BISHOP][EG] * bishop_balance;
+    mg += params.mat_mg[BISHOP] * bishop_balance;
+    eg += params.mat_eg[BISHOP] * bishop_balance;
 
     const int rook_balance = (pop_count(board.bb_pieces[WHITE][ROOK]) - pop_count(board.bb_pieces[BLACK][ROOK]));
-    mg += mat[ROOK][MG] * rook_balance;
-    eg += mat[ROOK][EG] * rook_balance;
+    mg += params.mat_mg[ROOK] * rook_balance;
+    eg += params.mat_eg[ROOK] * rook_balance;
 
     const int queen_balance = (pop_count(board.bb_pieces[WHITE][QUEEN]) - pop_count(board.bb_pieces[BLACK][QUEEN]));
-    mg += mat[QUEEN][MG] * queen_balance;
-    eg += mat[QUEEN][EG] * queen_balance;
+    mg += params.mat_mg[QUEEN] * queen_balance;
+    eg += params.mat_eg[QUEEN] * queen_balance;
 }
 
 void evaluator_t::eval_pst(const board_t &board, int &mg, int &eg) {
@@ -227,7 +221,7 @@ void evaluator_t::eval_pst(const board_t &board, int &mg, int &eg) {
 
 evaluator_t::pawn_entry_t* evaluator_t::eval_pawns(const board_t &board) {
     // Return the entry if found
-    size_t index = (board.record[board.now].pawn_hash & pawn_hash_entries);
+    size_t index = (board.record[board.now].pawn_hash & pawn_hash_entries) * bucket_size;
     pawn_entry_t *bucket = pawn_hash_table + index;
     pawn_entry_t *entry = bucket;
     for(size_t i = 0; i < bucket_size; i++) {
@@ -247,13 +241,47 @@ evaluator_t::pawn_entry_t* evaluator_t::eval_pawns(const board_t &board) {
     entry->eval_mg = 0;
     entry->eval_eg = 0;
 
-    // PST
+    // Evaluate
     U64 pawns;
     pawns = board.bb_pieces[WHITE][PAWN];
     while (pawns) {
         uint8_t sq = pop_bit(pawns);
         entry->eval_mg += pst[WHITE][PAWN][sq][MG];
         entry->eval_eg += pst[WHITE][PAWN][sq][EG];
+
+        U64 caps = pawn_caps(WHITE, sq);
+        entry->defended[WHITE] |= caps;
+
+        if(caps & board.bb_pieces[WHITE][PAWN]) {
+            entry->eval_mg += params.chain_mg[rank_index(sq) - 1];
+            entry->eval_eg += params.chain_eg[rank_index(sq) - 1];
+        }
+
+        bool open_file = (BB_IN_FRONT[WHITE][sq] & board.bb_pieces[BLACK][PAWN]) == 0;
+
+        if(bb_normal_moves::pawn_moves_x1[WHITE][sq] & board.bb_side[WHITE]) {
+            entry->eval_mg += params.blocked_mg[open_file];
+            entry->eval_eg += params.blocked_eg[open_file];
+        }
+
+        U64 not_passer = BB_PASSED[WHITE][sq] & board.bb_pieces[BLACK][PAWN];
+        if(!not_passer) {
+            entry->eval_mg += params.passed_mg[rank_index(sq) - 1];
+            entry->eval_eg += params.passed_eg[rank_index(sq) - 1];
+
+            entry->passers[WHITE] |= single_bit(sq);
+        }
+
+        U64 not_isolated = BB_ISOLATED[WHITE][sq] & board.bb_pieces[WHITE][PAWN]; // Friendly pawns
+        if (!not_isolated) {
+            entry->eval_mg += params.isolated_mg[rank_index(sq) - 1][open_file];
+            entry->eval_eg += params.isolated_eg[rank_index(sq) - 1][open_file];
+        }
+
+        if(BB_IN_FRONT[WHITE][sq] & board.bb_pieces[WHITE][PAWN]) {
+            entry->eval_mg += params.doubled_mg[open_file];
+            entry->eval_eg += params.doubled_eg[open_file];
+        }
     }
 
     pawns = board.bb_pieces[BLACK][PAWN];
@@ -261,6 +289,40 @@ evaluator_t::pawn_entry_t* evaluator_t::eval_pawns(const board_t &board) {
         uint8_t sq = pop_bit(pawns);
         entry->eval_mg -= pst[BLACK][PAWN][sq][MG];
         entry->eval_eg -= pst[BLACK][PAWN][sq][EG];
+
+        U64 caps = pawn_caps(BLACK, sq);
+        entry->defended[BLACK] |= caps;
+
+        if(caps & board.bb_pieces[BLACK][PAWN]) {
+            entry->eval_mg -= params.chain_mg[(7 - rank_index(sq)) - 1];
+            entry->eval_eg -= params.chain_eg[(7 - rank_index(sq)) - 1];
+        }
+
+        bool open_file = (BB_IN_FRONT[BLACK][sq] & board.bb_pieces[WHITE][PAWN]) == 0;
+
+        if(bb_normal_moves::pawn_moves_x1[BLACK][sq] & board.bb_side[BLACK]) {
+            entry->eval_mg -= params.blocked_mg[open_file];
+            entry->eval_eg -= params.blocked_eg[open_file];
+        }
+
+        U64 not_passer = BB_PASSED[BLACK][sq] & board.bb_pieces[WHITE][PAWN];
+        if(!not_passer) {
+            entry->eval_mg -= params.passed_mg[(7 - rank_index(sq)) - 1];
+            entry->eval_eg -= params.passed_eg[(7 - rank_index(sq)) - 1];
+
+            entry->passers[BLACK] |= single_bit(sq);
+        }
+
+        U64 not_isolated = BB_ISOLATED[BLACK][sq] & board.bb_pieces[BLACK][PAWN]; // Friendly pawns
+        if (!not_isolated) {
+            entry->eval_mg -= params.isolated_mg[(7 - rank_index(sq)) - 1][open_file];
+            entry->eval_eg -= params.isolated_eg[(7 - rank_index(sq)) - 1][open_file];
+        }
+
+        if(BB_IN_FRONT[BLACK][sq] & board.bb_pieces[BLACK][PAWN]) {
+            entry->eval_mg -= params.doubled_mg[open_file];
+            entry->eval_eg -= params.doubled_eg[open_file];
+        }
     }
 
     return entry;
