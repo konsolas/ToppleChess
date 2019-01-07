@@ -45,6 +45,7 @@ namespace bb_util {
     extern U64 between[64][64];
     extern U64 line[64][64];
     extern U64 ray[64][64];
+    extern U64 file[8];
 }
 
 namespace bb_normal_moves {
@@ -246,6 +247,10 @@ inline U64 line(uint8_t a, uint8_t b) {
  */
 inline U64 ray(uint8_t origin, uint8_t direction) {
     return bb_util::ray[origin][direction];
+}
+
+inline U64 file_mask(uint8_t file_index) {
+    return bb_util::file[file_index];
 }
 
 /**

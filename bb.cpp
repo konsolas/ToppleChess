@@ -359,6 +359,7 @@ namespace bb_util {
     U64 between[64][64];
     U64 line[64][64];
     U64 ray[64][64];
+    U64 file[8];
 
     void init_util() {
         single_bit[0] = 0x1;
@@ -376,6 +377,11 @@ namespace bb_util {
         }
 
         for (uint8_t a = 0; a < 64; a++) {
+            // File
+            {
+                file[file_index[a]] |= single_bit[a];
+            }
+
             for (uint8_t b = 0; b < 64; b++) {
                 // Between
                 {

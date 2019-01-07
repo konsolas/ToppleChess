@@ -10,8 +10,8 @@
 #include "../movesort.h"
 
 tuner_t::tuner_t(size_t entries, std::vector<board_t> &positions, std::vector<double> &results)
-    : entries(entries), positions(positions), results(results) {
-    if(positions.size() != entries || results.size() != entries) throw std::invalid_argument("invalid entry count");
+        : entries(entries), positions(positions), results(results) {
+    if (positions.size() != entries || results.size() != entries) throw std::invalid_argument("invalid entry count");
 
     current_error = mean_evaluation_error();
 
@@ -28,13 +28,15 @@ int tuner_t::quiesce(board_t &board, int alpha, int beta, evaluator_t &evaluator
     if (stand_pat >= beta) return beta;
     if (alpha < stand_pat) alpha = stand_pat;
 
-    movegen_t gen(board); move_t next{};
-    move_t buf[128] = {}; gen.gen_caps(buf);
+    movegen_t gen(board);
+    move_t next{};
+    move_t buf[128] = {};
+    gen.gen_caps(buf);
     int idx = 0;
 
     while ((next = buf[idx++]) != EMPTY_MOVE) {
         if (next.info.captured_type == KING) return INF; // Ignore this position in case of a king capture
-        if(board.see(next) < 0) {
+        if (board.see(next) < 0) {
             continue;
         }
 
@@ -66,9 +68,9 @@ double tuner_t::mean_evaluation_error() {
     evaluator_t evaluator(current_params, 4096);
 
     double total_squared_error = 0;
-    for(size_t i = 0; i < entries; i++) {
+    for (size_t i = 0; i < entries; i++) {
         int raw_eval = evaluator.evaluate(positions[i]);
-        if(positions[i].record[positions[i].now].next_move) raw_eval = -raw_eval;
+        if (positions[i].record[positions[i].now].next_move) raw_eval = -raw_eval;
         double eval = sigmoid((double) raw_eval);
         double error = eval - results[i];
 
@@ -84,10 +86,10 @@ double tuner_t::momentum_optimise(int *parameter, double current_mea) {
     // Determine direction
     double adjusted_mea;
     *parameter = original + 1;
-    if((adjusted_mea = mean_evaluation_error()) < current_mea) {
+    if ((adjusted_mea = mean_evaluation_error()) < current_mea) {
         std::cout << "optimising parameter (increasing): " << *parameter << std::endl;
 
-        while(adjusted_mea < current_mea) {
+        while (adjusted_mea < current_mea) {
             current_mea = adjusted_mea;
             *parameter += 1;
             adjusted_mea = mean_evaluation_error();
@@ -101,7 +103,7 @@ double tuner_t::momentum_optimise(int *parameter, double current_mea) {
 
         *parameter = original - 1;
         adjusted_mea = mean_evaluation_error();
-        while(adjusted_mea < current_mea) {
+        while (adjusted_mea < current_mea) {
             current_mea = adjusted_mea;
             *parameter -= 1;
             adjusted_mea = mean_evaluation_error();
@@ -118,14 +120,14 @@ double tuner_t::momentum_optimise(int *parameter, double current_mea) {
 }
 
 void tuner_t::optimise(int *parameter, int count) {
-    for(int i = 0; i < count; i++) {
+    for (int i = 0; i < count; i++) {
         current_error = momentum_optimise(parameter + i, current_error);
     }
 
     std::cout << "Final result:";
-    for(int i = 0; i < count; i++) {
+    for (int i = 0; i < count; i++) {
         std::cout << " " << *(parameter + i);
-        if(i < count - 1) {
+        if (i < count - 1) {
             std::cout << ",";
         }
     }
@@ -259,7 +261,7 @@ void tuner_t::print_params() {
         std::cout << param << ", ";
     }
     std::cout << std::endl;
-    
+
     std::cout << "  blocked_eg ";
     for (int param : current_params.blocked_eg) {
         std::cout << param << ", ";
@@ -288,5 +290,89 @@ void tuner_t::print_params() {
     for (int param : current_params.passed_eg) {
         std::cout << param << ", ";
     }
+    std::cout << std::endl;
+
+    std::cout << "  mob_span_mg ";
+    for (int param : current_params.mob_span_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  mob_span_eg ";
+    for (int param : current_params.mob_span_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  n_mob_mg ";
+    for (int param : current_params.n_mob_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  b_mob_mg ";
+    for (int param : current_params.b_mob_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  r_mob_mg  ";
+    for (int param : current_params.r_mob_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  q_mob_mg ";
+    for (int param : current_params.q_mob_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+
+    std::cout << "  n_mob_eg ";
+    for (int param : current_params.n_mob_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  b_mob_eg ";
+    for (int param : current_params.b_mob_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  r_mob_eg  ";
+    for (int param : current_params.r_mob_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  q_mob_eg ";
+    for (int param : current_params.q_mob_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+
+    std::cout << "  ks_pawn_shield ";
+    for (int param : current_params.ks_pawn_shield) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  kat_attack_value  ";
+    for (int param : current_params.kat_attack_value) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  kat_defend_value  ";
+    for (int param : current_params.kat_defend_value) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  kat_open_file "
+              << current_params.kat_open_file;
     std::cout << std::endl;
 }
