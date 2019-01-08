@@ -14,8 +14,8 @@ enum GamePhase {
 
 struct eval_params_t {
     /// Material
-    int mat_mg[5] = {78, 229, 296, 528, 1014};
-    int mat_eg[5] = {78, 385, 453, 565, 1181};
+    int mat_mg[5] = {78, 229, 283, 528, 1014};
+    int mat_eg[5] = {78, 385, 438, 565, 1181};
 
     /// Piece-square tables
 
@@ -151,7 +151,9 @@ struct eval_params_t {
     int kat_defence_weight[5] = {1, 1, 0, 0, -1};
 
     /// Other positional
-    // TODO: Bishop pair, square colour weaknesses, rook behind passed pawn, etc.
+    int pos_bishop_pair_mg = 82;
+    int pos_bishop_pair_eg = 8;
+    // TODO: Square colour weaknesses, rook behind passed pawn, exchange when up material, mobility, etc.
 };
 
 class evaluator_t {
@@ -191,6 +193,8 @@ private:
     pawn_entry_t *eval_pawns(const board_t &board);
 
     void eval_king_safety(const board_t &board, int &mg, int &eg, const pawn_entry_t *entry);
+
+    void eval_positional(const board_t &board, int &mg, int &eg);
 };
 
 #endif //TOPPLE_EVAL_H

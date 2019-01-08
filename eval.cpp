@@ -180,8 +180,8 @@ int evaluator_t::evaluate(const board_t &board) {
     // Main evaluation functions
     eval_material(board, mg, eg);
     eval_pst(board, mg, eg);
-
     eval_king_safety(board, mg, eg, pawn_data);
+    eval_positional(board, mg, eg);
 
     // Interpolate between middlegame and endgame scores
     double game_process = double(pop_count(board.bb_all) - 2) / 30.0;
@@ -442,5 +442,17 @@ void evaluator_t::eval_king_safety(const board_t &board, int &mg, int &eg, const
 
     mg -= kat_table[std::min(std::max(king_danger[WHITE], 0), 63)];
     mg += kat_table[std::min(std::max(king_danger[BLACK], 0), 63)];
+}
+
+void evaluator_t::eval_positional(const board_t &board, int &mg, int &eg) {
+    if(pop_count(board.bb_pieces[WHITE][BISHOP]) >= 2) {
+        mg += params.pos_bishop_pair_mg;
+        eg += params.pos_bishop_pair_eg;
+    }
+
+    if(pop_count(board.bb_pieces[BLACK][BISHOP]) >= 2) {
+        mg -= params.pos_bishop_pair_mg;
+        eg -= params.pos_bishop_pair_eg;
+    }
 }
 
