@@ -9,7 +9,7 @@
 #include "eval.h"
 #include "endgame.h"
 
-#define TOPPLE_VER "0.2.1"
+#define TOPPLE_VER "0.3.0"
 
 const unsigned int MB = 1048576;
 
@@ -19,11 +19,14 @@ int main(int argc, char *argv[]) {
     // Initialise engine
     init_tables();
     zobrist::init_hashes();
-    eval_init();
+    evaluator_t::eval_init();
     eg_init();
 
     // Board
     board_t *board = nullptr;
+
+    // Evaluator
+    evaluator_t evaluator = evaluator_t(eval_params_t(), 32 * MB);
 
     // Hash
     uint64_t hash_size = 128;
@@ -39,7 +42,7 @@ int main(int argc, char *argv[]) {
     unsigned int threads = 1;
 
     // Startup
-    std::cout << "Topple v" << TOPPLE_VER << " (c) Vincent Tang 2018" << std::endl;
+    std::cout << "Topple v" << TOPPLE_VER << " (c) Vincent Tang 2019" << std::endl;
 
     while (true) {
         std::string input;
@@ -210,7 +213,7 @@ int main(int argc, char *argv[]) {
                                                              max_depth,
                                                              max_nodes,
                                                              root_moves);
-                    search = new search_t(*board, tt, threads, limits);
+                    search = new search_t(*board, evaluator, tt, threads, limits);
 
                     // Start search
                     future = std::async(std::launch::async,
@@ -235,7 +238,7 @@ int main(int argc, char *argv[]) {
                 }
             } else if (cmd == "eval") {
                 if (board != nullptr) {
-                    std::cout << eval(*board) << std::endl;
+                    std::cout << evaluator.evaluate(*board) << std::endl;
                 } else {
                     std::cout << "board=nullptr" << std::endl;
                 }

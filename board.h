@@ -28,6 +28,7 @@ struct game_record_t {
     uint8_t ep_square; // Target square for en-passant after last double pawn move
     int halfmove_clock; // Moves since last pawn move or capture
     U64 hash;
+    U64 pawn_hash;
 };
 
 /**
@@ -76,7 +77,11 @@ struct board_t {
 
     /* Game history */
     int now = 0; // Index for record array
+#ifdef TOPPLE_TUNE
+    game_record_t record[4] = {{}}; // Shortened record to save memory while tuning
+#else
     game_record_t record[4096] = {{}}; // Record (supporting games of up to 4096 moves)
+#endif
 
     /* Internal methods */
     template<bool HASH>

@@ -25,6 +25,19 @@ namespace tt {
         UPPER, LOWER, EXACT
     };
 
+    inline size_t lower_power_of_2(size_t size) {
+        if (size & (size - 1)) { // Check if size is a power of 2
+            for (unsigned int i = 1; i < 64; i++) {
+                size |= size >> i; // Fill bits to the right
+            }
+
+            size += 1; // Add one (so there is only one bit set)
+            size >>= 1; // Shift left one
+        }
+
+        return size;
+    }
+
     struct entry_t { // 16 bytes
         U64 hash; // 8 bytes
         move_t move; // 4 bytes

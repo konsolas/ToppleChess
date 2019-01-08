@@ -2,13 +2,8 @@
 // Created by Vincent on 22/09/2017.
 //
 
-#include <cassert>
 #include <stdexcept>
 #include <iostream>
-
-#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
-#include <intrin.h>
-#endif
 
 #include "bb.h"
 
@@ -187,15 +182,15 @@ namespace bb_magics {
             };
 
 
-    U64 init_magic_occ(const int *squares, const int numSquares, const U64 linocc) {
-        int i;
+    U64 init_magic_occ(const unsigned int *squares, const unsigned int numSquares, const U64 linocc) {
+        unsigned int i;
         U64 ret = 0;
         for (i = 0; i < numSquares; i++)
             if (linocc & (((U64) (1)) << i)) ret |= (((U64) (1)) << squares[i]);
         return ret;
     }
 
-    U64 compute_rookmoves(const int square, const U64 occ) {
+    U64 compute_rookmoves(const unsigned int square, const U64 occ) {
         U64 ret = 0;
         U64 bit;
         U64 rowbits = (((U64) 0xFF) << (8 * (square / 8)));
@@ -225,7 +220,7 @@ namespace bb_magics {
         return ret;
     }
 
-    U64 compute_bishopmoves(const int square, const U64 occ) {
+    U64 compute_bishopmoves(const unsigned int square, const U64 occ) {
         U64 ret = 0;
         U64 bit;
         U64 bit2;
@@ -267,9 +262,9 @@ namespace bb_magics {
     }
 
     void initmagicmoves() {
-        int i;
+        unsigned int i;
 
-        int bitscan_bitpos64[64] = {
+        unsigned int bitscan_bitpos64[64] = {
                 63, 0, 58, 1, 59, 47, 53, 2,
                 60, 39, 48, 27, 54, 33, 42, 3,
                 61, 51, 37, 40, 49, 18, 28, 20,
@@ -320,12 +315,12 @@ namespace bb_magics {
                 };
 
         for (i = 0; i < 64; i++) {
-            int squares[64];
-            int n_squares = 0;
+            unsigned int squares[64];
+            unsigned int n_squares = 0;
             U64 temp = b_mask[i];
             while (temp) {
                 U64 bit = temp & -temp;
-                squares[n_squares++] = bitscan_bitpos64[(bit * (0x07EDD5E59A4E28C2)) >> 58];
+                squares[n_squares++] = bitscan_bitpos64[U64(bit * U64(0x07EDD5E59A4E28C2)) >> 58u];
                 temp ^= bit;
             }
             for (temp = 0; temp < (((U64) (1)) << n_squares); temp++) {
@@ -334,12 +329,12 @@ namespace bb_magics {
             }
         }
         for (i = 0; i < 64; i++) {
-            int squares[64];
-            int n_squares = 0;
+            unsigned int squares[64];
+            unsigned int n_squares = 0;
             U64 temp = r_mask[i];
             while (temp) {
                 U64 bit = temp & -temp;
-                squares[n_squares++] = bitscan_bitpos64[(bit * (0x07EDD5E59A4E28C2)) >> 58];
+                squares[n_squares++] = bitscan_bitpos64[U64(bit * U64(0x07EDD5E59A4E28C2)) >> 58u];
                 temp ^= bit;
             }
             for (temp = 0; temp < (((U64) (1)) << n_squares); temp++) {
@@ -347,16 +342,6 @@ namespace bb_magics {
                 *(mm_r_indices[i] + (((tempocc) * r_magics[i]) >> r_shift[i])) = compute_rookmoves(i, tempocc);
             }
         }
-    }
-
-    inline U64 bishop_moves(const uint8_t &square, const U64 &occupancy) {
-        return *(b_index[square] + (((occupancy & b_mask[square]) * b_magics[square])
-                >> b_shift[square]));
-    }
-
-    inline U64 rook_moves(const uint8_t &square, const U64 &occupancy) {
-        return *(r_index[square] + (((occupancy & r_mask[square]) * r_magics[square])
-                >> r_shift[square]));
     }
 }
 
@@ -374,11 +359,12 @@ namespace bb_util {
     U64 between[64][64];
     U64 line[64][64];
     U64 ray[64][64];
+    U64 file[8];
 
     void init_util() {
         single_bit[0] = 0x1;
-        for (int i = 1; i < 64; i++) {
-            single_bit[i] = single_bit[i - 1] << 1;
+        for (unsigned int i = 1; i < 64; i++) {
+            single_bit[i] = single_bit[i - 1] << 1u;
         }
 
         for (uint8_t rank = 0; rank < 8; rank++) {
@@ -391,6 +377,11 @@ namespace bb_util {
         }
 
         for (uint8_t a = 0; a < 64; a++) {
+            // File
+            {
+                file[file_index[a]] |= single_bit[a];
+            }
+
             for (uint8_t b = 0; b < 64; b++) {
                 // Between
                 {
@@ -500,49 +491,6 @@ namespace bb_normal_moves {
 
 /**
  * =====================================================================================================================
- * INTRINSICS
- * =====================================================================================================================
- */
-namespace bb_intrin {
-    inline uint8_t lsb(U64 b) {
-        assert(b);
-#if defined(__GNUC__)
-        return Square(__builtin_ctzll(b));
-#elif defined(_MSC_VER) || defined(__INTEL_COMPILER)
-        unsigned long idx;
-        _BitScanForward64(&idx, b);
-        return Square(idx);
-#else
-#error "No intrinsic lsb/bitscanforward/ctz available"
-#endif
-    }
-
-    inline uint8_t msb(U64 b) {
-        assert(b);
-#if defined(__GNUC__)
-        return Square(63 - __builtin_clzll(b));
-#elif defined(_MSC_VER) || defined(__INTEL_COMPILER)
-        unsigned long idx;
-        _BitScanReverse64(&idx, b);
-        return Square(idx);
-#else
-#error "No intrinsic msb/bitscanreverse/clz available"
-#endif
-    }
-
-    inline int pop_count(const U64 &b) {
-#if defined(__GNUC__)
-        return __builtin_popcountll(b);
-#elif defined(_MSC_VER) || defined(__INTEL_COMPILER)
-        return (int) _mm_popcnt_u64(b);
-#else
-#error "No intrinsic popcnt available"
-#endif
-    }
-}
-
-/**
- * =====================================================================================================================
  * HEADER IMPLEMENTATION
  * =====================================================================================================================
  */
@@ -550,122 +498,6 @@ void init_tables() {
     bb_magics::initmagicmoves();
     bb_util::init_util();
     bb_normal_moves::init_normal_moves();
-}
-
-template<>
-U64 find_moves<PAWN>(Team side, uint8_t square, U64 occupied) {
-    U64 result = 0;
-    result |= occupied & bb_normal_moves::pawn_caps[side][square];
-    if (!(occupied & bb_normal_moves::pawn_moves_x1[side][square])) {
-        result |= bb_normal_moves::pawn_moves_x1[side][square];
-        if (!(occupied & bb_normal_moves::pawn_moves_x2[side][square])) {
-            result |= bb_normal_moves::pawn_moves_x2[side][square];
-        }
-    }
-    return result;
-}
-
-template<>
-U64 find_moves<KNIGHT>(Team side, uint8_t square, U64 occupied) {
-    return bb_normal_moves::knight_moves[square];
-}
-
-template<>
-U64 find_moves<BISHOP>(Team side, uint8_t square, U64 occupied) {
-    return bb_magics::bishop_moves(square, occupied);
-}
-
-template<>
-U64 find_moves<ROOK>(Team side, uint8_t square, U64 occupied) {
-    return bb_magics::rook_moves(square, occupied);
-}
-
-template<>
-U64 find_moves<QUEEN>(Team side, uint8_t square, U64 occupied) {
-    return bb_magics::bishop_moves(square, occupied) | bb_magics::rook_moves(square, occupied);
-}
-
-template<>
-U64 find_moves<KING>(Team side, uint8_t square, U64 occupied) {
-    return bb_normal_moves::king_moves[square];
-}
-
-U64 find_moves(Piece type, Team side, uint8_t square, U64 occupied) {
-    switch (type) {
-        case PAWN:
-            return find_moves<PAWN>(side, square, occupied);
-        case KNIGHT:
-            return find_moves<KNIGHT>(side, square, occupied);
-        case BISHOP:
-            return find_moves<BISHOP>(side, square, occupied);
-        case ROOK:
-            return find_moves<ROOK>(side, square, occupied);
-        case QUEEN:
-            return find_moves<QUEEN>(side, square, occupied);
-        case KING:
-            return find_moves<KING>(side, square, occupied);
-        default:
-            return 0;
-    }
-}
-
-
-U64 pawn_caps(Team side, uint8_t square) {
-    return bb_normal_moves::pawn_caps[side][square];
-}
-
-U64 single_bit(uint8_t square) {
-    return bb_util::single_bit[square];
-}
-
-bool multiple_bits(U64 bb) {
-    return (bb & (bb - 1)) != 0;
-}
-
-U64 bits_between(uint8_t a, uint8_t b) {
-    return bb_util::between[a][b];
-}
-
-U64 line(uint8_t a, uint8_t b) {
-    return bb_util::line[a][b];
-}
-
-U64 ray(uint8_t origin, uint8_t direction) {
-    return bb_util::ray[origin][direction];
-}
-
-bool same_colour(uint8_t a, uint8_t b) {
-    return ((uint8_t) (9 * (a ^ b)) & uint8_t(8)) == 0;
-}
-
-bool aligned(uint8_t a, uint8_t b) {
-    return distance(a, b) <= 1 || bits_between(a, b) != 0;
-}
-
-bool aligned(uint8_t a, uint8_t b, uint8_t c) {
-    return aligned(a, b) && aligned(b, c) && aligned(a, c);
-}
-
-int distance(uint8_t a, uint8_t b) {
-    return std::max(std::abs(rank_index(a) - rank_index(b)), std::abs(file_index(a) - file_index(b)));
-}
-
-uint8_t square_index(uint8_t file, uint8_t rank) {
-    return bb_util::sq_index[file][rank];
-}
-
-uint8_t pop_bit(U64 &bb) {
-    const uint8_t s = bb_intrin::lsb(bb);
-    bb &= bb - 1;
-    return s;
-}
-
-uint8_t bit_scan(U64 bb) {
-    return bb_intrin::lsb(bb);
-}
-
-int pop_count(U64 bb) {
-    return bb_intrin::pop_count(bb);
 }
 
 uint8_t to_sq(char file, char rank) {
@@ -809,13 +641,5 @@ std::string from_sq(uint8_t sq) {
     }
 
     return std::string(); // Can't happen
-}
-
-uint8_t rank_index(uint8_t sq_index) {
-    return bb_util::rank_index[sq_index];
-}
-
-uint8_t file_index(uint8_t sq_index) {
-    return bb_util::file_index[sq_index];
 }
 

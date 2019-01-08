@@ -36,14 +36,7 @@ tt::hash_t::hash_t(size_t size) {
     // Divide size by the sizeof an entry
     size /= sizeof(tt::entry_t);
 
-    if (size & (size - 1)) { // Check if size is a power of 2
-        for (unsigned int i = 1; i < 64; i++) {
-            size |= size >> i; // Fill bits to the right
-        }
-
-        size += 1; // Add one (so there is only one bit set)
-        size >>= 1; // Shift left one
-    }
+    size = lower_power_of_2(size);
 
     if (size < sizeof(tt::entry_t)) {
         num_entries = 0;

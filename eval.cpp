@@ -2,199 +2,30 @@
 // Created by Vincent on 30/09/2017.
 //
 
+#include "eval.h"
 #include "board.h"
 #include "endgame.h"
 #include <sstream>
 #include <algorithm>
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// Evaluation datatypes
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Eval metadata
-struct eval_data_t {
-    uint8_t king_loc[2] = {0};
-
-    U64 king_shield[2] = {0};
-    int king_danger_balance[2] = {0, 0};
-
-    U64 attacked_by_pawn[2] = {0};
-    U64 attackable_by_pawn[2] = {0};
-    uint8_t counts[2][6] = {{0}};
-};
-
-// Evaluation score (middlegame and endgame)
-typedef struct score_t {
-    int mg;
-    int eg;
-
-    inline score_t operator+(const score_t &rhs) const {
-        return score_t{this->mg + rhs.mg, this->eg + rhs.eg};
-    }
-
-    inline score_t operator-(const score_t &rhs) const {
-        return score_t{this->mg - rhs.mg, this->eg - rhs.eg};
-    }
-
-    inline score_t operator*(const int &scalar) const {
-        return score_t{this->mg * scalar, this->eg * scalar};
-    }
-
-    inline score_t &operator+=(const score_t &rhs) {
-        this->mg += rhs.mg;
-        this->eg += rhs.eg;
-        return *this;
-    }
-
-    inline score_t &operator-=(const score_t &rhs) {
-        this->mg -= rhs.mg;
-        this->eg -= rhs.eg;
-        return *this;
-    }
-} S;
-
-inline std::ostream &operator<<(std::ostream &out, const score_t &s) {
-    out << "S(" << s.mg << ", " << s.eg << ")";
-    return out;
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// Evaluation parameters
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/** EVAL_BEGIN **/
-
-S PST[6][64] = {
-        { // PAWN
-                S{0, 0},     S{0, 0},     S{0, 0},     S{0, 0},     S{0, 0},     S{0, 0},     S{0, 0},     S{0, 0},
-                S{-8, 20},   S{0, 25},   S{0, 30},  S{0, 35},  S{0, 35},  S{0, 30},  S{0, 25},   S{-8, 20},
-                S{-8, 9},    S{0, 15},   S{0, 20},  S{0, 26},  S{0, 26},  S{0, 20},  S{0, 15},   S{-8, 9},
-                S{-8, 5},    S{0, 10},  S{6, 15},  S{10, 19}, S{10, 19}, S{6, 15},  S{0, 10},  S{-8, 5},
-                S{-8, 1},    S{0, 5},   S{14, 9},  S{18, 15}, S{18, 15}, S{14, 9},  S{0, 5},   S{-8, 1},
-                S{-8, -1},   S{0, -1},   S{7, -1},  S{7, -1},  S{7, -1},  S{7, -1},  S{0, -1},   S{-8, -1},
-                S{0, -6},    S{0, -6},    S{-5, -6},  S{-9, -6}, S{-9, -6}, S{0, -6},   S{0, -6},    S{0, -6},
-                S{0, 0},     S{0, 0},     S{0, 0},     S{0, 0},     S{0, 0},     S{0, 0},     S{0, 0},     S{0, 0},
-        },
-        { // KNIGHT
-                S{-80, -39}, S{-26, -33}, S{-16, -20}, S{-11, -6},  S{-11, -6},  S{-16, -20}, S{-26, -33}, S{-80, -39},
-                S{-25, -27}, S{-7, -21}, S{2, -8},  S{6, 5},   S{6, 5},   S{2, -8},  S{-7, -21}, S{-25, -27},
-                S{-4, -21},  S{14, -15}, S{23, -2}, S{28, 11}, S{28, 11}, S{23, -2}, S{14, -15}, S{-4, -21},
-                S{-12, -16}, S{6, -10}, S{15, 2},  S{20, 16}, S{20, 16}, S{15, 2},  S{6, -10}, S{-12, -16},
-                S{-11, -16}, S{6, -10}, S{16, 2},  S{21, 16}, S{21, 16}, S{16, 2},  S{6, -10}, S{-11, -16},
-                S{-33, -21}, S{-1, -15}, S{0, -2},  S{4, 11},  S{4, 11},  S{0, -2},  S{-1, -15}, S{-27, -33},
-                S{-35, -27}, S{-17, -21}, S{-10, -8}, S{-8, 5},  S{-8, 5},  S{-10, -8}, S{-17, -21}, S{-35, -27},
-                S{-57, -39}, S{-27, -33}, S{-34, -20}, S{-29, -6},  S{-29, -6},  S{-34, -20}, S{-27, -33}, S{-57, -39}
-        },
-        { // BISHOP
-                S{-19, -26}, S{-8, -16},  S{-11, -17}, S{-15, -10}, S{-15, -10}, S{-11, -17}, S{-8, -16},  S{-19, -26},
-                S{-12, -17}, S{2, -8},   S{0, -8},  S{-4, -1}, S{-4, -1}, S{0, -8},  S{2, -8},   S{-12, -17},
-                S{-11, -13}, S{0, -4},   S{0, -4},  S{-2, 2},  S{-2, 2},  S{0, -4},  S{0, -4},   S{-11, -13},
-                S{-8, -14},  S{6, -4},  S{3, -5},  S{0, 1},   S{0, 1},   S{3, -5},  S{6, -4},  S{-8, -14},
-                S{0, -14},   S{7, -4},  S{4, -5},  S{0, 1},   S{0, 1},   S{4, -5},  S{7, -4},  S{0, -14},
-                S{-8, -13},  S{8, -4},   S{4, -4},  S{0, 2},   S{0, 2},   S{4, -4},  S{8, -4},   S{-8, -13},
-                S{10, -17},  S{3, -8},    S{0, -8},   S{-3, -1}, S{-3, -1}, S{0, -8},   S{3, -8},    S{10, -17},
-                S{-21, -26}, S{-10, -16}, S{-13, -17}, S{-17, -10}, S{-17, -10}, S{-13, -17}, S{-10, -16}, S{-21, -26}
-        },
-        { // ROOK
-                S{-8, 0},    S{-6, 0},    S{-4, 0},    S{-3, 0},    S{-3, 0},    S{-4, 0},    S{-6, 0},    S{-8, 0},
-                S{16, 0},    S{18, 0},   S{19, 0},  S{19, 0},  S{19, 0},  S{19, 0},  S{18, 0},   S{16, 0},
-                S{-8, 0},    S{-2, 0},   S{0, 0},   S{3, 0},   S{3, 0},   S{0, 0},   S{-2, 0},   S{-8, 0},
-                S{-8, 0},    S{-2, 0},  S{0, 0},   S{3, 0},   S{3, 0},   S{0, 0},   S{-2, 0},  S{-8, 0},
-                S{-8, 0},    S{-2, 0},  S{0, 0},   S{3, 0},   S{3, 0},   S{0, 0},   S{-2, 0},  S{-8, 0},
-                S{-8, 0},    S{-1, 0},   S{1, 0},   S{3, 0},   S{3, 0},   S{1, 0},   S{-1, 0},   S{-8, 0},
-                S{-8, 0},    S{-2, 0},    S{0, 0},    S{3, 0},   S{3, 0},   S{0, 0},    S{-2, 0},    S{-8, 0},
-                S{-8, 0},    S{-6, 0},    S{-4, 0},    S{5, 0},     S{5, 0},     S{-4, 0},    S{-6, 0},    S{-8, 0}
-        },
-        { // QUEEN
-                S{-1, -32},  S{-1, -21},  S{-1, -16},  S{-1, -12},  S{-1, -12},  S{-1, -16},  S{-1, -21},  S{-1, -32},
-                S{-1, -21},  S{3, -12},  S{3, -7},  S{3, -2},  S{3, -2},  S{3, -7},  S{3, -12},  S{-1, -21},
-                S{-1, -16},  S{3, -7},   S{3, -2},  S{3, 2},   S{3, 2},   S{3, -2},  S{3, -7},   S{-1, -16},
-                S{-1, -12},  S{3, -2},  S{3, 2},   S{3, 7},   S{3, 7},   S{3, 2},   S{3, -2},  S{-1, -12},
-                S{-1, -12},  S{3, -2},  S{3, 2},   S{3, 7},   S{3, 7},   S{3, 2},   S{3, -2},  S{-1, -12},
-                S{-1, -16},  S{3, -7},   S{3, -2},  S{3, 2},   S{3, 2},   S{3, -2},  S{3, -7},   S{-1, -16},
-                S{-1, -21},  S{4, -12},   S{4, -7},   S{4, -2},  S{4, -2},  S{4, -7},   S{4, -12},   S{-1, -21},
-                S{-1, -32},  S{4, -21},   S{4, -16},   S{4, -12},   S{4, -12},   S{4, -16},   S{4, -21},   S{-1, -32}
-        },
-        { // KING
-                S{39, 10},   S{52, 32},   S{29, 43},   S{10, 46},   S{10, 46},   S{29, 43},   S{52, 32},   S{39, 10},
-                S{47, 29},   S{61, 51},  S{37, 62}, S{18, 65}, S{18, 65}, S{37, 62}, S{61, 51},  S{47, 29},
-                S{58, 44},   S{72, 66},  S{48, 76}, S{29, 80}, S{29, 80}, S{48, 76}, S{72, 66},  S{58, 44},
-                S{69, 54},   S{82, 75}, S{59, 86}, S{40, 89}, S{40, 89}, S{59, 86}, S{82, 75}, S{69, 54},
-                S{78, 54},   S{92, 75}, S{68, 86}, S{49, 89}, S{49, 89}, S{68, 86}, S{92, 75}, S{78, 54},
-                S{89, 44},   S{103, 66}, S{79, 76}, S{60, 80}, S{60, 80}, S{79, 76}, S{103, 66}, S{89, 44},
-                S{114, 29},  S{128, 51},  S{104, 62}, S{85, 65}, S{85, 65}, S{104, 62}, S{128, 51},  S{114, 29},
-                S{119, 10},  S{140, 32},  S{139, 43},  S{60, 46},   S{90, 46},   S{60, 43},   S{140, 32},  S{119, 10}
-        },
-};
-
-constexpr S MATERIAL[6] = {S{85, 100}, S{300, 300}, S{305, 300}, S{490, 500}, S{925, 975}}; // Piece type
-
-/// pawns
-constexpr S PASSED[8] = {S{0, 0}, S{8, 15}, S{10, 25}, S{14, 35}, S{25, 60}, S{50, 90}, S{80, 111}, S{0, 0}}; // [RANK]
-constexpr S ISOLATED[2] = {S{-5, -12}, S{-8, -12}}; // [OPEN FILE?]
-/* no pawns in front, and less than 2 enemy pawns in passed bitmap */
-constexpr S CANDIDATE[8] = {S{0, 0}, S{4, 10}, S{5, 12}, S{7, 15}, S{10, 25},
-                            S{20, 40}, S{0, 0}, S{0, 0}}; // [RANK]
-constexpr S DOUBLED[2] = {S{-10, -20}, S{-7, -11}}; // [OPEN FILE?]
-constexpr S KING_SHIELD[2] = {S{22, 11}, S{4, 2}}; // [near/far]
-
-/// other positional
-constexpr S BISHOP_PAIR = S{20, 25};
-
-constexpr S ROOK_SEMI_OPEN_FILE = S{21, 12};
-constexpr S ROOK_OPEN_FILE = S{29, 12};
-
-/// mobility
-constexpr S MOBILITY[6][32] = {
-        {},
-        {S{-37, -38}, S{-33, -35}, S{-4, -13}, S{-1, -5}, S{3, 2},   S{7, 5},   S{11, 13}, S{15, 14}, S{18, 14}},
-        {S{-24, -29}, S{-15, -9},  S{8, -1},   S{13, 6},  S{18, 11}, S{25, 21}, S{27, 27}, S{31, 29}, S{32, 31},
-                S{35, 35}, S{39, 37}, S{40, 43}, S{46, 45}, S{48, 47}},
-        {S{-28, -39}, S{-12, -9},  S{-5, 13},  S{-2, 27}, S{-2, 35}, S{0, 40},  S{4, 54},  S{7, 60},  S{10, 64},
-                S{11, 71}, S{15, 77}, S{16, 80}, S{21, 82}, S{24, 84}, S{29, 84}},
-        {S{-20, -20}, S{-20, -20}},
-        {}
-};
-constexpr S BLOCKED_PAWN = S{-12, -15};
-
-/// king safety
-constexpr int KING_ATTACKER_WEIGHT[6] = {1, 2, 2, 3, 5};
-constexpr int KING_DEFENDER_WEIGHT[6] = {1, 2, 3, 4, 6};
-const int KING_MIN_WEIGHT = -1000;
-
-/* linear king safety function */
-const score_t KING_DANGER_M = score_t{3, 2};
-const score_t KING_DANGER_C = score_t{-31, -160};
-
-/// tempo
-constexpr int TEMPO = 5;
-
-/** EVAL_END **/
-
-// Reading eval tables
-template<typename T>
-T read(T *table, int sq, Team side) {
-    if (side) {
-        return table[sq];
-    } else {
-        return table[MIRROR_TABLE[sq]];
-    }
-}
+#include <cstring>
+#include <cmath>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Utility tables
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-U64 BB_PASSED[2][64] = {{0}};
-U64 BB_ISOLATED[2][64] = {{0}};
-U64 BB_IN_FRONT[2][64] = {{0}};
-U64 BB_HOLE[2][64] = {{0}};
+U64 BB_PASSED[2][64] = {};
+U64 BB_ISOLATED[2][64] = {};
+U64 BB_IN_FRONT[2][64] = {};
+U64 BB_HOLE[2][64] = {};
 
-U64 BB_KING_CIRCLE[64] = {0};
+U64 BB_KING_CIRCLE[64] = {};
 
 U64 BB_CENTRE = 0;
 
-void eval_init() {
+int kat_table[64] = {};
+
+void evaluator_t::eval_init() {
     for (uint8_t sq = 0; sq < 64; sq++) {
         BB_HOLE[WHITE][sq] = 0xffffffffffffffff;
 
@@ -221,7 +52,7 @@ void eval_init() {
         }
 
         // Centre
-        if (file_index(sq) <= 5 && file_index(sq) >= 2 && rank_index(sq) <= 4 && rank_index(sq) >= 3) {
+        if (file_index(sq) <= 4 && file_index(sq) >= 3 && rank_index(sq) <= 4 && rank_index(sq) >= 3) {
             BB_CENTRE |= single_bit(sq);
         }
 
@@ -246,273 +77,381 @@ void eval_init() {
                 BB_HOLE[BLACK][MIRROR_TABLE[i]] |= single_bit(MIRROR_TABLE[square]);
         }
     }
+
+    // Set up king safety evaluation table.
+    for(int i = 0; i < 64; i++) {
+        // Translated + scaled sigmoid function
+        kat_table[i] = (int) (256.0 / (1 + exp((32 - i) / 10.0))) - 10;
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Main evaluation functions
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-score_t eval_pawns(Team side, const board_t &board, eval_data_t &dat);
-score_t eval_knights(Team side, const board_t &board, eval_data_t &dat);
-score_t eval_bishops(Team side, const board_t &board, eval_data_t &dat);
-score_t eval_rooks(Team side, const board_t &board, eval_data_t &dat);
-score_t eval_queens(Team side, const board_t &board, eval_data_t &dat);
-score_t eval_kings(Team side, const board_t &board, eval_data_t &dat);
+evaluator_t::evaluator_t(eval_params_t params, size_t pawn_hash_size) : params(params) {
+    // Set up pawn hash table
+    pawn_hash_size /= (sizeof(pawn_entry_t) * bucket_size);
+    this->pawn_hash_entries = tt::lower_power_of_2(pawn_hash_size) - 1;
+    pawn_hash_table = new pawn_entry_t[pawn_hash_entries * bucket_size + bucket_size];
+    memset(pawn_hash_table, 0, sizeof(pawn_entry_t) * (pawn_hash_entries * bucket_size + bucket_size));
 
-int eval(const board_t &board) {
+    // Four-way mirrored tables
+    constexpr uint8_t square_mapping[16][4] = {{A4, A5, H4, H5},
+                                               {B4, B5, G4, G5},
+                                               {C4, C5, F4, F5},
+                                               {D4, D5, E4, E5},
+                                               {A3, A6, H3, H6},
+                                               {B3, B6, G3, G6},
+                                               {C3, C6, F3, F6},
+                                               {D3, D6, E3, E6},
+                                               {A2, A7, H2, H7},
+                                               {B2, B7, G2, G7},
+                                               {C2, C7, F2, F7},
+                                               {D2, D7, E2, E7},
+                                               {A1, A8, H1, H8},
+                                               {B1, B8, G1, G8},
+                                               {C1, C8, F1, F8},
+                                               {D1, D8, E1, E8}};
+    for (int i = 0; i < 16; i++) {
+        for (int j = 0; j < 4; j++) {
+            pst[WHITE][KNIGHT][square_mapping[i][j]][MG] = params.n_pst_mg[i];
+            pst[WHITE][KNIGHT][square_mapping[i][j]][EG] = params.n_pst_eg[i];
+            pst[WHITE][QUEEN][square_mapping[i][j]][MG] = params.q_pst_mg[i];
+            pst[WHITE][QUEEN][square_mapping[i][j]][EG] = params.q_pst_eg[i];
+            pst[WHITE][KING][square_mapping[i][j]][EG] = params.k_pst_eg[i];
+        }
+    }
+
+    // Vertically mirrored tables
+    for (uint8_t sq = 0; sq < 64; sq++) {
+        int param_index = 32 - (4 - (file_index(sq) % 4) + rank_index(sq) * 4);
+
+        if (sq >= 8 && sq < 56) {
+            pst[WHITE][PAWN][sq][MG] = params.p_pst_mg[param_index - 4];
+            pst[WHITE][PAWN][sq][EG] = params.p_pst_eg[param_index - 4];
+        }
+        pst[WHITE][BISHOP][sq][MG] = params.b_pst_mg[param_index];
+        pst[WHITE][BISHOP][sq][EG] = params.b_pst_eg[param_index];
+        pst[WHITE][ROOK][sq][MG] = params.r_pst_mg[param_index];
+        pst[WHITE][ROOK][sq][EG] = params.r_pst_eg[param_index];
+    }
+
+    // King middlegame pst
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 8; ++j) {
+            pst[WHITE][KING][(2 - i) * 8 + j][MG] = params.k_pst_mg[i * 8 + j];
+        }
+    }
+
+    for (int i = 24; i < 64; i++) {
+        pst[WHITE][KING][i][MG] = params.k_pst_exposed_mg;
+    }
+
+    // Mirror PST for black
+    for (int piece = 0; piece < 6; piece++) {
+        for (int square = 0; square < 64; square++) {
+            pst[BLACK][piece][MIRROR_TABLE[square]][MG] = pst[WHITE][piece][square][MG];
+            pst[BLACK][piece][MIRROR_TABLE[square]][EG] = pst[WHITE][piece][square][EG];
+        }
+    }
+}
+
+evaluator_t::~evaluator_t() {
+    delete[] pawn_hash_table;
+}
+
+int evaluator_t::evaluate(const board_t &board) {
     // Check endgame
     eg_eval_t eg_eval = eval_eg(board);
     if (eg_eval.valid) {
         return board.record[board.now].next_move ? -eg_eval.eval : +eg_eval.eval;
     }
 
-    score_t eval = {0, 0};
-    eval_data_t dat = {};
+    // Middlegame and endgame scores
+    int mg = 0;
+    int eg = 0;
 
-    {
-        dat.king_loc[WHITE] = bit_scan(board.bb_pieces[WHITE][KING]);
-        dat.king_loc[BLACK] = bit_scan(board.bb_pieces[BLACK][KING]);
-        dat.king_shield[WHITE] = BB_KING_CIRCLE[dat.king_loc[WHITE]];
-        dat.king_shield[BLACK] = BB_KING_CIRCLE[dat.king_loc[BLACK]];
-    }
+    pawn_entry_t *pawn_data = eval_pawns(board);
+    mg += pawn_data->eval_mg;
+    eg += pawn_data->eval_eg;
 
-    eval += eval_pawns(WHITE, board, dat) - eval_pawns(BLACK, board, dat);
-    eval += eval_knights(WHITE, board, dat) - eval_knights(BLACK, board, dat);
-    eval += eval_bishops(WHITE, board, dat) - eval_bishops(BLACK, board, dat);
-    eval += eval_rooks(WHITE, board, dat) - eval_rooks(BLACK, board, dat);
-    eval += eval_queens(WHITE, board, dat) - eval_queens(BLACK, board, dat);
-    eval += eval_kings(WHITE, board, dat) - eval_kings(BLACK, board, dat);
+    // Main evaluation functions
+    eval_material(board, mg, eg);
+    eval_pst(board, mg, eg);
+    eval_king_safety(board, mg, eg, pawn_data);
+    eval_positional(board, mg, eg);
 
-    // Aim to exchange when up material, or avoid exchanges when down material
-    {
-        int white_mat = 1 * dat.counts[WHITE][PAWN] +
-                        3 * dat.counts[WHITE][KNIGHT] +
-                        3 * dat.counts[WHITE][BISHOP] +
-                        5 * dat.counts[WHITE][ROOK] +
-                        10 * dat.counts[WHITE][QUEEN];
-        int black_mat = 1 * dat.counts[BLACK][PAWN] +
-                        3 * dat.counts[BLACK][KNIGHT] +
-                        3 * dat.counts[BLACK][BISHOP] +
-                        5 * dat.counts[BLACK][ROOK] +
-                        10 * dat.counts[BLACK][QUEEN];
-        if (white_mat > black_mat) {
-            eval += S{0, 8 * (white_mat - black_mat)};
-        } else if (black_mat > white_mat) {
-            eval -= S{0, 8 * (black_mat - white_mat)};
-        }
-    }
+    // Interpolate between middlegame and endgame scores
+    double game_process = double(pop_count(board.bb_all) - 2) / 30.0;
+    auto total = int(game_process * eg + (1 - game_process) * mg);
 
-    int tapered_phase;
-    {
-        int val[5] = {0, 1, 1, 2, 4};
-        int total = val[PAWN] * 16 + val[KNIGHT] * 4 + val[BISHOP] * 4 + val[ROOK] * 4 + val[QUEEN] * 2;
-
-        tapered_phase = total;
-
-        for (int piece = 0; piece < 5; piece++) {
-            tapered_phase -= val[piece] * (dat.counts[0][piece] + dat.counts[1][piece]);
-        }
-
-        tapered_phase = (tapered_phase * 256 + (total / 2)) / total;
-    }
-
-    int final_score = ((eval.mg * (256 - tapered_phase)) + (eval.eg * tapered_phase)) / 256;
-
-    return board.record[board.now].next_move ? -final_score - TEMPO : +final_score + TEMPO;
+    return board.record[board.now].next_move ? -total : total;
 }
 
-score_t eval_pawns(Team side, const board_t &board, eval_data_t &dat) {
-    score_t score = {0, 0};
-    auto xside = Team(!side);
+void evaluator_t::eval_material(const board_t &board, int &mg, int &eg) {
+    const int pawn_balance = (pop_count(board.bb_pieces[WHITE][PAWN]) - pop_count(board.bb_pieces[BLACK][PAWN]));
+    mg += params.mat_mg[PAWN] * pawn_balance;
+    eg += params.mat_eg[PAWN] * pawn_balance;
 
-    U64 pawns = board.bb_pieces[side][PAWN];
+    const int knight_balance = (pop_count(board.bb_pieces[WHITE][KNIGHT]) - pop_count(board.bb_pieces[BLACK][KNIGHT]));
+    mg += params.mat_mg[KNIGHT] * knight_balance;
+    eg += params.mat_eg[KNIGHT] * knight_balance;
+
+    const int bishop_balance = (pop_count(board.bb_pieces[WHITE][BISHOP]) - pop_count(board.bb_pieces[BLACK][BISHOP]));
+    mg += params.mat_mg[BISHOP] * bishop_balance;
+    eg += params.mat_eg[BISHOP] * bishop_balance;
+
+    const int rook_balance = (pop_count(board.bb_pieces[WHITE][ROOK]) - pop_count(board.bb_pieces[BLACK][ROOK]));
+    mg += params.mat_mg[ROOK] * rook_balance;
+    eg += params.mat_eg[ROOK] * rook_balance;
+
+    const int queen_balance = (pop_count(board.bb_pieces[WHITE][QUEEN]) - pop_count(board.bb_pieces[BLACK][QUEEN]));
+    mg += params.mat_mg[QUEEN] * queen_balance;
+    eg += params.mat_eg[QUEEN] * queen_balance;
+}
+
+void evaluator_t::eval_pst(const board_t &board, int &mg, int &eg) {
+    U64 pieces;
+    for (int type = 1; type < 6; type++) {
+        pieces = board.bb_pieces[WHITE][type];
+        while (pieces) {
+            uint8_t sq = pop_bit(pieces);
+            mg += pst[WHITE][type][sq][MG];
+            eg += pst[WHITE][type][sq][EG];
+        }
+
+        pieces = board.bb_pieces[BLACK][type];
+        while (pieces) {
+            uint8_t sq = pop_bit(pieces);
+            mg -= pst[BLACK][type][sq][MG];
+            eg -= pst[BLACK][type][sq][EG];
+        }
+    }
+}
+
+evaluator_t::pawn_entry_t* evaluator_t::eval_pawns(const board_t &board) {
+    // Return the entry if found
+    size_t index = (board.record[board.now].pawn_hash & pawn_hash_entries) * bucket_size;
+    pawn_entry_t *bucket = pawn_hash_table + index;
+    pawn_entry_t *entry = bucket;
+    for(size_t i = 0; i < bucket_size; i++) {
+        if((bucket + i)->hash == board.record[board.now].pawn_hash) {
+            (bucket + i)->hits++;
+            return bucket + i;
+        }
+
+        if((bucket + i)->hits < entry->hits) {
+            entry = bucket + i;
+        }
+    }
+
+    // Set up entry
+    entry->hash = board.record[board.now].pawn_hash;
+    entry->hits = 1;
+    entry->eval_mg = 0;
+    entry->eval_eg = 0;
+
+    // Find open files
+    U64 all_pawns = board.bb_pieces[WHITE][PAWN];
+    for(uint8_t file = 0; file < 8; file++) {
+        if((all_pawns & file_mask(file)) == 0) {
+            entry->open_files |= file_mask(file);
+        }
+    }
+
+    // Evaluate
+    U64 pawns;
+    pawns = board.bb_pieces[WHITE][PAWN];
     while (pawns) {
         uint8_t sq = pop_bit(pawns);
+        entry->eval_mg += pst[WHITE][PAWN][sq][MG];
+        entry->eval_eg += pst[WHITE][PAWN][sq][EG];
 
-        dat.counts[side][PAWN]++;
+        U64 caps = pawn_caps(WHITE, sq);
+        entry->defended[WHITE] |= caps;
+        entry->attackable[WHITE] |= BB_HOLE[WHITE][sq];
 
-        // Material & PST
-        score += MATERIAL[PAWN] + read(PST[PAWN], sq, side);
-
-        U64 moves = pawn_caps(side, sq);
-        dat.attacked_by_pawn[side] |= moves;
-
-        // Update holes bitmap
-        dat.attackable_by_pawn[side] |= BB_HOLE[side][sq];
-
-        // Blocked?
-        if (find_moves<PAWN>(side, sq, 0) & board.bb_side[side]) {
-            score += BLOCKED_PAWN;
+        if(caps & board.bb_pieces[WHITE][PAWN]) {
+            entry->eval_mg += params.chain_mg[rank_index(sq) - 1];
+            entry->eval_eg += params.chain_eg[rank_index(sq) - 1];
         }
 
-        // King safety
-        dat.king_danger_balance[side] -= pop_count(single_bit(sq) & dat.king_shield[side]) * KING_DEFENDER_WEIGHT[PAWN];
-        dat.king_danger_balance[xside] += pop_count(moves & dat.king_shield[xside]) * KING_ATTACKER_WEIGHT[PAWN];
+        bool open_file = (BB_IN_FRONT[WHITE][sq] & board.bb_pieces[BLACK][PAWN]) == 0;
 
-        // King shield
-        if (single_bit(sq) & dat.king_shield[side]) {
-            if (distance(sq, dat.king_loc[side]) <= 1) {
-                score += KING_SHIELD[0];
-            } else {
-                score += KING_SHIELD[1];
-            }
+        if(bb_normal_moves::pawn_moves_x1[WHITE][sq] & board.bb_side[WHITE]) {
+            entry->eval_mg += params.blocked_mg[open_file];
+            entry->eval_eg += params.blocked_eg[open_file];
         }
 
-        // Passed?
-        U64 passed = BB_PASSED[side][sq] & board.bb_pieces[xside][PAWN];
-        if (!passed) {
-            score += PASSED[side ? 7 - rank_index(sq) : rank_index(sq)];
+        U64 not_passer = BB_PASSED[WHITE][sq] & board.bb_pieces[BLACK][PAWN];
+        if(!not_passer) {
+            entry->eval_mg += params.passed_mg[rank_index(sq) - 1];
+            entry->eval_eg += params.passed_eg[rank_index(sq) - 1];
+
+            entry->passers[WHITE] |= single_bit(sq);
         }
 
-        // Candidate?
-        U64 in_front = BB_IN_FRONT[side][sq] & board.bb_pieces[xside][PAWN];
-        if (passed && !in_front && pop_count(passed) < 2) {
-            score += CANDIDATE[side ? 7 - rank_index(sq) : rank_index(sq)];
+        U64 not_isolated = BB_ISOLATED[WHITE][sq] & board.bb_pieces[WHITE][PAWN]; // Friendly pawns
+        if (!not_isolated) {
+            entry->eval_mg += params.isolated_mg[rank_index(sq) - 1][open_file];
+            entry->eval_eg += params.isolated_eg[rank_index(sq) - 1][open_file];
         }
 
-        // Isolated?
-        U64 isolated = BB_ISOLATED[side][sq] & board.bb_pieces[side][PAWN]; // Friendly pawns
-        if (!isolated) {
-            score += ISOLATED[!in_front]; // in_front is nonzero if closed file
-        }
-
-        // Doubled?
-        if (BB_IN_FRONT[side][sq] & board.bb_pieces[side][PAWN]) { // Friendly pawns
-            score += DOUBLED[!in_front];
+        if(BB_IN_FRONT[WHITE][sq] & board.bb_pieces[WHITE][PAWN]) {
+            entry->eval_mg += params.doubled_mg[open_file];
+            entry->eval_eg += params.doubled_eg[open_file];
         }
     }
 
-    return score;
+    pawns = board.bb_pieces[BLACK][PAWN];
+    while (pawns) {
+        uint8_t sq = pop_bit(pawns);
+        entry->eval_mg -= pst[BLACK][PAWN][sq][MG];
+        entry->eval_eg -= pst[BLACK][PAWN][sq][EG];
+
+        U64 caps = pawn_caps(BLACK, sq);
+        entry->defended[BLACK] |= caps;
+        entry->attackable[BLACK] |= BB_HOLE[BLACK][sq];
+
+        if(caps & board.bb_pieces[BLACK][PAWN]) {
+            entry->eval_mg -= params.chain_mg[(7 - rank_index(sq)) - 1];
+            entry->eval_eg -= params.chain_eg[(7 - rank_index(sq)) - 1];
+        }
+
+        bool open_file = (BB_IN_FRONT[BLACK][sq] & board.bb_pieces[WHITE][PAWN]) == 0;
+
+        if(bb_normal_moves::pawn_moves_x1[BLACK][sq] & board.bb_side[BLACK]) {
+            entry->eval_mg -= params.blocked_mg[open_file];
+            entry->eval_eg -= params.blocked_eg[open_file];
+        }
+
+        U64 not_passer = BB_PASSED[BLACK][sq] & board.bb_pieces[WHITE][PAWN];
+        if(!not_passer) {
+            entry->eval_mg -= params.passed_mg[(7 - rank_index(sq)) - 1];
+            entry->eval_eg -= params.passed_eg[(7 - rank_index(sq)) - 1];
+
+            entry->passers[BLACK] |= single_bit(sq);
+        }
+
+        U64 not_isolated = BB_ISOLATED[BLACK][sq] & board.bb_pieces[BLACK][PAWN]; // Friendly pawns
+        if (!not_isolated) {
+            entry->eval_mg -= params.isolated_mg[(7 - rank_index(sq)) - 1][open_file];
+            entry->eval_eg -= params.isolated_eg[(7 - rank_index(sq)) - 1][open_file];
+        }
+
+        if(BB_IN_FRONT[BLACK][sq] & board.bb_pieces[BLACK][PAWN]) {
+            entry->eval_mg -= params.doubled_mg[open_file];
+            entry->eval_eg -= params.doubled_eg[open_file];
+        }
+    }
+
+    return entry;
 }
 
-score_t eval_knights(Team side, const board_t &board, eval_data_t &dat) {
-    score_t score = {0, 0};
-    auto xside = Team(!side);
+void evaluator_t::eval_king_safety(const board_t &board, int &mg, int &eg, const evaluator_t::pawn_entry_t *entry) {
+    int king_pos[2] = {bit_scan(board.bb_pieces[WHITE][KING]), bit_scan(board.bb_pieces[BLACK][KING])};
+    U64 king_circle[2] = {BB_KING_CIRCLE[king_pos[WHITE]], BB_KING_CIRCLE[king_pos[BLACK]]};
 
-    U64 knights = board.bb_pieces[side][KNIGHT];
+    int pawn_shield_w = std::min(3, pop_count(king_circle[WHITE] & board.bb_pieces[WHITE][PAWN]));
+    int pawn_shield_b = std::min(3, pop_count(king_circle[BLACK] & board.bb_pieces[BLACK][PAWN]));
+
+    mg += params.ks_pawn_shield[pawn_shield_w];
+    mg -= params.ks_pawn_shield[pawn_shield_b];
+    
+    // Check for attacks on the king
+    int king_danger[2] = {};
+
+    if(board.bb_pieces[BLACK][ROOK] != 0 && (king_circle[WHITE] & entry->open_files) != 0) {
+        king_danger[WHITE] += params.kat_open_file;
+    }
+    if(board.bb_pieces[WHITE][ROOK] != 0 && (king_circle[BLACK] & entry->open_files) != 0) {
+        king_danger[BLACK] += params.kat_open_file;
+    }
+
+    king_danger[WHITE] -= params.kat_defence_weight[PAWN] * pawn_shield_w;
+    king_danger[WHITE] += params.kat_attack_weight[PAWN] * pop_count(entry->defended[BLACK] & king_circle[WHITE]);
+
+    king_danger[BLACK] -= params.kat_defence_weight[PAWN] * pawn_shield_b;
+    king_danger[BLACK] += params.kat_attack_weight[PAWN] * pop_count(entry->defended[WHITE] & king_circle[BLACK]);
+    
+    U64 knights = board.bb_pieces[WHITE][KNIGHT];
     while (knights) {
         uint8_t sq = pop_bit(knights);
-
-        dat.counts[side][KNIGHT]++;
-
-        // Material
-        score += MATERIAL[KNIGHT] + read(PST[KNIGHT], sq, side);
-
-        U64 moves = find_moves<KNIGHT>(side, sq, board.bb_all) & ~board.bb_side[side] &
-                    (~dat.attacked_by_pawn[xside] | board.bb_side[xside]); // Find non-losing moves
-
-        // Mobility
-        score += MOBILITY[KNIGHT][pop_count(moves)];
-
-        // King safety
-        dat.king_danger_balance[side] -= ((moves & dat.king_shield[side]) != 0) * KING_DEFENDER_WEIGHT[KNIGHT];
-        dat.king_danger_balance[xside] += pop_count(moves & dat.king_shield[xside]) * KING_ATTACKER_WEIGHT[KNIGHT];
+        U64 moves = find_moves<KNIGHT>(WHITE, sq, board.bb_all);
+        king_danger[WHITE] -= params.kat_defence_weight[KNIGHT] * pop_count(moves & king_circle[WHITE]);
+        king_danger[BLACK] += params.kat_attack_weight[KNIGHT] * pop_count(moves & king_circle[BLACK]);
     }
 
-    return score;
-}
-
-score_t eval_bishops(Team side, const board_t &board, eval_data_t &dat) {
-    score_t score = {0, 0};
-    auto xside = Team(!side);
-
-    U64 bishops = board.bb_pieces[side][BISHOP];
+    U64 bishops = board.bb_pieces[WHITE][BISHOP];
     while (bishops) {
         uint8_t sq = pop_bit(bishops);
-
-        dat.counts[side][BISHOP]++;
-
-        // Material
-        score += MATERIAL[BISHOP] + read(PST[BISHOP], sq, side);
-
-        U64 moves = find_moves<BISHOP>(side, sq, board.bb_side[side]) & ~board.bb_side[side] &
-                    (~dat.attacked_by_pawn[xside] | board.bb_side[xside]); // Find non-losing moves
-
-        // Mobility
-        score += MOBILITY[BISHOP][pop_count(moves)];
-
-        // King safety
-        dat.king_danger_balance[side] -= ((moves & dat.king_shield[side]) != 0) * KING_DEFENDER_WEIGHT[BISHOP];
-        dat.king_danger_balance[xside] += ((moves & dat.king_shield[xside]) != 0) * KING_ATTACKER_WEIGHT[BISHOP];
+        U64 moves = find_moves<BISHOP>(WHITE, sq, board.bb_all);
+        king_danger[WHITE] -= params.kat_defence_weight[BISHOP] * pop_count(moves & king_circle[WHITE]);
+        king_danger[BLACK] += params.kat_attack_weight[BISHOP] * pop_count(moves & king_circle[BLACK]);
     }
 
-    if (dat.counts[side][BISHOP] >= 2) {
-        score += BISHOP_PAIR;
-    }
-
-    return score;
-}
-
-score_t eval_rooks(Team side, const board_t &board, eval_data_t &dat) {
-    score_t score = {0, 0};
-    auto xside = Team(!side);
-
-    U64 rooks = board.bb_pieces[side][ROOK];
+    U64 rooks = board.bb_pieces[WHITE][ROOK];
     while (rooks) {
         uint8_t sq = pop_bit(rooks);
-
-        dat.counts[side][ROOK]++;
-
-        score += MATERIAL[ROOK] + read(PST[ROOK], sq, side);
-
-        U64 moves = find_moves<ROOK>(side, sq, board.bb_side[side]) & ~board.bb_side[side] &
-                    (~dat.attacked_by_pawn[xside] | board.bb_side[xside]); // Find non-losing moves
-
-        // Mobility
-        score += MOBILITY[ROOK][pop_count(moves)];
-
-        // King safety
-        dat.king_danger_balance[side] -= ((moves & dat.king_shield[side]) != 0) * KING_DEFENDER_WEIGHT[ROOK];
-        dat.king_danger_balance[xside] += pop_count(moves & dat.king_shield[xside]) * KING_ATTACKER_WEIGHT[ROOK];
-
-        // Open file
-        if (!(BB_IN_FRONT[side][sq] & board.bb_pieces[side][PAWN])) {
-            if (!(BB_IN_FRONT[side][sq] & board.bb_pieces[xside][PAWN])) {
-                score += ROOK_OPEN_FILE;
-            } else {
-                score += ROOK_SEMI_OPEN_FILE;
-            }
-        }
+        U64 moves = find_moves<ROOK>(WHITE, sq, board.bb_all);
+        king_danger[WHITE] -= params.kat_defence_weight[ROOK] * pop_count(moves & king_circle[WHITE]);
+        king_danger[BLACK] += params.kat_attack_weight[ROOK] * pop_count(moves & king_circle[BLACK]);
     }
 
-    return score;
-}
-
-score_t eval_queens(Team side, const board_t &board, eval_data_t &dat) {
-    score_t score = {0, 0};
-    auto xside = Team(!side);
-
-    U64 queens = board.bb_pieces[side][QUEEN];
+    U64 queens = board.bb_pieces[WHITE][QUEEN];
     while (queens) {
         uint8_t sq = pop_bit(queens);
-
-        dat.counts[side][QUEEN]++;
-
-        score += MATERIAL[QUEEN] + read(PST[QUEEN], sq, side);
-
-        U64 moves = find_moves<QUEEN>(side, sq, board.bb_all) & ~board.bb_side[side] &
-                    (~dat.attacked_by_pawn[xside] | board.bb_side[xside]); // Find non-losing moves
-
-        // Mobility
-        score += MOBILITY[QUEEN][pop_count(moves)];
-
-        // King safety
-        dat.king_danger_balance[side] -= ((moves & dat.king_shield[side]) != 0) * KING_DEFENDER_WEIGHT[QUEEN];
-        dat.king_danger_balance[xside] += pop_count(moves & dat.king_shield[xside]) * KING_ATTACKER_WEIGHT[QUEEN];
+        U64 moves = find_moves<QUEEN>(WHITE, sq, board.bb_all);
+        king_danger[WHITE] -= params.kat_defence_weight[QUEEN] * pop_count(moves & king_circle[WHITE]);
+        king_danger[BLACK] += params.kat_attack_weight[QUEEN] * pop_count(moves & king_circle[BLACK]);
     }
 
-    return score;
+    knights = board.bb_pieces[BLACK][KNIGHT];
+    while (knights) {
+        uint8_t sq = pop_bit(knights);
+        U64 moves = find_moves<KNIGHT>(BLACK, sq, board.bb_all);
+        king_danger[BLACK] -= params.kat_defence_weight[KNIGHT] * pop_count(moves & king_circle[WHITE]);
+        king_danger[WHITE] += params.kat_attack_weight[KNIGHT] * pop_count(moves & king_circle[WHITE]);
+    }
+
+    bishops = board.bb_pieces[BLACK][BISHOP];
+    while (bishops) {
+        uint8_t sq = pop_bit(bishops);
+        U64 moves = find_moves<BISHOP>(BLACK, sq, board.bb_all);
+        king_danger[BLACK] -= params.kat_defence_weight[BISHOP] * pop_count(moves & king_circle[BLACK]);
+        king_danger[WHITE] += params.kat_attack_weight[BISHOP] * pop_count(moves & king_circle[WHITE]);
+    }
+
+    rooks = board.bb_pieces[BLACK][ROOK];
+    while (rooks) {
+        uint8_t sq = pop_bit(rooks);
+        U64 moves = find_moves<ROOK>(BLACK, sq, board.bb_all);
+        king_danger[BLACK] -= params.kat_defence_weight[ROOK] * pop_count(moves & king_circle[BLACK]);
+        king_danger[WHITE] += params.kat_attack_weight[ROOK] * pop_count(moves & king_circle[WHITE]);
+    }
+
+    queens = board.bb_pieces[BLACK][QUEEN];
+    while (queens) {
+        uint8_t sq = pop_bit(queens);
+        U64 moves = find_moves<QUEEN>(BLACK, sq, board.bb_all);
+        king_danger[BLACK] -= params.kat_defence_weight[QUEEN] * pop_count(moves & king_circle[BLACK]);
+        king_danger[WHITE] += params.kat_attack_weight[QUEEN] * pop_count(moves & king_circle[WHITE]);
+    }
+
+    mg -= kat_table[std::min(std::max(king_danger[WHITE], 0), 63)];
+    mg += kat_table[std::min(std::max(king_danger[BLACK], 0), 63)];
 }
 
-score_t eval_kings(Team side, const board_t &board, eval_data_t &dat) {
-    score_t score = {0, 0};
+void evaluator_t::eval_positional(const board_t &board, int &mg, int &eg) {
+    if(pop_count(board.bb_pieces[WHITE][BISHOP]) >= 2) {
+        mg += params.pos_bishop_pair_mg;
+        eg += params.pos_bishop_pair_eg;
+    }
 
-    int balance = std::max(dat.king_danger_balance[side], KING_MIN_WEIGHT);
-    score -= KING_DANGER_M * balance + KING_DANGER_C;
-
-    score.eg = std::max(score.eg, 0);
-    score.mg = std::max(score.mg, 0);
-
-    score += read(PST[KING], dat.king_loc[side], side);
-    return score;
+    if(pop_count(board.bb_pieces[BLACK][BISHOP]) >= 2) {
+        mg -= params.pos_bishop_pair_mg;
+        eg -= params.pos_bishop_pair_eg;
+    }
 }
+
