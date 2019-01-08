@@ -1,3 +1,5 @@
+#include <random>
+
 //
 // Created by Vincent Tang on 2019-01-04.
 //
@@ -119,8 +121,9 @@ double tuner_t::momentum_optimise(int *parameter, double current_mea) {
     return current_mea;
 }
 
-void tuner_t::optimise(int *parameter, int count) {
+void tuner_t::optimise(int *parameter, size_t count) {
     for (int i = 0; i < count; i++) {
+        std::cout << "parameter " << i << " of " << count << std::endl;
         current_error = momentum_optimise(parameter + i, current_error);
     }
 
@@ -134,6 +137,21 @@ void tuner_t::optimise(int *parameter, int count) {
     std::cout << std::endl;
 }
 
+void tuner_t::random_optimise(int *parameter, size_t count) {
+    std::vector<int> indices;
+    indices.reserve(count);
+    for(int i = 0; i < count; i++) {
+        indices.push_back(i);
+    }
+
+    std::shuffle(indices.begin(), indices.end(), std::mt19937(std::random_device()()));
+
+    for(int i = 0; i < count; i++) {
+        std::cout << "parameter " << i << " of " << count << std::endl;
+        current_error = momentum_optimise(parameter + indices[i], current_error);
+    }
+}
+
 void tuner_t::print_params() {
     std::cout << "  mat_mg ";
     for (int param : current_params.mat_mg) {
@@ -141,13 +159,11 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
-
     std::cout << "  mat_eg ";
     for (int param : current_params.mat_eg) {
         std::cout << param << ", ";
     }
     std::cout << std::endl;
-
 
     std::cout << "  n_pst_mg ";
     for (int param : current_params.n_pst_mg) {
@@ -155,20 +171,17 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
-
     std::cout << "  q_pst_mg ";
     for (int param : current_params.q_pst_mg) {
         std::cout << param << ", ";
     }
     std::cout << std::endl;
 
-
     std::cout << "  n_pst_eg ";
     for (int param : current_params.n_pst_eg) {
         std::cout << param << ", ";
     }
     std::cout << std::endl;
-
 
     std::cout << "  q_pst_eg ";
     for (int param : current_params.q_pst_eg) {
@@ -182,13 +195,11 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
-
     std::cout << "  r_pst_mg ";
     for (int param : current_params.r_pst_mg) {
         std::cout << param << ", ";
     }
     std::cout << std::endl;
-
 
     std::cout << "  b_pst_eg ";
     for (int param : current_params.b_pst_eg) {
@@ -196,13 +207,11 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
-
     std::cout << "  r_pst_eg ";
     for (int param : current_params.r_pst_eg) {
         std::cout << param << ", ";
     }
     std::cout << std::endl;
-
 
     std::cout << "  p_pst_mg ";
     for (int param : current_params.p_pst_mg) {
@@ -210,13 +219,11 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
-
     std::cout << "  p_pst_eg ";
     for (int param : current_params.p_pst_eg) {
         std::cout << param << ", ";
     }
     std::cout << std::endl;
-
 
     std::cout << "  k_pst_mg ";
     for (int param : current_params.k_pst_mg) {
@@ -292,67 +299,11 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
-    std::cout << "  mob_span_mg ";
-    for (int param : current_params.mob_span_mg) {
+    std::cout << "  ks_pawn_shield ";
+    for (int param : current_params.ks_pawn_shield) {
         std::cout << param << ", ";
     }
     std::cout << std::endl;
-
-    std::cout << "  mob_span_eg ";
-    for (int param : current_params.mob_span_eg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  n_mob_mg ";
-    for (int param : current_params.n_mob_mg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  b_mob_mg ";
-    for (int param : current_params.b_mob_mg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  r_mob_mg  ";
-    for (int param : current_params.r_mob_mg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  q_mob_mg ";
-    for (int param : current_params.q_mob_mg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-
-    std::cout << "  n_mob_eg ";
-    for (int param : current_params.n_mob_eg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  b_mob_eg ";
-    for (int param : current_params.b_mob_eg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  r_mob_eg  ";
-    for (int param : current_params.r_mob_eg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  q_mob_eg ";
-    for (int param : current_params.q_mob_eg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
 
     std::cout << "  ks_pawn_shield ";
     for (int param : current_params.ks_pawn_shield) {
@@ -360,19 +311,17 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
-    std::cout << "  kat_attack_value  ";
-    for (int param : current_params.kat_attack_value) {
+    std::cout << "  ks_open_file " << current_params.kat_open_file << std::endl;
+
+    std::cout << "  kat_attack_weight ";
+    for (int param : current_params.kat_attack_weight) {
         std::cout << param << ", ";
     }
     std::cout << std::endl;
 
-    std::cout << "  kat_defend_value  ";
-    for (int param : current_params.kat_defend_value) {
+    std::cout << "  kat_defence_weight ";
+    for (int param : current_params.kat_defence_weight) {
         std::cout << param << ", ";
     }
-    std::cout << std::endl;
-
-    std::cout << "  kat_open_file "
-              << current_params.kat_open_file;
     std::cout << std::endl;
 }

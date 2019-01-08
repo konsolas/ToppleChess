@@ -82,14 +82,25 @@ int main(int argc, char *argv[]) {
                 std::string parameter;
                 iss >> parameter;
 
-                if(parameter == "all") {
+                if(parameter == "once") {
                     tuner.optimise(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int));
                 } else {
-                    std::string length;
-                    iss >> length;
+                    int times = std::stoi(parameter);
+                    for(int i = 0; i < times; i++) {
+                        tuner.optimise(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int));
+                    }
+                }
+            } else if(cmd == "random_optimise") {
+                std::string parameter;
+                iss >> parameter;
 
-                    tuner.optimise((reinterpret_cast<int*> (tuner.get_current_params()))
-                            + std::stoi(parameter), std::stoi(length));
+                if(parameter == "once") {
+                    tuner.random_optimise(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int));
+                } else {
+                    int times = std::stoi(parameter);
+                    for(int i = 0; i < times; i++) {
+                        tuner.random_optimise(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int));
+                    }
                 }
             } else if(cmd == "print") {
                 tuner.print_params();

@@ -12,7 +12,7 @@
 
 class tuner_t {
     eval_params_t current_params;
-    int scaling_constant = 110;
+    int scaling_constant = 114;
 
     size_t entries;
     std::vector<board_t> &positions;
@@ -26,7 +26,8 @@ public:
     void print_params();
     double get_current_error() { return current_error; }
 
-    void optimise(int *parameter, int count);
+    void optimise(int *parameter, size_t count);
+    void random_optimise(int *parameter, size_t count);
 private:
     double momentum_optimise(int *parameter, double current_mea);
     int quiesce(board_t &board, int alpha, int beta, evaluator_t &evaluator);
