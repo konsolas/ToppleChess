@@ -78,12 +78,11 @@ void evaluator_t::eval_init() {
         }
     }
 
-    // Set up king attack table
+    // Set up king safety evaluation table.
     for(int i = 0; i < 64; i++) {
+        // Translated + scaled sigmoid function
         kat_table[i] = (int) (256.0 / (1 + exp((32 - i) / 10.0))) - 10;
-        std::cout << kat_table[i] << ", ";
     }
-    std::cout << std::endl;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

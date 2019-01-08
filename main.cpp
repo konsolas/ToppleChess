@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
     unsigned int threads = 1;
 
     // Startup
-    std::cout << "Topple v" << TOPPLE_VER << " (c) Vincent Tang 2018" << std::endl;
+    std::cout << "Topple v" << TOPPLE_VER << " (c) Vincent Tang 2019" << std::endl;
 
     while (true) {
         std::string input;
