@@ -93,8 +93,7 @@ evaluator_t::evaluator_t(eval_params_t params, size_t pawn_hash_size) : params(p
     // Set up pawn hash table
     pawn_hash_size /= (sizeof(pawn_entry_t) * bucket_size);
     this->pawn_hash_entries = tt::lower_power_of_2(pawn_hash_size) - 1;
-    pawn_hash_table = new pawn_entry_t[pawn_hash_entries * bucket_size + bucket_size];
-    memset(pawn_hash_table, 0, sizeof(pawn_entry_t) * (pawn_hash_entries * bucket_size + bucket_size));
+    pawn_hash_table = new pawn_entry_t[pawn_hash_entries * bucket_size + bucket_size]();
 
     // Four-way mirrored tables
     constexpr uint8_t square_mapping[16][4] = {{A4, A5, H4, H5},

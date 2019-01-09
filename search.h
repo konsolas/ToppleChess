@@ -105,6 +105,14 @@ struct search_limits_t {
     std::vector<move_t> root_moves = std::vector<move_t>();
 };
 
+struct search_context_t {
+    board_t board;
+
+    // Heuristics
+    search_heur::killer_heur_t h_killer;
+    search_heur::history_heur_t h_history;
+};
+
 class search_t {
     friend class movesort_t;
 public:
@@ -113,13 +121,13 @@ public:
     move_t think(const std::atomic_bool &aborted);
 private:
     int search_aspiration(int prev_score, int depth, const std::atomic_bool &aborted);
-    int search_root(board_t &board, int alpha, int beta, int depth, const std::atomic_bool &aborted);
+    int search_root(search_context_t &context, int alpha, int beta, int depth, const std::atomic_bool &aborted);
 
     template<bool PV, bool H>
-    int search_ab(board_t &board, int alpha, int beta, int ply, int depth, bool can_null, move_t excluded,
+    int search_ab(search_context_t &context, int alpha, int beta, int ply, int depth, bool can_null, move_t excluded,
                   const std::atomic_bool &aborted);
     template<bool PV, bool H>
-    int search_qs(board_t &board, int alpha, int beta, int ply, const std::atomic_bool &aborted);
+    int search_qs(search_context_t &context, int alpha, int beta, int ply, const std::atomic_bool &aborted);
 
     void save_pv();
     bool has_pv();
@@ -131,35 +139,29 @@ private:
 
     void print_stats(int score, int depth, tt::Bound bound);
 
-    // Data
-    board_t board;
+    // Shared structures
     evaluator_t &evaluator;
     tt::hash_t *tt;
     std::chrono::steady_clock::time_point start;
-
-    // Limits
     unsigned int threads;
     search_limits_t limits;
 
-    // PV
+    // PV table (main thread only)
     int pv_table_len[MAX_PLY] = {};
     move_t pv_table[MAX_PLY][MAX_PLY] = {{}};
     int last_pv_len = 0;
     move_t last_pv[MAX_PLY] = {};
 
-    // Heuristics
-    search_heur::killer_heur_t killer_heur;
-    search_heur::history_heur_t history_heur;
+    // Main search context
+    search_context_t main_context;
 
-    // Important information
-    int sel_depth;
-
-    // Stats
+    // Global stats
     U64 nodes = 0;
     U64 fhf = 0;
     U64 fh = 0;
     U64 nulltries = 0;
     U64 nullcuts = 0;
+    int sel_depth;
 };
 
 #endif //TOPPLE_SEARCH_H

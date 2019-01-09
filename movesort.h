@@ -24,11 +24,11 @@ constexpr int KILLER_BASE = 1000000000;
 
 class movesort_t {
 public:
-    movesort_t(GenMode mode, search_t &search, move_t hash_move, int ply);
+    movesort_t(GenMode mode, search_context_t &context, move_t hash_move, int ply);
     move_t next(GenStage &stage, int &score);
 private:
     GenMode mode;
-    search_t &search;
+    search_context_t &context;
     move_t hash_move;
     int ply;
 

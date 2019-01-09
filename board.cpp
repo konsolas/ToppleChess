@@ -351,9 +351,6 @@ bool board_t::is_illegal() {
 
 bool board_t::is_incheck() {
     Team side = record[now].next_move;
-    if(bb_pieces[side][KING] == 0) {
-        std::cout << *this << std::endl;
-    }
     uint8_t king_square = bit_scan(bb_pieces[side][KING]);
 
     return is_attacked(king_square, Team(!side));
