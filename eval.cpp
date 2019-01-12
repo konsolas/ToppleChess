@@ -176,38 +176,60 @@ int evaluator_t::evaluate(const board_t &board) {
     eg += pawn_data->eval_eg;
 
     // Main evaluation functions
-    eval_material(board, mg, eg);
+    double phase = eval_material(board, mg, eg);
     eval_pst(board, mg, eg);
     eval_king_safety(board, mg, eg, pawn_data);
     eval_positional(board, mg, eg);
 
     // Interpolate between middlegame and endgame scores
-    double game_process = double(pop_count(board.bb_all) - 2) / 30.0;
-    auto total = int(game_process * eg + (1 - game_process) * mg);
+    auto total = int(phase * mg + (1 - phase) * eg);
 
     return board.record[board.now].next_move ? -total : total;
 }
 
-void evaluator_t::eval_material(const board_t &board, int &mg, int &eg) {
-    const int pawn_balance = (pop_count(board.bb_pieces[WHITE][PAWN]) - pop_count(board.bb_pieces[BLACK][PAWN]));
+double evaluator_t::eval_material(const board_t &board, int &mg, int &eg) {
+    // Collect material data
+    const int pawn_w = pop_count(board.bb_pieces[WHITE][PAWN]); 
+    const int pawn_b = pop_count(board.bb_pieces[BLACK][PAWN]);
+    const int pawn_balance = pawn_w - pawn_b;
     mg += params.mat_mg[PAWN] * pawn_balance;
     eg += params.mat_eg[PAWN] * pawn_balance;
 
-    const int knight_balance = (pop_count(board.bb_pieces[WHITE][KNIGHT]) - pop_count(board.bb_pieces[BLACK][KNIGHT]));
+    const int knight_w = pop_count(board.bb_pieces[WHITE][KNIGHT]);
+    const int knight_b = pop_count(board.bb_pieces[BLACK][KNIGHT]);
+    const int knight_balance = knight_w - knight_b;
     mg += params.mat_mg[KNIGHT] * knight_balance;
     eg += params.mat_eg[KNIGHT] * knight_balance;
 
-    const int bishop_balance = (pop_count(board.bb_pieces[WHITE][BISHOP]) - pop_count(board.bb_pieces[BLACK][BISHOP]));
+    const int bishop_w = pop_count(board.bb_pieces[WHITE][BISHOP]);
+    const int bishop_b = pop_count(board.bb_pieces[BLACK][BISHOP]);
+    const int bishop_balance = bishop_w - bishop_b;
     mg += params.mat_mg[BISHOP] * bishop_balance;
     eg += params.mat_eg[BISHOP] * bishop_balance;
-
-    const int rook_balance = (pop_count(board.bb_pieces[WHITE][ROOK]) - pop_count(board.bb_pieces[BLACK][ROOK]));
+    
+    const int rook_w = pop_count(board.bb_pieces[WHITE][ROOK]);
+    const int rook_b = pop_count(board.bb_pieces[BLACK][ROOK]);
+    const int rook_balance = rook_w - rook_b;    
     mg += params.mat_mg[ROOK] * rook_balance;
     eg += params.mat_eg[ROOK] * rook_balance;
 
-    const int queen_balance = (pop_count(board.bb_pieces[WHITE][QUEEN]) - pop_count(board.bb_pieces[BLACK][QUEEN]));
+    const int queen_w = pop_count(board.bb_pieces[WHITE][QUEEN]);
+    const int queen_b = pop_count(board.bb_pieces[BLACK][QUEEN]);
+    const int queen_balance = queen_w - queen_b;
     mg += params.mat_mg[QUEEN] * queen_balance;
     eg += params.mat_eg[QUEEN] * queen_balance;
+
+    const int mat_w = (pawn_w) + 3 * (knight_w + bishop_w) + 5 * (rook_w) + 10 * (queen_w);
+    const int mat_b = (pawn_b) + 3 * (knight_b + bishop_b) + 5 * (rook_b) + 10 * (queen_b);
+    const int mat_max = 2 * (8 + 3 * (2 + 2) + 5 * 2 + 10 * 1);
+    const int mat_total = mat_w + mat_b;
+
+    // Aim to exchange while up material
+    eg += params.mat_exchange * (mat_w - mat_b);
+
+    // Calculate tapering (game phase)
+    // Close to 1 at the start, close to 0 at the end
+    return std::min((double(mat_total) / double(mat_max)), 1.0);
 }
 
 void evaluator_t::eval_pst(const board_t &board, int &mg, int &eg) {
