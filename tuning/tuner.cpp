@@ -327,4 +327,6 @@ void tuner_t::print_params() {
 
     std::cout << "  pos_bishop_pair_mg " << current_params.pos_bishop_pair_mg << std::endl;
     std::cout << "  pos_bishop_pair_eg " << current_params.pos_bishop_pair_eg << std::endl;
+
+    std::cout << "  pos_r_trapped_mg " << current_params.pos_r_trapped_mg << std::endl;
 }
