@@ -15,9 +15,11 @@ enum GenStage {
     GEN_NONE,
     GEN_HASH,
     GEN_GOOD_CAPT,
-    GEN_KILLER,
-    GEN_QUIETS,
+    GEN_KILLER_1,
+    GEN_KILLER_2,
+    GEN_KILLER_3,
     GEN_BAD_CAPT,
+    GEN_QUIETS,
 };
 
 constexpr int KILLER_BASE = 1000000000;
@@ -26,6 +28,8 @@ class movesort_t {
 public:
     movesort_t(GenMode mode, search_context_t &context, move_t hash_move, int ply);
     move_t next(GenStage &stage, int &score);
+
+    move_t *generated_quiets(int &count);
 private:
     GenMode mode;
     search_context_t &context;

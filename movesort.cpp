@@ -5,7 +5,9 @@
 #include "movesort.h"
 
 movesort_t::movesort_t(GenMode mode, search_context_t &context, move_t hash_move, int ply) :
-        mode(mode), context(context), hash_move(hash_move), ply(ply), gen(movegen_t(context.board)) {}
+        mode(mode), context(context), hash_move(hash_move), ply(ply), gen(movegen_t(context.board)) {
+
+}
 
 move_t movesort_t::next(GenStage &stage, int &score) {
     retry:
@@ -53,51 +55,23 @@ move_t movesort_t::next(GenStage &stage, int &score) {
                 }
             }
 
-            // Out of captures, move on to quiets.
-            if (mode == QUIESCENCE) return EMPTY_MOVE;
-
-            // Generate quiets in main buffer
-            main_buf_size = gen.gen_quiets(main_buf);
-
-            // Score quiets
-            for (int i = 0; i < main_buf_size; i++) {
-                if (context.h_killer.primary(ply) == main_buf[i]) {
-                    main_scores[i] = KILLER_BASE + 3;
-                } else if (context.h_killer.secondary(ply) == main_buf[i]) {
-                    main_scores[i] = KILLER_BASE + 2;
-                } else if (ply >= 2 && (context.h_killer.primary(ply - 2) == main_buf[i])) {
-                    main_scores[i] = KILLER_BASE + 1;
-                } else if (ply >= 2 && (context.h_killer.secondary(ply - 2) == main_buf[i])) {
-                    main_scores[i] = KILLER_BASE;
-                } else {
-                    main_scores[i] = context.h_history.get(main_buf[i]);
-                }
+            // Generate killers
+            if(mode != QUIESCENCE) stage = GEN_KILLER_1;
+            else return EMPTY_MOVE;
+            if(context.board.is_pseudo_legal(context.h_killer.primary(ply))) {
+                return context.h_killer.primary(ply);
             }
-
-            stage = GEN_KILLER;
-        case GEN_KILLER:
-        case GEN_QUIETS:
-            // Pick best quiet until there are none left
-            if (main_idx < main_buf_size) {
-                int best_main_idx = main_idx;
-                for (int i = main_idx; i < main_buf_size; i++) {
-                    if (main_scores[i] > main_scores[best_main_idx]) {
-                        best_main_idx = i;
-                    }
-                }
-                buf_swap_main(best_main_idx, main_idx);
-
-                if (main_buf[main_idx] == hash_move) {
-                    main_idx++;
-                    goto retry;
-                }
-
-                if(main_scores[main_idx] >= KILLER_BASE) stage = GEN_KILLER;
-                else stage = GEN_QUIETS;
-                score = main_scores[main_idx];
-                return main_buf[main_idx++];
+        case GEN_KILLER_1:
+            stage = GEN_KILLER_2;
+            if(context.board.is_pseudo_legal(context.h_killer.secondary(ply))) {
+                return context.h_killer.secondary(ply);
             }
-
+        case GEN_KILLER_2:
+            stage = GEN_KILLER_3;
+            if(ply > 2 && context.board.is_pseudo_legal(context.h_killer.primary(ply - 2))) {
+                return context.h_killer.primary(ply - 2);
+            }
+        case GEN_KILLER_3:
             stage = GEN_BAD_CAPT;
         case GEN_BAD_CAPT:
             // Pick best capture if there are any left.
@@ -117,9 +91,44 @@ move_t movesort_t::next(GenStage &stage, int &score) {
 
                 score = capt_scores[capt_idx];
                 return capt_buf[capt_idx++];
-            } else {
-                return EMPTY_MOVE;
             }
+            stage = GEN_QUIETS;
+
+            // Out of captures, move on to quiets.
+            if (mode == QUIESCENCE) return EMPTY_MOVE;
+
+            // Generate quiets in main buffer
+            main_buf_size = gen.gen_quiets(main_buf);
+
+            // Score quiets
+            for (int i = 0; i < main_buf_size; i++) {
+                main_scores[i] = context.h_history.get(main_buf[i]);
+            }
+        case GEN_QUIETS:
+            // Pick best quiet until there are none left
+            if (main_idx < main_buf_size) {
+                int best_main_idx = main_idx;
+                for (int i = main_idx; i < main_buf_size; i++) {
+                    if (main_scores[i] > main_scores[best_main_idx]) {
+                        best_main_idx = i;
+                    }
+                }
+                buf_swap_main(best_main_idx, main_idx);
+
+                if (main_buf[main_idx] == hash_move
+                    || main_buf[main_idx] == context.h_killer.primary(ply)
+                    || main_buf[main_idx] == context.h_killer.secondary(ply)
+                    || main_buf[main_idx] == context.h_killer.primary(ply - 2)) {
+                    main_idx++;
+                    goto retry;
+                }
+
+                else stage = GEN_QUIETS;
+                score = main_scores[main_idx];
+                return main_buf[main_idx++];
+            }
+
+            return EMPTY_MOVE;
         default:
             throw std::runtime_error("illegal move generation stage");
     }
@@ -143,4 +152,9 @@ void movesort_t::buf_swap_capt(int a, int b) {
     int score = capt_scores[a];
     capt_scores[a] = capt_scores[b];
     capt_scores[b] = score;
+}
+
+move_t *movesort_t::generated_quiets(int &count) {
+    count = main_idx;
+    return main_buf;
 }

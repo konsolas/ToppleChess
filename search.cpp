@@ -172,7 +172,7 @@ int search_t::search_root(search_context_t &context, int alpha, int beta, int de
                     tt->save(tt::LOWER, context.board.record[context.board.now].hash, depth, 0, score, best_move);
 
                     if (!move.info.is_capture) {
-                        context.h_history.history(move, depth);
+                        context.h_history.good_history(move, depth);
                         context.h_killer.update(move, 0);
                     }
 
@@ -192,7 +192,7 @@ int search_t::search_root(search_context_t &context, int alpha, int beta, int de
 
     if (alpha > old_alpha) {
         tt->save(tt::EXACT, context.board.record[context.board.now].hash, depth, 0, alpha, best_move);
-        if (!best_move.info.is_capture) context.h_history.history(best_move, depth);
+        if (!best_move.info.is_capture) context.h_history.good_history(best_move, depth);
     } else {
         tt->save(tt::UPPER, context.board.record[context.board.now].hash, depth, 0, alpha, best_move);
     }
@@ -322,11 +322,6 @@ int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply,
                     context.board.unmove();
                     break;
                 }
-
-                if(depth <= 2 && stage == GEN_BAD_CAPT) {
-                    context.board.unmove();
-                    break;
-                }
             }
 
             bool normal_search = true;
@@ -336,7 +331,7 @@ int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply,
                     int R = !PV + depth / 8 + n_legal / 8;
                     if(move_score <= n_legal) R++;
                     if(h.move.info.is_capture) R++;
-                    if(context.board.see(reverse(move)) < 0) R--;
+                    if(R >= 1 && context.board.see(reverse(move)) < 0) R--;
 
                     if (R > 0) {
                         score = -search_ab<false, H>(context, -alpha - 1, -alpha, ply + 1, depth - R - 1 + ex,
@@ -388,7 +383,13 @@ int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply,
                     tt->save(tt::LOWER, context.board.record[context.board.now].hash, depth, ply, score, best_move);
 
                     if (!move.info.is_capture) {
-                        context.h_history.history(move, depth);
+                        int n_prev_quiets;
+                        move_t *prev_quiets = gen.generated_quiets(n_prev_quiets);
+                        for(int i = 0; i < n_prev_quiets; i++) {
+                            context.h_history.bad_history(prev_quiets[i], depth);
+                        }
+
+                        context.h_history.good_history(move, depth);
                         context.h_killer.update(move, ply);
                     }
 
@@ -408,7 +409,7 @@ int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply,
 
     if (alpha > old_alpha) {
         tt->save(tt::EXACT, context.board.record[context.board.now].hash, depth, ply, alpha, best_move);
-        if (!best_move.info.is_capture) context.h_history.history(best_move, depth);
+        if (!best_move.info.is_capture) context.h_history.good_history(best_move, depth);
     } else if (excluded == EMPTY_MOVE) {
         tt->save(tt::UPPER, context.board.record[context.board.now].hash, depth, ply, alpha, best_move);
     }

@@ -21,9 +21,14 @@ namespace search_heur {
     // History heuristic
     class history_heur_t {
     public:
-        void history(move_t good_move, int depth) {
-            int bonus = (depth < 16) * depth * depth;
+        void good_history(move_t good_move, int depth) {
+            int bonus = depth * depth;
             tableHist(good_move, bonus);
+        }
+
+        void bad_history(move_t bad_move, int depth) {
+            int penalty = -depth * depth;
+            tableHist(bad_move, penalty);
         }
 
         int get(move_t move) {
