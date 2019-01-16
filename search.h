@@ -116,6 +116,9 @@ struct search_context_t {
     // Heuristics
     search_heur::killer_heur_t h_killer;
     search_heur::history_heur_t h_history;
+
+    // SMP
+    int tid;
 };
 
 class search_t {

@@ -26,6 +26,7 @@ move_t search_t::think(const std::atomic_bool &aborted) {
         std::vector<search_context_t> helper_contexts(threads - 1);
         for (unsigned int i = 0; i < threads - 1; i++) {
             helper_contexts[i] = main_context;
+            helper_contexts[i].tid = i + 1;
         }
         std::atomic_bool helper_thread_aborted;
 
@@ -286,6 +287,11 @@ int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply,
     int n_legal = 0;
     while ((move = gen.next(stage, move_score)) != EMPTY_MOVE) {
         if (excluded == move) {
+            continue;
+        }
+
+        // SMP Desync threads for better scaling
+        if (!ply && H && (n_legal + context.tid) % (1 + (context.tid % 4)) == 0) {
             continue;
         }
 
