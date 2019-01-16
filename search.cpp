@@ -26,6 +26,7 @@ move_t search_t::think(const std::atomic_bool &aborted) {
         std::vector<search_context_t> helper_contexts(threads - 1);
         for (unsigned int i = 0; i < threads - 1; i++) {
             helper_contexts[i] = main_context;
+            helper_contexts[i].tid = i + 1;
         }
         std::atomic_bool helper_thread_aborted;
 
@@ -119,6 +120,8 @@ int search_t::search_root(search_context_t &context, int alpha, int beta, int de
     tt::entry_t h = {0};
     tt->probe(context.board.record[context.board.now].hash, h);
 
+    int eval = evaluator.evaluate(context.board);
+
     GenStage stage = GEN_NONE; move_t move{}; int move_score;
     movesort_t gen(NORMAL, context, h.move, 0);
     int n_legal = 0;
@@ -169,10 +172,10 @@ int search_t::search_root(search_context_t &context, int alpha, int beta, int de
                     }
                     fh++;
 
-                    tt->save(tt::LOWER, context.board.record[context.board.now].hash, depth, 0, score, best_move);
+                    tt->save(tt::LOWER, context.board.record[context.board.now].hash, depth, 0, eval, score, best_move);
 
                     if (!move.info.is_capture) {
-                        context.h_history.history(move, depth);
+                        context.h_history.good_history(move, depth);
                         context.h_killer.update(move, 0);
                     }
 
@@ -191,10 +194,10 @@ int search_t::search_root(search_context_t &context, int alpha, int beta, int de
     }
 
     if (alpha > old_alpha) {
-        tt->save(tt::EXACT, context.board.record[context.board.now].hash, depth, 0, alpha, best_move);
-        if (!best_move.info.is_capture) context.h_history.history(best_move, depth);
+        tt->save(tt::EXACT, context.board.record[context.board.now].hash, depth, 0, eval, alpha, best_move);
+        if (!best_move.info.is_capture) context.h_history.good_history(best_move, depth);
     } else {
-        tt->save(tt::UPPER, context.board.record[context.board.now].hash, depth, 0, alpha, best_move);
+        tt->save(tt::UPPER, context.board.record[context.board.now].hash, depth, 0, eval, alpha, best_move);
     }
 
     return alpha;
@@ -235,23 +238,26 @@ int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply,
     bool in_check = context.board.is_incheck();
 
     // Probe transposition table
-    tt::entry_t h = {0};
-    int stand_pat;
+    tt::entry_t h = {0}; tt::Bound h_bound = tt::NONE;
+    int eval;
     if (excluded == EMPTY_MOVE && tt->probe(context.board.record[context.board.now].hash, h)) {
-        stand_pat = score = h.value(ply);
+        score = h.value(ply);
+        eval = h.static_eval;
+        h_bound = h.bound();
 
-        if (!PV && h.depth >= depth) {
-            if (h.bound == tt::LOWER && score >= beta) return score;
-            if (h.bound == tt::UPPER && score <= alpha) return score;
-            if (h.bound == tt::EXACT) return score;
+        if (!PV && h.depth() >= depth) {
+            if (h_bound == tt::LOWER && score >= beta) return score;
+            if (h_bound == tt::UPPER && score <= alpha) return score;
+            if (h_bound == tt::EXACT) return score;
         }
     } else {
-        stand_pat = evaluator.evaluate(context.board);
+        score = -INF;
+        eval = evaluator.evaluate(context.board);
     }
 
     // Null move pruning
     int null_score = 0;
-    if (can_null && !in_check && !PV && excluded == EMPTY_MOVE && stand_pat >= beta) {
+    if (can_null && !in_check && !PV && excluded == EMPTY_MOVE && eval >= beta) {
         if (context.board.non_pawn_material(context.board.record[context.board.now].next_move) != 0) {
             context.board.move(EMPTY_MOVE);
 
@@ -284,13 +290,18 @@ int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply,
             continue;
         }
 
+        // SMP Desync threads for better scaling
+        if (!ply && H && (n_legal + context.tid) % (1 + (context.tid % 4)) == 0) {
+            continue;
+        }
+
         int ex = 0;
 
         // Singular extension
         if (depth >= 8 && move == h.move
-            && (h.bound == tt::LOWER || h.bound == tt::EXACT)
+            && (h_bound == tt::LOWER || h_bound == tt::EXACT)
             && excluded == EMPTY_MOVE
-            && h.depth >= depth - 3
+            && h.depth() >= depth - 3
             && abs(h.value(ply)) < MINCHECKMATE) {
             int reduced_beta = (h.value(ply)) - depth;
             score = search_ab<false, H>(context, reduced_beta - 1, reduced_beta, ply + 1, depth / 2,
@@ -318,12 +329,7 @@ int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply,
 
             // Futility pruning
             if (!in_check && ex == 0) {
-                if (depth <= 6 && stand_pat + 64 + 32 * depth < alpha && stage == GEN_QUIETS) {
-                    context.board.unmove();
-                    break;
-                }
-
-                if(depth <= 2 && stage == GEN_BAD_CAPT) {
+                if (depth <= 6 && eval + 64 + 32 * depth < alpha && stage == GEN_QUIETS) {
                     context.board.unmove();
                     break;
                 }
@@ -336,7 +342,7 @@ int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply,
                     int R = !PV + depth / 8 + n_legal / 8;
                     if(move_score <= n_legal) R++;
                     if(h.move.info.is_capture) R++;
-                    if(context.board.see(reverse(move)) < 0) R--;
+                    if(R >= 1 && context.board.see(reverse(move)) < 0) R--;
 
                     if (R > 0) {
                         score = -search_ab<false, H>(context, -alpha - 1, -alpha, ply + 1, depth - R - 1 + ex,
@@ -385,10 +391,16 @@ int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply,
                     }
                     fh++;
 
-                    tt->save(tt::LOWER, context.board.record[context.board.now].hash, depth, ply, score, best_move);
+                    tt->save(tt::LOWER, context.board.record[context.board.now].hash, depth, ply, eval, score, best_move);
 
                     if (!move.info.is_capture) {
-                        context.h_history.history(move, depth);
+                        int n_prev_quiets;
+                        move_t *prev_quiets = gen.generated_quiets(n_prev_quiets);
+                        for(int i = 0; i < n_prev_quiets; i++) {
+                            context.h_history.bad_history(prev_quiets[i], depth);
+                        }
+
+                        context.h_history.good_history(move, depth);
                         context.h_killer.update(move, ply);
                     }
 
@@ -407,10 +419,10 @@ int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply,
     }
 
     if (alpha > old_alpha) {
-        tt->save(tt::EXACT, context.board.record[context.board.now].hash, depth, ply, alpha, best_move);
-        if (!best_move.info.is_capture) context.h_history.history(best_move, depth);
+        tt->save(tt::EXACT, context.board.record[context.board.now].hash, depth, ply, eval, alpha, best_move);
+        if (!best_move.info.is_capture) context.h_history.good_history(best_move, depth);
     } else if (excluded == EMPTY_MOVE) {
-        tt->save(tt::UPPER, context.board.record[context.board.now].hash, depth, ply, alpha, best_move);
+        tt->save(tt::UPPER, context.board.record[context.board.now].hash, depth, ply, eval, alpha, best_move);
     }
 
     return alpha;

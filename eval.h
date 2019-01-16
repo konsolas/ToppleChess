@@ -148,13 +148,11 @@ struct eval_params_t {
     int kat_attack_weight[5] = {-3, 12, 8, 7, 10,};
     int kat_defence_weight[5] = {4, 3, 4, 0, -2,};
 
-    /// Mobility
-    //int mob_mg[5] = {};
-    //int mob_eg[5]
-
     /// Other positional
     int pos_bishop_pair_mg = 61;
     int pos_bishop_pair_eg = 46;
+
+    int pos_r_trapped_mg = -59;
     // TODO: Square colour weaknesses, rook behind passed pawn, exchange when up material, mobility, etc.
 };
 

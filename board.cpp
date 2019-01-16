@@ -428,7 +428,7 @@ bool board_t::is_pseudo_legal(move_t move) {
     if (move.info.is_capture) {
         if ((bb_pieces[x_team][move.info.captured_type] & single_bit(move.info.to)) == 0) return false;
     } else {
-        if ((bb_pieces[x_team][move.info.captured_type] & single_bit(move.info.to)) != 0) return false;
+        if ((bb_side[x_team] & single_bit(move.info.to)) != 0) return false;
     }
 
     if(move.info.is_ep) {
