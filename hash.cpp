@@ -3,6 +3,7 @@
 //
 
 #include <random>
+#include <cstring>
 #include "hash.h"
 
 namespace zobrist {
@@ -34,15 +35,13 @@ namespace zobrist {
 
 tt::hash_t::hash_t(size_t size) {
     // Divide size by the sizeof an entry
-    size /= sizeof(tt::entry_t);
-
+    size /= (sizeof(tt::entry_t) * bucket_size);
     size = lower_power_of_2(size);
-
     if (size < sizeof(tt::entry_t)) {
         num_entries = 0;
     } else {
         num_entries = size - 1;
-        table = new tt::entry_t[num_entries + BUCKET_SIZE]();
+        table = new tt::entry_t[num_entries * bucket_size + bucket_size]();
     }
 }
 
@@ -51,36 +50,72 @@ tt::hash_t::~hash_t() {
 }
 
 bool tt::hash_t::probe(U64 hash, tt::entry_t &entry) {
-    const size_t loc = hash & num_entries;
+    const size_t index = (hash & num_entries) * bucket_size;
+    tt::entry_t *bucket = table + index;
 
-    if (table[loc].hash == hash) {
-        entry = table[loc];
-
+    if(bucket->hash == hash) {
+        bucket->refresh(generation);
+        entry = *bucket;
         return true;
+    }
+
+    for(size_t i = 1; i < bucket_size; i++) {
+        if((bucket + i)->hash == hash) {
+            (bucket + i)->refresh(generation);
+            entry = *(bucket + i);
+            return true;
+        }
     }
     return false;
 }
 
-void tt::hash_t::save(Bound bound, U64 hash, int depth, int ply, int eval, move_t move) {
-    const size_t loc = hash & num_entries;
+void tt::hash_t::save(Bound bound, U64 hash, int depth, int ply, int static_eval, int score, move_t move) {
+    const size_t index = (hash & num_entries) * bucket_size;
+    tt::entry_t *bucket = table + index;
 
-    if (eval >= MINCHECKMATE) eval += ply;
-    if (eval <= -MINCHECKMATE) eval -= ply;
+    if (score >= MINCHECKMATE) score += ply;
+    if (score <= -MINCHECKMATE) score -= ply;
 
-    table[loc].hash = hash;
-    table[loc].bound = bound;
-    table[loc].depth = static_cast<uint8_t>(depth);
-    table[loc].internal_value = static_cast<int16_t>(eval);
-    table[loc].move = move;
+    if(bucket->hash == hash) {
+        bucket->update(bound, depth, generation, move, static_eval, score);
+        return;
+    }
+
+    tt::entry_t *replace = bucket;
+    for(size_t i = 1; i < bucket_size; i++) {
+        // Always replace if same position
+        if((bucket + i)->hash == hash) {
+            (bucket + i)->update(bound, depth, generation, move, static_eval, score);
+            return;
+        } else if((bucket + i)->about < replace->about) {
+            replace = (bucket + i);
+        }
+    }
+
+    // Replace best candidate
+    replace->hash = hash;
+    replace->update(bound, depth, generation, move, static_eval, score);
+}
+
+void tt::hash_t::age() {
+    generation++;
+    if(generation >= 127) {
+        generation = 1;
+
+        // Clear up hash
+        for (size_t i = 0; i < num_entries * bucket_size; i++) {
+            table[i].refresh(0);
+        }
+    }
 }
 
 size_t tt::hash_t::hash_full() {
     size_t cnt = 0;
-    for (size_t i = 0; i < num_entries; i++) {
-        if (table[i].hash) {
+    for (size_t i = 0; i < num_entries * bucket_size; i++) {
+        if (table[i].generation() == generation) {
             cnt++;
         }
     }
 
-    return (cnt * 1000) / num_entries;
+    return (cnt * 1000) / (num_entries * bucket_size);
 }

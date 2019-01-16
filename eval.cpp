@@ -475,13 +475,13 @@ void evaluator_t::eval_positional(const board_t &board, int &mg, int &eg) {
         eg -= params.pos_bishop_pair_eg;
     }
 
-    if(((board.bb_pieces[WHITE][ROOK] & single_bit(A1)) && (board.bb_pieces[WHITE][KING] & (line(B1, D1))))
-       || ((board.bb_pieces[WHITE][ROOK] & single_bit(H1)) && (board.bb_pieces[WHITE][KING] & (line(F1, G1))))) {
+    if(((board.bb_pieces[WHITE][ROOK] & single_bit(A1)) && (board.bb_pieces[WHITE][KING] & (bits_between(A1, E1))))
+       || ((board.bb_pieces[WHITE][ROOK] & single_bit(H1)) && (board.bb_pieces[WHITE][KING] & (bits_between(E1, H1))))) {
         mg += params.pos_r_trapped_mg;
     }
 
-    if(((board.bb_pieces[BLACK][ROOK] & single_bit(A8)) && (board.bb_pieces[BLACK][KING] & (line(B8, D8))))
-       || ((board.bb_pieces[BLACK][ROOK] & single_bit(H8)) && (board.bb_pieces[BLACK][KING] & (line(F8, G8))))) {
+    if(((board.bb_pieces[BLACK][ROOK] & single_bit(A8)) && (board.bb_pieces[BLACK][KING] & (bits_between(A8, E8))))
+       || ((board.bb_pieces[BLACK][ROOK] & single_bit(H8)) && (board.bb_pieces[BLACK][KING] & (bits_between(E8, H8))))) {
         mg -= params.pos_r_trapped_mg;
     }
 }

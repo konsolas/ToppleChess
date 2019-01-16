@@ -152,7 +152,7 @@ struct eval_params_t {
     int pos_bishop_pair_mg = 61;
     int pos_bishop_pair_eg = 46;
 
-    int pos_r_trapped_mg = -8;
+    int pos_r_trapped_mg = -59;
     // TODO: Square colour weaknesses, rook behind passed pawn, exchange when up material, mobility, etc.
 };
 

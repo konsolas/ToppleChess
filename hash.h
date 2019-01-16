@@ -22,7 +22,7 @@ namespace zobrist {
 
 namespace tt {
     enum Bound : uint8_t {
-        UPPER, LOWER, EXACT
+        NONE=0, UPPER, LOWER, EXACT
     };
 
     inline size_t lower_power_of_2(size_t size) {
@@ -38,12 +38,12 @@ namespace tt {
         return size;
     }
 
-    struct entry_t { // 16 bytes
+    struct entry_t { // 18 bytes
         U64 hash; // 8 bytes
         move_t move; // 4 bytes
+        int16_t static_eval; // 2 bytes
         int16_t internal_value; // 2 bytes
-        uint8_t depth; // 1 byte
-        uint8_t bound; // 1 byte]
+        uint16_t about; // 2 bytes [GGGGGGGDDDDDDDBB] // 7 bits generation, 7 bits depth, 2 bits bound
 
         int value(int ply) {
             if (internal_value >= MINCHECKMATE) {
@@ -54,22 +54,45 @@ namespace tt {
                 return internal_value;
             }
         }
+
+        inline Bound bound() {
+            return Bound(about & EXACT);
+        }
+
+        inline int depth() {
+            return (about >> 2) & 127;
+        }
+
+        inline int generation() {
+            return about >> 9;
+        }
+
+        void update(Bound bound, int depth, int generation, move_t best_move, int eval, int score) {
+            about = bound | (depth << 2) | (generation << 9);
+            move = best_move;
+            static_eval = static_cast<int16_t>(eval);
+            internal_value = static_cast<int16_t>(score);
+        }
+
+        void refresh(int gen) {
+            about = uint16_t((about & 511) | (gen << 9));
+        }
     };
 
     class hash_t {
+        static constexpr size_t bucket_size = 2;
     public:
         explicit hash_t(size_t size);
-
         ~hash_t();
 
         bool probe(U64 hash, entry_t &entry);
-        void save(Bound bound, U64 hash, int depth, int ply, int eval, move_t move);
+        void save(Bound bound, U64 hash, int depth, int ply, int static_eval, int score, move_t move);
+        void age();
         size_t hash_full();
     private:
-        const int BUCKET_SIZE = 4;
-
         size_t num_entries;
         entry_t *table;
+        uint8_t generation = 1;
     };
 }
 
