@@ -122,9 +122,7 @@ int search_t::search_root(search_context_t &context, int alpha, int beta, int de
 
     int eval = evaluator.evaluate(context.board);
 
-    GenStage stage = GEN_NONE;
-    move_t move{};
-    int move_score;
+    GenStage stage = GEN_NONE; move_t move{}; int move_score;
     movesort_t gen(NORMAL, context, h.move, 0);
     int n_legal = 0;
     while ((move = gen.next(stage, move_score)) != EMPTY_MOVE) {
@@ -206,9 +204,8 @@ int search_t::search_root(search_context_t &context, int alpha, int beta, int de
 }
 
 template<bool PV, bool H>
-int
-search_t::search_ab(search_context_t &context, int alpha, int beta, int ply, int depth, bool can_null, move_t excluded,
-                    const std::atomic_bool &aborted) {
+int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply, int depth, bool can_null, move_t excluded,
+                        const std::atomic_bool &aborted) {
     nodes++;
     if (!H) pv_table_len[ply] = ply;
 
@@ -241,8 +238,7 @@ search_t::search_ab(search_context_t &context, int alpha, int beta, int ply, int
     bool in_check = context.board.is_incheck();
 
     // Probe transposition table
-    tt::entry_t h = {0};
-    tt::Bound h_bound = tt::NONE;
+    tt::entry_t h = {0}; tt::Bound h_bound = tt::NONE;
     int eval;
     if (excluded == EMPTY_MOVE && tt->probe(context.board.record[context.board.now].hash, h)) {
         score = h.value(ply);
@@ -266,8 +262,7 @@ search_t::search_ab(search_context_t &context, int alpha, int beta, int ply, int
             context.board.move(EMPTY_MOVE);
 
             int R = 2 + depth / 4;
-            null_score = -search_ab<false, H>(context, -beta, -beta + 1, ply + 1, depth - R - 1, false, EMPTY_MOVE,
-                                              aborted);
+            null_score = -search_ab<false, H>(context, -beta, -beta + 1, ply + 1, depth - R - 1, false, EMPTY_MOVE, aborted);
             context.board.unmove();
 
             if (is_aborted(aborted)) return TIMEOUT;
@@ -287,47 +282,20 @@ search_t::search_ab(search_context_t &context, int alpha, int beta, int ply, int
         tt->probe(context.board.record[context.board.now].hash, h);
     }
 
-    GenStage stage = GEN_NONE;
-    move_t move{};
-    int move_score;
+    GenStage stage = GEN_NONE; move_t move{}; int move_score;
     movesort_t gen(NORMAL, context, h.move, ply);
-    int n_legal = 0; int n_quiets = 0;
+    int n_legal = 0;
     while ((move = gen.next(stage, move_score)) != EMPTY_MOVE) {
-        if (excluded == move || !context.board.is_legal(move)) {
+        if (excluded == move) {
             continue;
         }
 
         // SMP Desync threads for better scaling
-        if (H && !ply && (n_legal + context.tid) % (1 + (context.tid % 4)) == 0) {
+        if (!ply && H && (n_legal + context.tid) % (1 + (context.tid % 4)) == 0) {
             continue;
         }
 
         int ex = 0;
-        int see = (stage != GEN_GOOD_CAPT && stage != GEN_BAD_CAPT) ? context.board.see(move) : move_score;
-        bool gives_check = context.board.gives_check(move);
-
-        // Early pruning
-        if (!gives_check) {
-            // Futility pruning
-            if(depth <= 6 && eval + 64 + 32 * depth < alpha && stage == GEN_QUIETS) {
-                break;
-            }
-
-            /*
-            // SEE pruning
-            if(depth <= 2 && see < 0) {
-                continue;
-            }
-
-            // Late move pruning
-            if(depth <= 6 && stage == GEN_QUIETS) {
-                n_quiets++;
-                constexpr int lmp_threshold[7] = {0, 3, 4, 8, 14, 25, 30};
-                if(n_quiets > lmp_threshold[depth]) {
-                    continue;
-                }
-            }*/
-        }
 
         // Singular extension
         if (depth >= 8 && move == h.move
@@ -346,84 +314,98 @@ search_t::search_ab(search_context_t &context, int alpha, int beta, int ply, int
         }
 
         context.board.move(move);
+        if (context.board.is_illegal()) {
+            context.board.unmove();
+            continue;
+        } else {
+            n_legal++; // Legal move
 
-        n_legal++; // Legal move
+            bool move_is_check = context.board.is_incheck();
 
-        // Check
-        if (gives_check) {
-            ex = 1;
-        }
+            // Check
+            if (move_is_check) {
+                ex = 1;
+            }
 
-        bool normal_search = true;
-        if (n_legal > 1 && !gives_check && stage == GEN_QUIETS) {
-            if (depth >= 3) {
-                // LMR
-                int R = !PV + depth / 8 + n_legal / 8;
-                if (move_score <= n_legal) R++;
-                if (h.move.info.is_capture) R++;
-                if (R >= 1 && context.board.see(reverse(move)) < 0) R--;
-
-                if (R > 0) {
-                    score = -search_ab<false, H>(context, -alpha - 1, -alpha, ply + 1, depth - R - 1 + ex,
-                                                 can_null, EMPTY_MOVE, aborted);
-                    normal_search = score > alpha;
-                }
-            } else if (ply) {
-                // History pruning
-                if (n_legal > move_score) {
+            // Futility pruning
+            if (!in_check && ex == 0) {
+                if (depth <= 6 && eval + 64 + 32 * depth < alpha && stage == GEN_QUIETS) {
                     context.board.unmove();
                     break;
                 }
             }
-        }
 
-        if (normal_search) {
-            if (PV && n_legal == 1) {
-                score = -search_ab<PV, H>(context, -beta, -alpha, ply + 1, depth - 1 + ex,
-                                          can_null, EMPTY_MOVE, aborted);
-            } else {
-                score = -search_ab<false, H>(context, -alpha - 1, -alpha, ply + 1, depth - 1 + ex,
-                                             can_null, EMPTY_MOVE, aborted);
-                if (alpha < score && score < beta) {
-                    // Research if the zero window search failed.
-                    score = -search_ab<true, H>(context, -beta, -alpha, ply + 1, depth - 1 + ex,
-                                                can_null, EMPTY_MOVE, aborted);
+            bool normal_search = true;
+            if(n_legal > 1 && !move_is_check && stage == GEN_QUIETS) {
+                if (depth >= 3) {
+                    // LMR
+                    int R = !PV + depth / 8 + n_legal / 8;
+                    if(move_score <= n_legal) R++;
+                    if(h.move.info.is_capture) R++;
+                    if(R >= 1 && context.board.see(reverse(move)) < 0) R--;
+
+                    if (R > 0) {
+                        score = -search_ab<false, H>(context, -alpha - 1, -alpha, ply + 1, depth - R - 1 + ex,
+                                                     can_null, EMPTY_MOVE, aborted);
+                        normal_search = score > alpha;
+                    }
+                } else if(ply) {
+                    // History pruning
+                    if(n_legal > move_score) {
+                        context.board.unmove();
+                        break;
+                    }
                 }
             }
-        }
 
-        context.board.unmove();
-
-        if (is_aborted(aborted)) return TIMEOUT;
-
-        if (score > alpha) {
-            alpha = score;
-            best_move = move;
-
-            if (!H && PV) {
-                update_pv(ply, move);
+            if (normal_search) {
+                if (PV && n_legal == 1) {
+                    score = -search_ab<PV, H>(context, -beta, -alpha, ply + 1, depth - 1 + ex,
+                                              can_null, EMPTY_MOVE, aborted);
+                } else {
+                    score = -search_ab<false, H>(context, -alpha - 1, -alpha, ply + 1, depth - 1 + ex,
+                                                 can_null, EMPTY_MOVE, aborted);
+                    if (alpha < score && score < beta) {
+                        // Research if the zero window search failed.
+                        score = -search_ab<true, H>(context, -beta, -alpha, ply + 1, depth - 1 + ex,
+                                                    can_null, EMPTY_MOVE, aborted);
+                    }
+                }
             }
 
-            if (score >= beta) {
-                if (n_legal == 1) {
-                    fhf++;
+            context.board.unmove();
+
+            if (is_aborted(aborted)) return TIMEOUT;
+
+            if (score > alpha) {
+                alpha = score;
+                best_move = move;
+
+                if (!H && PV) {
+                    update_pv(ply, move);
                 }
-                fh++;
 
-                tt->save(tt::LOWER, context.board.record[context.board.now].hash, depth, ply, eval, score, best_move);
+                if (score >= beta) {
+                    if (n_legal == 1) {
+                        fhf++;
+                    }
+                    fh++;
 
-                if (!move.info.is_capture) {
-                    int n_prev_quiets;
-                    move_t *prev_quiets = gen.generated_quiets(n_prev_quiets);
-                    for (int i = 0; i < n_prev_quiets; i++) {
-                        context.h_history.bad_history(prev_quiets[i], depth);
+                    tt->save(tt::LOWER, context.board.record[context.board.now].hash, depth, ply, eval, score, best_move);
+
+                    if (!move.info.is_capture) {
+                        int n_prev_quiets;
+                        move_t *prev_quiets = gen.generated_quiets(n_prev_quiets);
+                        for(int i = 0; i < n_prev_quiets; i++) {
+                            context.h_history.bad_history(prev_quiets[i], depth);
+                        }
+
+                        context.h_history.good_history(move, depth);
+                        context.h_killer.update(move, ply);
                     }
 
-                    context.h_history.good_history(move, depth);
-                    context.h_killer.update(move, ply);
+                    return beta; // Fail hard
                 }
-
-                return beta; // Fail hard
             }
         }
     }
@@ -461,9 +443,7 @@ int search_t::search_qs(search_context_t &context, int alpha, int beta, int ply,
     if (stand_pat >= beta) return beta;
     if (alpha < stand_pat) alpha = stand_pat;
 
-    GenStage stage = GEN_NONE;
-    move_t move{};
-    int move_score;
+    GenStage stage = GEN_NONE; move_t move{}; int move_score;
     movesort_t gen(QUIESCENCE, context, EMPTY_MOVE, 0);
     while ((move = gen.next(stage, move_score)) != EMPTY_MOVE) {
         if (move.info.captured_type == KING) return INF; // Ignore this position in case of a king capture
