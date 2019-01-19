@@ -512,6 +512,11 @@ bool board_t::gives_check(move_t move) const {
 
     if(find_moves(Piece(move.info.piece), side, move.info.to, bb_all) & bb_pieces[x_side][KING]) {
         return true;
+    } else if(move.info.castle) {
+        U64 occupied = bb_all ^ single_bit(move.info.from) ^ single_bit(move.info.to);
+        return (find_moves<ROOK>(side,
+                                 side ? (move.info.castle_side ? D8 : F8) : (move.info.castle_side ? D1 : F1), occupied)
+                & bb_pieces[x_side][KING]) != 0;
     } else if (move.info.is_promotion && (find_moves(Piece(move.info.promotion_type), side, move.info.to,
             (bb_all ^ single_bit(move.info.from)) | single_bit(move.info.to)) & bb_pieces[x_side][KING])) {
         return true;
