@@ -276,7 +276,7 @@ board_t::board_t(std::string fen) {
 //  - if the piece can actually make the move
 //  - if the piece actually exists
 // If the move cannot be parsed, 0000 is returned
-move_t board_t::parse_move(const std::string &str) {
+move_t board_t::parse_move(const std::string &str) const {
     move_t move = {};
 
     if (str.length() != 4 && str.length() != 5) {
@@ -341,7 +341,7 @@ move_t board_t::parse_move(const std::string &str) {
     return move;
 }
 
-bool board_t::is_illegal() {
+bool board_t::is_illegal() const {
     Team side = record[now].next_move;
     uint8_t king_square = bit_scan(bb_pieces[!side][KING]);
 
@@ -349,7 +349,7 @@ bool board_t::is_illegal() {
 }
 
 
-bool board_t::is_incheck() {
+bool board_t::is_incheck() const {
     Team side = record[now].next_move;
     uint8_t king_square = bit_scan(bb_pieces[side][KING]);
 
@@ -379,7 +379,7 @@ void board_t::switch_piece(Team side, Piece piece, uint8_t sq) {
     }
 }
 
-U64 board_t::attacks_to(uint8_t sq, Team side) {
+U64 board_t::attacks_to(uint8_t sq, Team side) const {
     auto x_side = Team(!side);
     U64 attacks =
             (find_moves<QUEEN>(side, sq, bb_all) & bb_pieces[x_side][QUEEN]) |
@@ -392,12 +392,12 @@ U64 board_t::attacks_to(uint8_t sq, Team side) {
     return attacks;
 }
 
-bool board_t::is_attacked(uint8_t sq, Team side) {
+bool board_t::is_attacked(uint8_t sq, Team side) const {
     return is_attacked(sq, side, bb_all);
 }
 
 
-bool board_t::is_attacked(uint8_t sq, Team side, U64 occupied) {
+bool board_t::is_attacked(uint8_t sq, Team side, U64 occupied) const {
     auto x_side = Team(!side);
     return (find_moves<QUEEN>(x_side, sq, occupied) & bb_pieces[side][QUEEN]) ||
            (find_moves<ROOK>(x_side, sq, occupied) & bb_pieces[side][ROOK]) ||
@@ -408,7 +408,7 @@ bool board_t::is_attacked(uint8_t sq, Team side, U64 occupied) {
 }
 
 
-bool board_t::is_pseudo_legal(move_t move) {
+bool board_t::is_pseudo_legal(move_t move) const {
     if (move == EMPTY_MOVE) return false;
 
     auto team = Team(move.info.team);
@@ -452,7 +452,7 @@ bool board_t::is_pseudo_legal(move_t move) {
 }
 
 // Assumes the move is pseudo-legal
-bool board_t::is_legal(move_t move) {
+bool board_t::is_legal(move_t move) const {
     Team side = Team(move.info.team);
     Team x_side = Team(!side);
     uint8_t king_square = bit_scan(bb_pieces[side][KING]);
@@ -504,11 +504,32 @@ bool board_t::is_legal(move_t move) {
     }
 }
 
-bool board_t::gives_check(move_t move) {
-    return false;
+// Assumes the move is both pseudo legal and legal
+bool board_t::gives_check(move_t move) const {
+    Team side = Team(move.info.team);
+    Team x_side = Team(!move.info.team);
+    uint8_t king_square = bit_scan(bb_pieces[x_side][KING]);
+
+    if(find_moves(Piece(move.info.piece), side, move.info.to, bb_all) & bb_pieces[x_side][KING]) {
+        return true;
+    } else if (move.info.is_promotion && (find_moves(Piece(move.info.promotion_type), side, move.info.to,
+            (bb_all ^ single_bit(move.info.from)) | single_bit(move.info.to)) & bb_pieces[x_side][KING])) {
+        return true;
+    } else {
+        U64 occupied = bb_all ^ single_bit(move.info.from);
+        if (move.info.is_ep) {
+            occupied ^= single_bit(uint8_t(rel_offset(Team(move.info.team), D_S) + move.info.to));
+            occupied ^= single_bit(move.info.to);
+        } else if (!move.info.is_capture) {
+            occupied ^= single_bit(move.info.to);
+        }
+
+        return (find_moves<BISHOP>(x_side, king_square, occupied) & (bb_pieces[side][BISHOP] | bb_pieces[side][QUEEN]))
+               || (find_moves<ROOK>(x_side, king_square, occupied) & (bb_pieces[side][ROOK] | bb_pieces[side][QUEEN]));
+    }
 }
 
-bool board_t::is_repetition_draw(int ply, int reps) {
+bool board_t::is_repetition_draw(int ply, int reps) const {
     int rep = 1;
 
     int last = std::max(now - ply, 0);
@@ -545,7 +566,7 @@ void board_t::mirror() {
     }
 }
 
-int board_t::see(move_t move) {
+int board_t::see(move_t move) const {
     if(move == EMPTY_MOVE)
         return 0;
 
@@ -636,6 +657,6 @@ int board_t::see(move_t move) {
     return material[0];
 }
 
-U64 board_t::non_pawn_material(Team side) {
+U64 board_t::non_pawn_material(Team side) const {
     return (bb_side[side] ^ bb_pieces[side][PAWN] ^ bb_pieces[side][KING]);
 }

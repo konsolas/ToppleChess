@@ -52,22 +52,22 @@ struct board_t {
     void move(move_t move);
     void unmove();
 
-    move_t parse_move(const std::string &str);
+    move_t parse_move(const std::string &str) const;
 
-    bool is_illegal();
-    bool is_incheck();
+    bool is_illegal() const;
+    bool is_incheck() const;
 
-    bool is_attacked(uint8_t sq, Team side);
-    bool is_attacked(uint8_t sq, Team side, U64 occupied);
-    U64 attacks_to(uint8_t sq, Team side); // Attacks to sq from side
-    bool is_pseudo_legal(move_t move);
-    bool is_legal(move_t move);
-    bool gives_check(move_t move);
+    bool is_attacked(uint8_t sq, Team side) const;
+    bool is_attacked(uint8_t sq, Team side, U64 occupied) const;
+    U64 attacks_to(uint8_t sq, Team side) const; // Attacks to sq from side
+    bool is_pseudo_legal(move_t move) const;
+    bool is_legal(move_t move) const;
+    bool gives_check(move_t move) const;
 
-    bool is_repetition_draw(int ply, int reps);
+    bool is_repetition_draw(int ply, int reps) const;
 
-    int see(move_t move);
-    U64 non_pawn_material(Team side);
+    int see(move_t move) const;
+    U64 non_pawn_material(Team side) const;
 
     void mirror();
 
