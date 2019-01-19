@@ -58,8 +58,11 @@ struct board_t {
     bool is_incheck();
 
     bool is_attacked(uint8_t sq, Team side);
+    bool is_attacked(uint8_t sq, Team side, U64 occupied);
     U64 attacks_to(uint8_t sq, Team side); // Attacks to sq from side
     bool is_pseudo_legal(move_t move);
+    bool is_legal(move_t move);
+    bool gives_check(move_t move);
 
     bool is_repetition_draw(int ply, int reps);
 

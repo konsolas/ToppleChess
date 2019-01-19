@@ -382,25 +382,31 @@ void board_t::switch_piece(Team side, Piece piece, uint8_t sq) {
 U64 board_t::attacks_to(uint8_t sq, Team side) {
     auto x_side = Team(!side);
     U64 attacks =
-            (find_moves<QUEEN>(x_side, sq, bb_all) & bb_pieces[side][QUEEN]) |
-            (find_moves<ROOK>(x_side, sq, bb_all) & bb_pieces[side][ROOK]) |
-            (find_moves<KNIGHT>(x_side, sq, bb_all) & bb_pieces[side][KNIGHT]) |
-            (find_moves<BISHOP>(x_side, sq, bb_all) & bb_pieces[side][BISHOP]) |
-            (find_moves<PAWN>(x_side, sq, bb_all) & bb_pieces[side][PAWN]) |
-            (find_moves<KING>(x_side, sq, bb_all) & bb_pieces[side][KING]);
+            (find_moves<QUEEN>(side, sq, bb_all) & bb_pieces[x_side][QUEEN]) |
+            (find_moves<ROOK>(side, sq, bb_all) & bb_pieces[x_side][ROOK]) |
+            (find_moves<KNIGHT>(side, sq, bb_all) & bb_pieces[x_side][KNIGHT]) |
+            (find_moves<BISHOP>(side, sq, bb_all) & bb_pieces[x_side][BISHOP]) |
+            (find_moves<PAWN>(side, sq, bb_all) & bb_pieces[x_side][PAWN]) |
+            (find_moves<KING>(side, sq, bb_all) & bb_pieces[x_side][KING]);
 
     return attacks;
 }
 
 bool board_t::is_attacked(uint8_t sq, Team side) {
-    auto x_side = Team(!side);
-    return (find_moves<QUEEN>(x_side, sq, bb_all) & bb_pieces[side][QUEEN]) ||
-           (find_moves<ROOK>(x_side, sq, bb_all) & bb_pieces[side][ROOK]) ||
-           (find_moves<KNIGHT>(x_side, sq, bb_all) & bb_pieces[side][KNIGHT]) ||
-           (find_moves<BISHOP>(x_side, sq, bb_all) & bb_pieces[side][BISHOP]) ||
-           (find_moves<PAWN>(x_side, sq, bb_all) & bb_pieces[side][PAWN]) ||
-           (find_moves<KING>(x_side, sq, bb_all) & bb_pieces[side][KING]);
+    return is_attacked(sq, side, bb_all);
 }
+
+
+bool board_t::is_attacked(uint8_t sq, Team side, U64 occupied) {
+    auto x_side = Team(!side);
+    return (find_moves<QUEEN>(x_side, sq, occupied) & bb_pieces[side][QUEEN]) ||
+           (find_moves<ROOK>(x_side, sq, occupied) & bb_pieces[side][ROOK]) ||
+           (find_moves<KNIGHT>(x_side, sq, occupied) & bb_pieces[side][KNIGHT]) ||
+           (find_moves<BISHOP>(x_side, sq, occupied) & bb_pieces[side][BISHOP]) ||
+           (find_moves<PAWN>(x_side, sq, occupied) & bb_pieces[side][PAWN]) ||
+           (find_moves<KING>(x_side, sq, occupied) & bb_pieces[side][KING]);
+}
+
 
 bool board_t::is_pseudo_legal(move_t move) {
     if (move == EMPTY_MOVE) return false;
@@ -443,6 +449,63 @@ bool board_t::is_pseudo_legal(move_t move) {
 
     return (bb_pieces[team][move.info.piece] & single_bit(move.info.from)) &&
            !(bb_side[team] & single_bit(move.info.to));
+}
+
+// Assumes the move is pseudo-legal
+bool board_t::is_legal(move_t move) {
+    Team side = Team(move.info.team);
+    Team x_side = Team(!side);
+    uint8_t king_square = bit_scan(bb_pieces[side][KING]);
+
+    U64 checkers = attacks_to(king_square, side);
+    if(checkers != 0) {
+        if(move.info.piece == KING) {
+            U64 occupied = bb_all ^ single_bit(move.info.from);
+            if(!move.info.is_capture) occupied ^= single_bit(move.info.to);
+
+            return !is_attacked(move.info.to, x_side, occupied);
+        } else {
+            U64 occupied = bb_all ^ single_bit(move.info.from);
+            if(move.info.is_ep) {
+                if((checkers ^ single_bit(uint8_t(rel_offset(Team(move.info.team), D_S) + move.info.to))) == 0) {
+                    occupied ^= single_bit(uint8_t(rel_offset(Team(move.info.team), D_S) + move.info.to))
+                            | single_bit(move.info.to);
+                    return !(find_moves<BISHOP>(side, king_square, occupied) & (bb_pieces[x_side][BISHOP] | bb_pieces[x_side][QUEEN]))
+                           && !(find_moves<ROOK>(side, king_square, occupied) & (bb_pieces[x_side][ROOK] | bb_pieces[x_side][QUEEN]));
+                } else {
+                    return false;
+                }
+            } if(move.info.is_capture && (checkers ^ single_bit(move.info.to)) == 0) {
+                return !(find_moves<BISHOP>(side, king_square, occupied) & (bb_pieces[x_side][BISHOP] | bb_pieces[x_side][QUEEN]) & ~checkers)
+                       && !(find_moves<ROOK>(side, king_square, occupied) & (bb_pieces[x_side][ROOK] | bb_pieces[x_side][QUEEN]) & ~checkers);
+            } else {
+                occupied ^= single_bit(move.info.to);
+                return !is_attacked(king_square, x_side, occupied);
+            }
+        }
+    } else {
+        if(move.info.piece == KING) {
+            return !is_attacked(move.info.to, x_side);
+        } else {
+            U64 occupied = bb_all ^ single_bit(move.info.from);
+            U64 captured = 0;
+            if (move.info.is_ep) {
+                occupied ^= single_bit(uint8_t(rel_offset(Team(move.info.team), D_S) + move.info.to));
+                occupied ^= single_bit(move.info.to);
+            } else if (!move.info.is_capture) {
+                occupied ^= single_bit(move.info.to);
+            } else {
+                captured ^= single_bit(move.info.to);
+            }
+
+            return !(find_moves<BISHOP>(side, king_square, occupied) & (bb_pieces[x_side][BISHOP] | bb_pieces[x_side][QUEEN]) & ~captured)
+                && !(find_moves<ROOK>(side, king_square, occupied) & (bb_pieces[x_side][ROOK] | bb_pieces[x_side][QUEEN]) & ~captured);
+        }
+    }
+}
+
+bool board_t::gives_check(move_t move) {
+    return false;
 }
 
 bool board_t::is_repetition_draw(int ply, int reps) {
