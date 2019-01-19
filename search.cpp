@@ -217,7 +217,7 @@ search_t::search_ab(search_context_t &context, int alpha, int beta, int ply, int
     }
 
     // Quiescence search
-    if (depth < 1) return search_qs<PV, H>(context, alpha, beta, ply + 1, aborted);
+    if (depth < 1) return search_qs<PV, H>(context, alpha, beta, ply, aborted);
 
     // Search variables
     int score;
