@@ -12,7 +12,7 @@
 
 class tuner_t {
     eval_params_t current_params;
-    int scaling_constant = 114;
+    int scaling_constant = 130;
 
     size_t entries;
     std::vector<board_t> &positions;

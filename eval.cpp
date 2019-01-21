@@ -23,8 +23,6 @@ U64 BB_KING_CIRCLE[64] = {};
 
 U64 BB_CENTRE = 0;
 
-int kat_table[64] = {};
-
 void evaluator_t::eval_init() {
     for (uint8_t sq = 0; sq < 64; sq++) {
         BB_HOLE[WHITE][sq] = 0xffffffffffffffff;
@@ -76,12 +74,6 @@ void evaluator_t::eval_init() {
             if (BB_HOLE[WHITE][i] & single_bit(square))
                 BB_HOLE[BLACK][MIRROR_TABLE[i]] |= single_bit(MIRROR_TABLE[square]);
         }
-    }
-
-    // Set up king safety evaluation table.
-    for(int i = 0; i < 64; i++) {
-        // Translated + scaled sigmoid function
-        kat_table[i] = (int) (256.0 / (1 + exp((32 - i) / 10.0))) - 10;
     }
 }
 
@@ -154,6 +146,16 @@ evaluator_t::evaluator_t(eval_params_t params, size_t pawn_hash_size) : params(p
             pst[BLACK][piece][MIRROR_TABLE[square]][EG] = pst[WHITE][piece][square][EG];
         }
     }
+
+    // Set up king safety evaluation table.
+    for(int i = 0; i < 64; i++) {
+        // Translated + scaled sigmoid function
+        kat_table[i] = (int) (double(params.kat_table_max) /
+                (1 + exp((params.kat_table_translate - i) / double(params.kat_table_scale)))) - params.kat_table_offset;
+        if(i > 0 && kat_table[i] == kat_table[i-1]) {
+            std::cout << "duplicate in kat_table, i=" << i << std::endl;
+        }
+    }
 }
 
 evaluator_t::~evaluator_t() {
@@ -179,7 +181,7 @@ int evaluator_t::evaluate(const board_t &board) {
     double phase = eval_material(board, mg, eg);
     eval_pst(board, mg, eg);
     eval_king_safety(board, mg, eg, pawn_data);
-    eval_positional(board, mg, eg);
+    eval_positional(board, mg, eg, pawn_data);
 
     // Interpolate between middlegame and endgame scores
     auto total = int(phase * mg + (1 - phase) * eg);
@@ -219,13 +221,22 @@ double evaluator_t::eval_material(const board_t &board, int &mg, int &eg) {
     mg += params.mat_mg[QUEEN] * queen_balance;
     eg += params.mat_eg[QUEEN] * queen_balance;
 
-    const int mat_w = (pawn_w) + 3 * (knight_w + bishop_w) + 5 * (rook_w) + 10 * (queen_w);
-    const int mat_b = (pawn_b) + 3 * (knight_b + bishop_b) + 5 * (rook_b) + 10 * (queen_b);
-    const int mat_max = 2 * (8 + 3 * (2 + 2) + 5 * 2 + 10 * 1);
+    const int mat_w = params.mat_exch_pawn * (pawn_w)
+                      + params.mat_exch_minor * (knight_w + bishop_w)
+                      + params.mat_exch_rook * (rook_w)
+                      + params.mat_exch_queen * (queen_w);
+    const int mat_b = params.mat_exch_pawn * (pawn_b)
+                      + params.mat_exch_minor * (knight_b + bishop_b)
+                      + params.mat_exch_rook * (rook_b)
+                      + params.mat_exch_queen * (queen_b);
+    const int mat_max = 2 * (params.mat_exch_pawn * 8
+                             + params.mat_exch_minor * (2 + 2)
+                             + params.mat_exch_rook * 2
+                             + params.mat_exch_queen * 1);
     const int mat_total = mat_w + mat_b;
 
     // Aim to exchange while up material
-    eg += params.mat_exchange * (mat_w - mat_b);
+    eg += params.mat_exch_scale * (mat_w - mat_b);
 
     // Calculate tapering (game phase)
     // Close to 1 at the start, close to 0 at the end
@@ -274,7 +285,7 @@ evaluator_t::pawn_entry_t* evaluator_t::eval_pawns(const board_t &board) {
     entry->eval_eg = 0;
 
     // Find open files
-    U64 all_pawns = board.bb_pieces[WHITE][PAWN];
+    U64 all_pawns = board.bb_pieces[WHITE][PAWN] | board.bb_pieces[BLACK][PAWN];
     for(uint8_t file = 0; file < 8; file++) {
         if((all_pawns & file_mask(file)) == 0) {
             entry->open_files |= file_mask(file);
@@ -464,7 +475,7 @@ void evaluator_t::eval_king_safety(const board_t &board, int &mg, int &eg, const
     mg += kat_table[std::min(std::max(king_danger[BLACK], 0), 63)];
 }
 
-void evaluator_t::eval_positional(const board_t &board, int &mg, int &eg) {
+void evaluator_t::eval_positional(const board_t &board, int &mg, int &eg, const pawn_entry_t *entry) {
     if(pop_count(board.bb_pieces[WHITE][BISHOP]) >= 2) {
         mg += params.pos_bishop_pair_mg;
         eg += params.pos_bishop_pair_eg;
@@ -483,6 +494,56 @@ void evaluator_t::eval_positional(const board_t &board, int &mg, int &eg) {
     if(((board.bb_pieces[BLACK][ROOK] & single_bit(A8)) && (board.bb_pieces[BLACK][KING] & (bits_between(A8, E8))))
        || ((board.bb_pieces[BLACK][ROOK] & single_bit(H8)) && (board.bb_pieces[BLACK][KING] & (bits_between(E8, H8))))) {
         mg -= params.pos_r_trapped_mg;
+    }
+
+    U64 pieces = board.bb_pieces[WHITE][ROOK];
+    while (pieces) {
+        uint8_t sq = pop_bit(pieces);
+        if(single_bit(sq) & entry->open_files) {
+            mg += params.pos_r_open_file_mg;
+            eg += params.pos_r_open_file_eg;
+        }
+
+        if(BB_IN_FRONT[WHITE][sq] & entry->passers[WHITE]) {
+            mg += params.pos_r_behind_own_passer_mg;
+            eg += params.pos_r_behind_own_passer_eg;
+        }
+
+        if(BB_IN_FRONT[WHITE][sq] & entry->passers[BLACK]) {
+            mg += params.pos_r_behind_enemy_passer_mg;
+            eg += params.pos_r_behind_enemy_passer_eg;
+        }
+
+        int xray_pawn = pop_count(find_moves<ROOK>(WHITE, sq, board.bb_pieces[WHITE][PAWN]) & board.bb_pieces[BLACK][PAWN]);
+        if(xray_pawn) {
+            mg += params.pos_r_xray_pawn_mg * xray_pawn;
+            eg += params.pos_r_xray_pawn_eg * xray_pawn;
+        }
+    }
+
+    pieces = board.bb_pieces[BLACK][ROOK];
+    while (pieces) {
+        uint8_t sq = pop_bit(pieces);
+        if(single_bit(sq) & entry->open_files) {
+            mg -= params.pos_r_open_file_mg;
+            eg -= params.pos_r_open_file_eg;
+        }
+
+        if(BB_IN_FRONT[BLACK][sq] & entry->passers[BLACK]) {
+            mg -= params.pos_r_behind_own_passer_mg;
+            eg -= params.pos_r_behind_own_passer_eg;
+        }
+
+        if(BB_IN_FRONT[BLACK][sq] & entry->passers[WHITE]) {
+            mg -= params.pos_r_behind_enemy_passer_mg;
+            eg -= params.pos_r_behind_enemy_passer_eg;
+        }
+
+        int xray_pawn = pop_count(find_moves<ROOK>(BLACK, sq, board.bb_pieces[BLACK][PAWN]) & board.bb_pieces[WHITE][PAWN]);
+        if(xray_pawn) {
+            mg -= params.pos_r_xray_pawn_mg * xray_pawn;
+            eg -= params.pos_r_xray_pawn_eg * xray_pawn;
+        }
     }
 }
 
