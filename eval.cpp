@@ -18,6 +18,7 @@ U64 BB_PASSED[2][64] = {};
 U64 BB_ISOLATED[2][64] = {};
 U64 BB_IN_FRONT[2][64] = {};
 U64 BB_HOLE[2][64] = {};
+U64 BB_BACKWARDS[2][64] = {};
 
 U64 BB_KING_CIRCLE[64] = {};
 
@@ -35,6 +36,15 @@ void evaluator_t::eval_init() {
 
             // Candidate
             BB_IN_FRONT[WHITE][sq] |= single_bit(square_index(file_index(sq), rank));
+        }
+
+        for(uint8_t rank = 0; rank <= rank_index(sq); rank++) {
+            // Backward
+            if (file_index(sq) > 0) BB_BACKWARDS[WHITE][sq] |= single_bit(square_index(uint8_t(file_index(sq) - 1), rank));
+            if (file_index(sq) < 7) BB_BACKWARDS[WHITE][sq] |= single_bit(square_index(uint8_t(file_index(sq) + 1), rank));
+            if(rank < rank_index(sq)) {
+                BB_BACKWARDS[WHITE][sq] |= single_bit(square_index(file_index(sq), rank));
+            }
         }
 
         // Hole
@@ -73,6 +83,8 @@ void evaluator_t::eval_init() {
                 BB_IN_FRONT[BLACK][MIRROR_TABLE[i]] |= single_bit(MIRROR_TABLE[square]);
             if (BB_HOLE[WHITE][i] & single_bit(square))
                 BB_HOLE[BLACK][MIRROR_TABLE[i]] |= single_bit(MIRROR_TABLE[square]);
+            if (BB_BACKWARDS[WHITE][i] & single_bit(square))
+                BB_BACKWARDS[BLACK][MIRROR_TABLE[i]] |= single_bit(MIRROR_TABLE[square]);
         }
     }
 }
@@ -305,8 +317,8 @@ evaluator_t::pawn_entry_t* evaluator_t::eval_pawns(const board_t &board) {
         entry->attackable[WHITE] |= BB_HOLE[WHITE][sq];
 
         if(caps & board.bb_pieces[WHITE][PAWN]) {
-            entry->eval_mg += params.chain_mg[rank_index(sq) - 1];
-            entry->eval_eg += params.chain_eg[rank_index(sq) - 1];
+            entry->eval_mg += params.chain_mg[rel_rank(WHITE, rank_index(sq)) - 1];
+            entry->eval_eg += params.chain_eg[rel_rank(WHITE, rank_index(sq)) - 1];
         }
 
         bool open_file = (BB_IN_FRONT[WHITE][sq] & board.bb_pieces[BLACK][PAWN]) == 0;
@@ -318,16 +330,22 @@ evaluator_t::pawn_entry_t* evaluator_t::eval_pawns(const board_t &board) {
 
         U64 not_passer = BB_PASSED[WHITE][sq] & board.bb_pieces[BLACK][PAWN];
         if(!not_passer) {
-            entry->eval_mg += params.passed_mg[rank_index(sq) - 1];
-            entry->eval_eg += params.passed_eg[rank_index(sq) - 1];
+            entry->eval_mg += params.passed_mg[rel_rank(WHITE, rank_index(sq)) - 1];
+            entry->eval_eg += params.passed_eg[rel_rank(WHITE, rank_index(sq)) - 1];
 
             entry->passers[WHITE] |= single_bit(sq);
         }
 
+        U64 backwards = BB_BACKWARDS[WHITE][sq] & board.bb_pieces[WHITE][PAWN];
+        if(!backwards && (board.bb_pieces[BLACK][PAWN] & pawn_caps(WHITE, uint8_t(sq + rel_offset(WHITE, D_N))))) {
+            entry->eval_mg += params.backwards_mg[open_file];
+            entry->eval_eg += params.backwards_eg[open_file];
+        }
+
         U64 not_isolated = BB_ISOLATED[WHITE][sq] & board.bb_pieces[WHITE][PAWN]; // Friendly pawns
         if (!not_isolated) {
-            entry->eval_mg += params.isolated_mg[rank_index(sq) - 1][open_file];
-            entry->eval_eg += params.isolated_eg[rank_index(sq) - 1][open_file];
+            entry->eval_mg += params.isolated_mg[rel_rank(WHITE, rank_index(sq)) - 1][open_file];
+            entry->eval_eg += params.isolated_eg[rel_rank(WHITE, rank_index(sq)) - 1][open_file];
         }
 
         if(BB_IN_FRONT[WHITE][sq] & board.bb_pieces[WHITE][PAWN]) {
@@ -347,8 +365,8 @@ evaluator_t::pawn_entry_t* evaluator_t::eval_pawns(const board_t &board) {
         entry->attackable[BLACK] |= BB_HOLE[BLACK][sq];
 
         if(caps & board.bb_pieces[BLACK][PAWN]) {
-            entry->eval_mg -= params.chain_mg[(7 - rank_index(sq)) - 1];
-            entry->eval_eg -= params.chain_eg[(7 - rank_index(sq)) - 1];
+            entry->eval_mg -= params.chain_mg[rel_rank(BLACK, rank_index(sq)) - 1];
+            entry->eval_eg -= params.chain_eg[rel_rank(BLACK, rank_index(sq)) - 1];
         }
 
         bool open_file = (BB_IN_FRONT[BLACK][sq] & board.bb_pieces[WHITE][PAWN]) == 0;
@@ -360,16 +378,22 @@ evaluator_t::pawn_entry_t* evaluator_t::eval_pawns(const board_t &board) {
 
         U64 not_passer = BB_PASSED[BLACK][sq] & board.bb_pieces[WHITE][PAWN];
         if(!not_passer) {
-            entry->eval_mg -= params.passed_mg[(7 - rank_index(sq)) - 1];
-            entry->eval_eg -= params.passed_eg[(7 - rank_index(sq)) - 1];
+            entry->eval_mg -= params.passed_mg[rel_rank(BLACK, rank_index(sq)) - 1];
+            entry->eval_eg -= params.passed_eg[rel_rank(BLACK, rank_index(sq)) - 1];
 
             entry->passers[BLACK] |= single_bit(sq);
         }
 
+        U64 backwards = BB_BACKWARDS[BLACK][sq] & board.bb_pieces[BLACK][PAWN];
+        if(!backwards && (board.bb_pieces[WHITE][PAWN] & pawn_caps(BLACK, uint8_t(sq + rel_offset(BLACK, D_N))))) {
+            entry->eval_mg -= params.backwards_mg[open_file];
+            entry->eval_eg -= params.backwards_eg[open_file];
+        }
+
         U64 not_isolated = BB_ISOLATED[BLACK][sq] & board.bb_pieces[BLACK][PAWN]; // Friendly pawns
         if (!not_isolated) {
-            entry->eval_mg -= params.isolated_mg[(7 - rank_index(sq)) - 1][open_file];
-            entry->eval_eg -= params.isolated_eg[(7 - rank_index(sq)) - 1][open_file];
+            entry->eval_mg -= params.isolated_mg[rel_rank(BLACK, rank_index(sq)) - 1][open_file];
+            entry->eval_eg -= params.isolated_eg[rel_rank(BLACK, rank_index(sq)) - 1][open_file];
         }
 
         if(BB_IN_FRONT[BLACK][sq] & board.bb_pieces[BLACK][PAWN]) {
@@ -486,13 +510,17 @@ void evaluator_t::eval_positional(const board_t &board, int &mg, int &eg, const 
         eg -= params.pos_bishop_pair_eg;
     }
 
-    if(((board.bb_pieces[WHITE][ROOK] & single_bit(A1)) && (board.bb_pieces[WHITE][KING] & (bits_between(A1, E1))))
-       || ((board.bb_pieces[WHITE][ROOK] & single_bit(H1)) && (board.bb_pieces[WHITE][KING] & (bits_between(E1, H1))))) {
+    if(((board.bb_pieces[WHITE][ROOK] & single_bit(rel_sq(WHITE, A1)))
+        && (board.bb_pieces[WHITE][KING] & (bits_between(rel_sq(WHITE, A1), rel_sq(WHITE, E1)))))
+       || ((board.bb_pieces[WHITE][ROOK] & single_bit(rel_sq(WHITE, H1)))
+       && (board.bb_pieces[WHITE][KING] & (bits_between(rel_sq(WHITE, E1), rel_sq(WHITE, H1)))))) {
         mg += params.pos_r_trapped_mg;
     }
 
-    if(((board.bb_pieces[BLACK][ROOK] & single_bit(A8)) && (board.bb_pieces[BLACK][KING] & (bits_between(A8, E8))))
-       || ((board.bb_pieces[BLACK][ROOK] & single_bit(H8)) && (board.bb_pieces[BLACK][KING] & (bits_between(E8, H8))))) {
+    if((((board.bb_pieces[BLACK][ROOK] & single_bit(rel_sq(BLACK, A1)))
+         && (board.bb_pieces[BLACK][KING] & (bits_between(rel_sq(BLACK, A1), rel_sq(BLACK, E1)))))
+        || ((board.bb_pieces[BLACK][ROOK] & single_bit(rel_sq(BLACK, H1)))
+            && (board.bb_pieces[BLACK][KING] & (bits_between(rel_sq(BLACK, E1), rel_sq(BLACK, H1)))))))  {
         mg -= params.pos_r_trapped_mg;
     }
 

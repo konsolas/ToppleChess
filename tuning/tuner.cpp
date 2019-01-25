@@ -258,6 +258,18 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
+    std::cout << "  backwards_mg ";
+    for (int param : current_params.backwards_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  backward_eg ";
+    for (int param : current_params.backwards_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
     std::cout << "  doubled_mg ";
     for (int param : current_params.doubled_mg) {
         std::cout << param << ", ";
@@ -312,7 +324,7 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
-    std::cout << "  ks_open_file " << current_params.kat_open_file << std::endl;
+    std::cout << "  kat_open_file " << current_params.kat_open_file << std::endl;
 
     std::cout << "  kat_attack_weight ";
     for (int param : current_params.kat_attack_weight) {
@@ -342,7 +354,6 @@ void tuner_t::print_params() {
     std::cout << "  pos_r_behind_own_passer_eg " << current_params.pos_r_behind_own_passer_eg << std::endl;
     std::cout << "  pos_r_behind_enemy_passer_mg " << current_params.pos_r_behind_enemy_passer_mg << std::endl;
     std::cout << "  pos_r_behind_enemy_passer_eg " << current_params.pos_r_behind_enemy_passer_eg << std::endl;
-
     std::cout << "  pos_r_xray_pawn_mg " << current_params.pos_r_xray_pawn_mg << std::endl;
     std::cout << "  pos_r_xray_pawn_eg " << current_params.pos_r_xray_pawn_eg << std::endl;
 }
