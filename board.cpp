@@ -277,20 +277,47 @@ board_t::board_t(std::string fen) {
 //  - if the piece actually exists
 // If the move cannot be parsed, 0000 is returned
 move_t board_t::parse_move(const std::string &str) const {
-    move_t move = {};
+    packed_move_t packed_move = {};
 
     if (str.length() != 4 && str.length() != 5) {
         return EMPTY_MOVE;
     }
-
-    // Location
+    
     try {
-        move.info.from = to_sq(str[0], str[1]);
-        move.info.to = to_sq(str[2], str[3]);
+        packed_move.from = to_sq(str[0], str[1]);
+        packed_move.to = to_sq(str[2], str[3]);
     } catch (std::runtime_error &e) {
         return EMPTY_MOVE;
     }
+    
+    if(str.length() == 5) {
+        switch (str[4]) {
+            case 'n':
+                packed_move.type = KNIGHT;
+                break;
+            case 'b':
+                packed_move.type = BISHOP;
+                break;
+            case 'r':
+                packed_move.type = ROOK;
+                break;
+            case 'q':
+                packed_move.type = QUEEN;
+                break;
+            default:
+                return EMPTY_MOVE;
+        }
+    }
 
+    return to_move(packed_move);
+}
+
+move_t board_t::to_move(packed_move_t packed_move) const {
+    move_t move{};
+    
+    move.info.from = static_cast<uint8_t>(packed_move.from);
+    move.info.to = static_cast<uint8_t>(packed_move.to);
+    
     // Piece
     move.info.team = sq_data[move.info.from].team;
     move.info.piece = sq_data[move.info.from].piece;
@@ -300,24 +327,9 @@ move_t board_t::parse_move(const std::string &str) const {
     move.info.captured_type = sq_data[move.info.to].occupied ? sq_data[move.info.to].piece : 0;
 
     // Promotion
-    move.info.is_promotion = static_cast<uint16_t>(str.length() == 5);
+    move.info.is_promotion = static_cast<uint16_t>(packed_move.type != 0);
     if (move.info.is_promotion) {
-        switch (str[4]) {
-            case 'n':
-                move.info.promotion_type = KNIGHT;
-                break;
-            case 'b':
-                move.info.promotion_type = BISHOP;
-                break;
-            case 'r':
-                move.info.promotion_type = ROOK;
-                break;
-            case 'q':
-                move.info.promotion_type = QUEEN;
-                break;
-            default:
-                return EMPTY_MOVE;
-        }
+        move.info.promotion_type = packed_move.type;
     }
 
     // Castling

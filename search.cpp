@@ -123,7 +123,7 @@ int search_t::search_root(search_context_t &context, int alpha, int beta, int de
     int eval = evaluator.evaluate(context.board);
 
     GenStage stage = GEN_NONE; move_t move{}; int move_score;
-    movesort_t gen(NORMAL, context, h.move, 0);
+    movesort_t gen(NORMAL, context, context.board.to_move(h.move), 0);
     int n_legal = 0;
     while ((move = gen.next(stage, move_score)) != EMPTY_MOVE) {
         if (!is_root_move(move)) {
@@ -239,7 +239,7 @@ int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply,
 
     // Probe transposition table
     tt::entry_t h = {0}; tt::Bound h_bound = tt::NONE;
-    int eval;
+    int eval; move_t tt_move = EMPTY_MOVE;
     if (excluded == EMPTY_MOVE && tt->probe(context.board.record[context.board.now].hash, h)) {
         score = h.value(ply);
         eval = h.static_eval;
@@ -250,6 +250,8 @@ int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply,
             if (h_bound == tt::UPPER && score <= alpha) return score;
             if (h_bound == tt::EXACT) return score;
         }
+
+        tt_move = context.board.to_move(h.move);
     } else {
         score = -INF;
         eval = evaluator.evaluate(context.board);
@@ -276,14 +278,14 @@ int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply,
     }
 
     // Internal iterative deepening
-    if (depth > 6 && h.move == EMPTY_MOVE) {
+    if (depth > 6 && tt_move == EMPTY_MOVE) {
         search_ab<false, H>(context, alpha, beta, ply, depth - 6, can_null, EMPTY_MOVE, aborted);
         if (is_aborted(aborted)) return TIMEOUT;
         tt->probe(context.board.record[context.board.now].hash, h);
     }
 
     GenStage stage = GEN_NONE; move_t move{}; int move_score;
-    movesort_t gen(NORMAL, context, h.move, ply);
+    movesort_t gen(NORMAL, context, tt_move, ply);
     int n_legal = 0;
     while ((move = gen.next(stage, move_score)) != EMPTY_MOVE) {
         if (excluded == move) {
@@ -298,7 +300,7 @@ int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply,
         int ex = 0;
 
         // Singular extension
-        if (depth >= 8 && move == h.move
+        if (depth >= 8 && move == tt_move
             && (h_bound == tt::LOWER || h_bound == tt::EXACT)
             && excluded == EMPTY_MOVE
             && h.depth() >= depth - 3
@@ -341,7 +343,7 @@ int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply,
                     // LMR
                     int R = !PV + depth / 8 + n_legal / 8;
                     if(move_score <= n_legal) R++;
-                    if(h.move.info.is_capture) R++;
+                    if(tt_move.info.is_capture) R++;
                     if(R >= 1 && context.board.see(reverse(move)) < 0) R--;
 
                     if (R > 0) {

@@ -236,6 +236,8 @@ int main(int argc, char *argv[]) {
                 } else {
                     std::cout << "board=nullptr" << std::endl;
                 }
+            } else if(cmd == "ucinewgame") {
+                tt->age();
             } else if (cmd == "eval") {
                 if (board != nullptr) {
                     std::cout << evaluator.evaluate(*board) << std::endl;

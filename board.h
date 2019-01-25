@@ -53,6 +53,7 @@ struct board_t {
     void unmove();
 
     move_t parse_move(const std::string &str) const;
+    move_t to_move(packed_move_t packed_move) const;
 
     bool is_illegal() const;
     bool is_incheck() const;

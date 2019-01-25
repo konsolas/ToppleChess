@@ -38,9 +38,9 @@ namespace tt {
         return size;
     }
 
-    struct entry_t { // 18 bytes
+    struct entry_t { // 16 bytes
         U64 hash; // 8 bytes
-        move_t move; // 4 bytes
+        packed_move_t move; // 2 bytes
         int16_t static_eval; // 2 bytes
         int16_t internal_value; // 2 bytes
         uint16_t about; // 2 bytes [GGGGGGGDDDDDDDBB] // 7 bits generation, 7 bits depth, 2 bits bound
@@ -69,7 +69,7 @@ namespace tt {
 
         void update(Bound bound, int depth, int generation, move_t best_move, int eval, int score) {
             about = bound | (depth << 2) | (generation << 9);
-            move = best_move;
+            move = compress(best_move);
             static_eval = static_cast<int16_t>(eval);
             internal_value = static_cast<int16_t>(score);
         }
@@ -80,7 +80,7 @@ namespace tt {
     };
 
     class hash_t {
-        static constexpr size_t bucket_size = 2;
+        static constexpr size_t bucket_size = 4;
     public:
         explicit hash_t(size_t size);
         ~hash_t();
