@@ -81,9 +81,18 @@ U64 perft(board_t &board, int depth) {
         INFO(next);
         REQUIRE(board.is_pseudo_legal(next));
 
+        bool is_legal = board.is_legal(next);
+        bool gives_check = board.gives_check(next);
+
         board.move(next);
 
-        if (!board.is_illegal()) {
+        bool actually_legal = !board.is_illegal();
+        bool actually_gives_check = board.is_incheck();
+        INFO("position: " << board << " lastmove: " << board.record[board.now].prev_move);
+        REQUIRE(is_legal == actually_legal);
+        REQUIRE(gives_check == actually_gives_check);
+
+        if (actually_legal) {
             count += perft(board, depth - 1);
         }
 

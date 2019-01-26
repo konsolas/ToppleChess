@@ -118,7 +118,7 @@ struct search_context_t {
     search_heur::history_heur_t h_history;
 
     // SMP
-    int tid;
+    int tid = 0;
 };
 
 class search_t {

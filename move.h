@@ -33,6 +33,12 @@ union move_t {
 
     uint32_t move_bytes;
 };
+
+struct packed_move_t {
+    uint16_t from : 6,
+    to: 6,
+    type: 4;
+};
 #pragma pack(pop)
 
 static const move_t EMPTY_MOVE = {};
@@ -84,6 +90,15 @@ inline move_t reverse(move_t &move) {
     }
 
     return EMPTY_MOVE;
+}
+
+inline packed_move_t compress(move_t move) {
+    packed_move_t packed_move{};
+    packed_move.from = move.info.from;
+    packed_move.to = move.info.to;
+    packed_move.type = move.info.promotion_type;
+
+    return packed_move;
 }
 
 #endif //TOPPLE_MOVE_H

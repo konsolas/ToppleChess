@@ -44,14 +44,6 @@ enum Square : uint8_t {
     A8, B8, C8, D8, E8, F8, G8, H8,
 };
 
-enum Direction {
-    D_SW = -9, D_S = -8, D_SE = -7, D_W = -1, D_X = 0, D_E = 1, D_NW = 7, D_N = 8, D_NE = 9
-};
-
-inline int rel_offset(Team side, Direction dir) {
-    return side ? -dir : dir;
-}
-
 const uint8_t MIRROR_TABLE[64] = {
         56, 57, 58, 59, 60, 61, 62, 63,
         48, 49, 50, 51, 52, 53, 54, 55,
@@ -62,5 +54,21 @@ const uint8_t MIRROR_TABLE[64] = {
         8, 9, 10, 11, 12, 13, 14, 15,
         0, 1, 2, 3, 4, 5, 6, 7
 };
+
+enum Direction {
+    D_SW = -9, D_S = -8, D_SE = -7, D_W = -1, D_X = 0, D_E = 1, D_NW = 7, D_N = 8, D_NE = 9
+};
+
+constexpr int rel_offset(Team side, Direction dir) {
+    return side ? -dir : dir;
+}
+
+constexpr uint8_t rel_sq(Team side, uint8_t square) {
+    return side ? MIRROR_TABLE[square] : square;
+}
+
+constexpr uint8_t rel_rank(Team side, uint8_t rank) {
+    return side ? uint8_t(7 - rank) : rank;
+}
 
 #endif //TOPPLE_TYPES_H

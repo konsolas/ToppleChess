@@ -232,4 +232,8 @@ TEST_CASE("Legality") {
     board_t board2("rnbqkb1r/ppp2ppp/3p4/8/4n3/3N4/PPPP1PPP/RNBQKB1R w KQkq - 0 5");
     INFO(((find_moves(PAWN, WHITE, D2, board2.bb_all) & single_bit(D4)) == 0))
     REQUIRE(!board2.is_pseudo_legal(board2.parse_move("d2d4")));
+
+    board_t board3("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8 ");
+    INFO(board3 << board3.parse_move("d7c8q"));
+    REQUIRE(board3.is_legal(board3.parse_move("d7c8q")));
 }

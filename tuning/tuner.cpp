@@ -165,6 +165,13 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
+
+    std::cout << "  mat_exch_scale " << current_params.mat_exch_scale << std::endl;
+    std::cout << "  mat_exch_pawn " << current_params.mat_exch_pawn << std::endl;
+    std::cout << "  mat_exch_minor " << current_params.mat_exch_minor << std::endl;
+    std::cout << "  mat_exch_rook " << current_params.mat_exch_rook << std::endl;
+    std::cout << "  mat_exch_queen " << current_params.mat_exch_queen << std::endl;
+
     std::cout << "  n_pst_mg ";
     for (int param : current_params.n_pst_mg) {
         std::cout << param << ", ";
@@ -251,6 +258,18 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
+    std::cout << "  backwards_mg ";
+    for (int param : current_params.backwards_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  backward_eg ";
+    for (int param : current_params.backwards_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
     std::cout << "  doubled_mg ";
     for (int param : current_params.doubled_mg) {
         std::cout << param << ", ";
@@ -305,13 +324,7 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
-    std::cout << "  ks_pawn_shield ";
-    for (int param : current_params.ks_pawn_shield) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  ks_open_file " << current_params.kat_open_file << std::endl;
+    std::cout << "  kat_open_file " << current_params.kat_open_file << std::endl;
 
     std::cout << "  kat_attack_weight ";
     for (int param : current_params.kat_attack_weight) {
@@ -325,8 +338,22 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
+    std::cout << "  kat_table_scale " << current_params.kat_table_scale << std::endl;
+    std::cout << "  kat_table_translate " << current_params.kat_table_translate << std::endl;
+    std::cout << "  kat_table_max " << current_params.kat_table_max << std::endl;
+    std::cout << "  kat_table_offset " << current_params.kat_table_offset << std::endl;
+
     std::cout << "  pos_bishop_pair_mg " << current_params.pos_bishop_pair_mg << std::endl;
     std::cout << "  pos_bishop_pair_eg " << current_params.pos_bishop_pair_eg << std::endl;
 
     std::cout << "  pos_r_trapped_mg " << current_params.pos_r_trapped_mg << std::endl;
+
+    std::cout << "  pos_r_open_file_mg " << current_params.pos_r_open_file_mg << std::endl;
+    std::cout << "  pos_r_open_file_eg " << current_params.pos_r_open_file_eg << std::endl;
+    std::cout << "  pos_r_behind_own_passer_mg " << current_params.pos_r_behind_own_passer_mg << std::endl;
+    std::cout << "  pos_r_behind_own_passer_eg " << current_params.pos_r_behind_own_passer_eg << std::endl;
+    std::cout << "  pos_r_behind_enemy_passer_mg " << current_params.pos_r_behind_enemy_passer_mg << std::endl;
+    std::cout << "  pos_r_behind_enemy_passer_eg " << current_params.pos_r_behind_enemy_passer_eg << std::endl;
+    std::cout << "  pos_r_xray_pawn_mg " << current_params.pos_r_xray_pawn_mg << std::endl;
+    std::cout << "  pos_r_xray_pawn_eg " << current_params.pos_r_xray_pawn_eg << std::endl;
 }

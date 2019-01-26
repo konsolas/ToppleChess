@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.8)
 project(Topple)
 
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_FLAGS "-march=native -static -Ofast -std=c++17 -pedantic -Wall")
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_FLAGS "-march=native -static -Ofast -pedantic -Wall")
 
 set(SOURCE_FILES
         board.h board.cpp

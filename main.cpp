@@ -9,7 +9,7 @@
 #include "eval.h"
 #include "endgame.h"
 
-#define TOPPLE_VER "0.3.3"
+#define TOPPLE_VER "0.3.4"
 
 const unsigned int MB = 1048576;
 
@@ -236,6 +236,8 @@ int main(int argc, char *argv[]) {
                 } else {
                     std::cout << "board=nullptr" << std::endl;
                 }
+            } else if(cmd == "ucinewgame") {
+                tt->age();
             } else if (cmd == "eval") {
                 if (board != nullptr) {
                     std::cout << evaluator.evaluate(*board) << std::endl;
