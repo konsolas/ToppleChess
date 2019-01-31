@@ -31,7 +31,7 @@ namespace search_heur {
             tableHist(bad_move, penalty);
         }
 
-        int get(move_t move) {
+        int get(move_t move) const {
             return historyTable[move.info.team][move.info.from][move.info.to];
         }
     private:
@@ -63,11 +63,11 @@ namespace search_heur {
             }
         }
 
-        move_t primary(int ply) {
+        move_t primary(int ply) const {
             return killers[ply][0];
         }
 
-        move_t secondary(int ply) {
+        move_t secondary(int ply) const {
             return killers[ply][1];
         }
 

@@ -286,7 +286,12 @@ int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply,
     if (depth > 6 && tt_move == EMPTY_MOVE) {
         search_ab<false, H>(context, alpha, beta, ply, depth - 6, can_null, EMPTY_MOVE, aborted);
         if (is_aborted(aborted)) return TIMEOUT;
-        tt->probe(context.board.record[context.board.now].hash, h);
+        if(tt->probe(context.board.record[context.board.now].hash, h)) {
+            score = h.value(ply);
+            eval = h.static_eval;
+            h_bound = h.bound();
+            tt_move = context.board.to_move(h.move);
+        }
     }
 
     GenStage stage = GEN_NONE; move_t move{}; int move_score;
@@ -326,6 +331,9 @@ int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply,
             continue;
         } else {
             n_legal++; // Legal move
+
+            // Prefetch
+            tt->prefetch(context.board.record[context.board.now].hash);
 
             bool move_is_check = context.board.is_incheck();
 
@@ -462,7 +470,6 @@ int search_t::search_qs(search_context_t &context, int alpha, int beta, int ply,
     movesort_t gen(QUIESCENCE, context, EMPTY_MOVE, 0);
     while ((move = gen.next(stage, move_score)) != EMPTY_MOVE) {
         if (move.info.captured_type == KING) return INF; // Ignore this position in case of a king capture
-        if (stage == GEN_BAD_CAPT) break; // SEE Pruning
         if (stand_pat + move_score < alpha - 128) break; // Delta pruning
 
         context.board.move(move);

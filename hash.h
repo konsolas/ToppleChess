@@ -86,6 +86,7 @@ namespace tt {
         ~hash_t();
 
         bool probe(U64 hash, entry_t &entry);
+        void prefetch(U64 hash);
         void save(Bound bound, U64 hash, int depth, int ply, int static_eval, int score, move_t move);
         void age();
         size_t hash_full();

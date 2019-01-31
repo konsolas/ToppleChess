@@ -4,7 +4,7 @@
 
 #include "movesort.h"
 
-movesort_t::movesort_t(GenMode mode, search_context_t &context, move_t hash_move, int ply) :
+movesort_t::movesort_t(GenMode mode, const search_context_t &context, move_t hash_move, int ply) :
         mode(mode), context(context), hash_move(hash_move), ply(ply), gen(movegen_t(context.board)) {
 
 }
