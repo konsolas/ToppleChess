@@ -18,21 +18,24 @@ search_t::search_t(board_t board, evaluator_t &evaluator, tt::hash_t *tt, unsign
     main_context.board = board;
 }
 
-move_t search_t::think(const std::atomic_bool &aborted) {
+search_result_t search_t::think(const std::atomic_bool &aborted) {
     nodes = 0;
     start = engine_clock::now();
+
+    int prev_score, score = 0, depth;
+
     if (threads > 0) {
         // Helper threads
         std::vector<std::future<int>> helper_threads(threads - 1);
-        std::vector<search_context_t> helper_contexts(threads - 1);
+        std::vector<context_t> helper_contexts(threads - 1);
         for (unsigned int i = 0; i < threads - 1; i++) {
             helper_contexts[i] = main_context;
             helper_contexts[i].tid = i + 1;
         }
         std::atomic_bool helper_thread_aborted;
 
-        int prev_score = 0;
-        for (int depth = 1; keep_searching(depth); depth++) {
+        prev_score = 0;
+        for (depth = 1; keep_searching(depth); depth++) {
             sel_depth = 0;
             helper_thread_aborted = false;
 
@@ -47,7 +50,7 @@ move_t search_t::think(const std::atomic_bool &aborted) {
             }
 
             int n_legal = 0;
-            int score = search_aspiration(prev_score, depth, aborted, n_legal);
+            score = search_aspiration(prev_score, depth, aborted, n_legal);
 
             // Stop helper threads
             helper_thread_aborted = true;
@@ -61,8 +64,8 @@ move_t search_t::think(const std::atomic_bool &aborted) {
             }
 
             // If in game situation, try and manage time
-            if (limits.game_situation) {
-                auto elapsed = CHRONO_DIFF(start, engine_clock::now());
+            if (limits.game_situation && timer_started) {
+                auto elapsed = CHRONO_DIFF(timer_start, engine_clock::now());
 
                 // If there is only one legal move, return immediately
                 if(n_legal <= 1) {
@@ -85,9 +88,27 @@ move_t search_t::think(const std::atomic_bool &aborted) {
 
             prev_score = score;
         }
+    } else {
+        throw std::invalid_argument("threads cannot be 0");
     }
 
-    return last_pv[0];
+    wait_for_timer();
+
+    return {last_pv[0], last_pv[1], score, depth, main_context.heur};
+}
+
+void search_t::enable_timer() {
+    {
+        std::unique_lock<std::mutex> lock(timer_mtx);
+        timer_started = true;
+        timer_cnd.notify_all();
+    }
+    timer_start = engine_clock::now();
+}
+
+void search_t::wait_for_timer() {
+    std::unique_lock<std::mutex> lock(timer_mtx);
+    while(!timer_started) timer_cnd.wait(lock);
 }
 
 int search_t::search_aspiration(int prev_score, int depth, const std::atomic_bool &aborted, int &n_legal) {
@@ -130,7 +151,7 @@ int search_t::search_aspiration(int prev_score, int depth, const std::atomic_boo
     return score;
 }
 
-int search_t::search_root(search_context_t &context, int alpha, int beta, int depth, const std::atomic_bool &aborted, int &n_legal) {
+int search_t::search_root(context_t &context, int alpha, int beta, int depth, const std::atomic_bool &aborted, int &n_legal) {
     nodes++;
     pv_table_len[0] = 0;
 
@@ -196,8 +217,8 @@ int search_t::search_root(search_context_t &context, int alpha, int beta, int de
                                  best_move);
 
                         if (!move.info.is_capture) {
-                            context.h_history.good_history(move, depth);
-                            context.h_killer.update(move, 0);
+                            context.heur.history.good_history(move, depth);
+                            context.heur.killers.update(move, 0);
                         }
 
                         return beta; // Fail hard
@@ -225,7 +246,7 @@ int search_t::search_root(search_context_t &context, int alpha, int beta, int de
 
     if (alpha > old_alpha) {
         tt->save(tt::EXACT, context.board.record[context.board.now].hash, depth, 0, eval, alpha, best_move);
-        if (!best_move.info.is_capture) context.h_history.good_history(best_move, depth);
+        if (!best_move.info.is_capture) context.heur.history.good_history(best_move, depth);
     } else {
         tt->save(tt::UPPER, context.board.record[context.board.now].hash, depth, 0, eval, alpha, best_move);
     }
@@ -234,7 +255,7 @@ int search_t::search_root(search_context_t &context, int alpha, int beta, int de
 }
 
 template<bool PV, bool H>
-int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply, int depth, bool can_null, move_t excluded,
+int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int depth, bool can_null, move_t excluded,
                         const std::atomic_bool &aborted) {
     nodes++;
     if (!H) pv_table_len[ply] = ply;
@@ -438,11 +459,11 @@ int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply,
                             int n_prev_quiets;
                             move_t *prev_quiets = gen.generated_quiets(n_prev_quiets);
                             for (int i = 0; i < n_prev_quiets; i++) {
-                                context.h_history.bad_history(prev_quiets[i], depth);
+                                context.heur.history.bad_history(prev_quiets[i], depth);
                             }
 
-                            context.h_history.good_history(move, depth);
-                            context.h_killer.update(move, ply);
+                            context.heur.history.good_history(move, depth);
+                            context.heur.killers.update(move, ply);
                         }
 
                         return beta; // Fail hard
@@ -466,7 +487,7 @@ int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply,
 
     if (alpha > old_alpha) {
         tt->save(tt::EXACT, context.board.record[context.board.now].hash, depth, ply, eval, alpha, best_move);
-        if (!best_move.info.is_capture) context.h_history.good_history(best_move, depth);
+        if (!best_move.info.is_capture) context.heur.history.good_history(best_move, depth);
     } else if (excluded == EMPTY_MOVE) {
         tt->save(tt::UPPER, context.board.record[context.board.now].hash, depth, ply, eval, alpha, best_move);
     }
@@ -475,7 +496,7 @@ int search_t::search_ab(search_context_t &context, int alpha, int beta, int ply,
 }
 
 template<bool PV, bool H>
-int search_t::search_qs(search_context_t &context, int alpha, int beta, int ply, const std::atomic_bool &aborted) {
+int search_t::search_qs(context_t &context, int alpha, int beta, int ply, const std::atomic_bool &aborted) {
     nodes++;
 
     if (!H) pv_table_len[ply] = ply;
@@ -542,13 +563,13 @@ void search_t::save_pv() {
 }
 
 bool search_t::has_pv() {
-    return last_pv[0] != EMPTY_MOVE && last_pv_len > 0;
+    return last_pv[0] != EMPTY_MOVE && last_pv_len > 1;
 }
 
 bool search_t::keep_searching(int depth) {
     return nodes <= limits.node_limit
            && depth <= limits.depth_limit
-           && CHRONO_DIFF(start, engine_clock::now()) <= limits.hard_time_limit;
+           && (!timer_started || CHRONO_DIFF(timer_start, engine_clock::now()) <= limits.hard_time_limit);
 }
 
 bool search_t::is_aborted(const std::atomic_bool &aborted) {

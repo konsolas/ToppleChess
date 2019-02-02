@@ -74,6 +74,11 @@ namespace search_heur {
     private:
         move_t killers[MAX_PLY][2] = {{}};
     };
+
+    struct heuristic_set_t {
+        killer_heur_t killers;
+        history_heur_t history;
+    };
 }
 
 struct search_limits_t {
@@ -95,7 +100,7 @@ struct search_limits_t {
             suggested_time_limit += inc / 2;
 
             // Allow search to use up to 3x as much time as suggested.
-            hard_time_limit = suggested_time_limit * 3;
+            hard_time_limit = suggested_time_limit * 6;
 
             // Clamp both time limits
             suggested_time_limit = std::clamp(suggested_time_limit, 0, time - 50);
@@ -119,32 +124,42 @@ struct search_limits_t {
     std::vector<move_t> root_moves = std::vector<move_t>();
 };
 
-struct search_context_t {
-    board_t board;
+struct search_result_t {
+    move_t best_move{};
+    move_t ponder{};
+    int score = 0;
 
-    // Heuristics
-    search_heur::killer_heur_t h_killer;
-    search_heur::history_heur_t h_history;
-
-    // SMP
-    int tid = 0;
+    int depth = 0;
+    search_heur::heuristic_set_t heur;
 };
 
 class search_t {
     friend class movesort_t;
+
+    struct context_t {
+        board_t board;
+
+        // Heuristics
+        search_heur::heuristic_set_t heur;
+
+        // SMP
+        int tid = 0;
+    };
 public:
     explicit search_t(board_t board, evaluator_t &evaluator, tt::hash_t *tt, unsigned int threads, search_limits_t limits);
 
-    move_t think(const std::atomic_bool &aborted);
+    search_result_t think(const std::atomic_bool &aborted);
+    void enable_timer();
+    void wait_for_timer();
 private:
     int search_aspiration(int prev_score, int depth, const std::atomic_bool &aborted, int &n_legal);
-    int search_root(search_context_t &context, int alpha, int beta, int depth, const std::atomic_bool &aborted, int &n_legal);
+    int search_root(context_t &context, int alpha, int beta, int depth, const std::atomic_bool &aborted, int &n_legal);
 
     template<bool PV, bool H>
-    int search_ab(search_context_t &context, int alpha, int beta, int ply, int depth, bool can_null, move_t excluded,
+    int search_ab(context_t &context, int alpha, int beta, int ply, int depth, bool can_null, move_t excluded,
                   const std::atomic_bool &aborted);
     template<bool PV, bool H>
-    int search_qs(search_context_t &context, int alpha, int beta, int ply, const std::atomic_bool &aborted);
+    int search_qs(context_t &context, int alpha, int beta, int ply, const std::atomic_bool &aborted);
 
     void save_pv();
     bool has_pv();
@@ -159,9 +174,15 @@ private:
     // Shared structures
     evaluator_t &evaluator;
     tt::hash_t *tt;
-    std::chrono::steady_clock::time_point start;
     unsigned int threads;
     search_limits_t limits;
+
+    // Timing
+    std::mutex timer_mtx;
+    std::condition_variable timer_cnd;
+    bool timer_started = false;
+    std::chrono::steady_clock::time_point timer_start;
+    std::chrono::steady_clock::time_point start;
 
     // PV table (main thread only)
     int pv_table_len[MAX_PLY] = {};
@@ -170,7 +191,7 @@ private:
     move_t last_pv[MAX_PLY] = {};
 
     // Main search context
-    search_context_t main_context;
+    context_t main_context;
 
     // Global stats
     U64 nodes = 0;
