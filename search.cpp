@@ -46,7 +46,8 @@ move_t search_t::think(const std::atomic_bool &aborted) {
                 }
             }
 
-            prev_score = search_aspiration(prev_score, depth, aborted);
+            int n_legal = 0;
+            int score = search_aspiration(prev_score, depth, aborted, n_legal);
 
             // Stop helper threads
             helper_thread_aborted = true;
@@ -54,16 +55,42 @@ move_t search_t::think(const std::atomic_bool &aborted) {
                 helper_threads[i] = {};
             }
 
+            // Check if search was aborted
             if (is_aborted(aborted)) {
                 break;
             }
+
+            // If in game situation, try and manage time
+            if (limits.game_situation) {
+                auto elapsed = CHRONO_DIFF(start, engine_clock::now());
+
+                // If there is only one legal move, return immediately
+                if(n_legal <= 1) {
+                    break;
+                }
+
+                // Scale the search time based on the complexity of the position
+                int junk; double tapering_factor = evaluator.eval_material(main_context.board, junk, junk);
+                double complexity = std::clamp(n_legal / 30.0, 0.5, 3.0) * tapering_factor + (1 - tapering_factor);
+                int adjusted_suggestion = static_cast<int>(complexity * limits.suggested_time_limit);
+
+                // See if we can justify ending the search early, as long as we're not doing badly
+                if(depth <= 5 || score > prev_score - 50) {
+                    // If it's unlikely that we'll search deeper
+                    if(elapsed > adjusted_suggestion * 0.75) {
+                        break;
+                    }
+                }
+            }
+
+            prev_score = score;
         }
     }
 
     return last_pv[0];
 }
 
-int search_t::search_aspiration(int prev_score, int depth, const std::atomic_bool &aborted) {
+int search_t::search_aspiration(int prev_score, int depth, const std::atomic_bool &aborted, int &n_legal) {
     const int ASPIRATION_DELTA = 15;
 
     int alpha, beta, delta = ASPIRATION_DELTA;
@@ -79,7 +106,7 @@ int search_t::search_aspiration(int prev_score, int depth, const std::atomic_boo
 
     // Check if we need to search again
     while(true) {
-        score = search_root(main_context, alpha, beta, depth, aborted);
+        score = search_root(main_context, alpha, beta, depth, aborted, n_legal);
         if (score == TIMEOUT) return score;
 
         researches++;
@@ -103,7 +130,7 @@ int search_t::search_aspiration(int prev_score, int depth, const std::atomic_boo
     return score;
 }
 
-int search_t::search_root(search_context_t &context, int alpha, int beta, int depth, const std::atomic_bool &aborted) {
+int search_t::search_root(search_context_t &context, int alpha, int beta, int depth, const std::atomic_bool &aborted, int &n_legal) {
     nodes++;
     pv_table_len[0] = 0;
 
@@ -124,7 +151,7 @@ int search_t::search_root(search_context_t &context, int alpha, int beta, int de
 
     GenStage stage = GEN_NONE; move_t move{}; int move_score;
     movesort_t gen(NORMAL, context, context.board.to_move(h.move), 0);
-    int n_legal = 0;
+    n_legal = 0;
     while ((move = gen.next(stage, move_score)) != EMPTY_MOVE) {
         if (!is_root_move(move)) {
             continue;
@@ -521,7 +548,7 @@ bool search_t::has_pv() {
 bool search_t::keep_searching(int depth) {
     return nodes <= limits.node_limit
            && depth <= limits.depth_limit
-           && CHRONO_DIFF(start, engine_clock::now()) <= limits.time_limit * 0.9;
+           && CHRONO_DIFF(start, engine_clock::now()) <= limits.hard_time_limit;
 }
 
 bool search_t::is_aborted(const std::atomic_bool &aborted) {

@@ -222,7 +222,7 @@ int main(int argc, char *argv[]) {
                                                                                 search, std::ref(search_abort));
 
                                             move_t best_move{};
-                                            if (bm.wait_for(std::chrono::milliseconds(limits.time_limit)) ==
+                                            if (bm.wait_for(std::chrono::milliseconds(limits.hard_time_limit)) ==
                                                 std::future_status::ready) {
                                                 best_move = bm.get();
                                             } else {

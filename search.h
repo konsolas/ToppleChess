@@ -79,6 +79,8 @@ namespace search_heur {
 struct search_limits_t {
     // Game situation
     explicit search_limits_t(int now, int time, int inc, int moves_to_go) {
+        game_situation = true;
+
         // Set other limits
         depth_limit = MAX_PLY;
         node_limit = UINT64_MAX;
@@ -86,25 +88,32 @@ struct search_limits_t {
         // Handle time control
         {
             // Try and use a consistent amount of time per move
-            time_limit = (time /
+            suggested_time_limit = (time /
                           (moves_to_go > 0 ? moves_to_go + 1 : std::max(50 - now, 30)));
 
             // Handle increment: Look to gain some time if there isn't much left
-            time_limit += inc / 2;
+            suggested_time_limit += inc / 2;
 
-            // Add a 25ms buffer to prevent losses from timeout.
-            time_limit = std::min(time_limit, time - 50);
+            // Allow search to use up to 3x as much time as suggested.
+            hard_time_limit = suggested_time_limit * 3;
 
-            // Ensure time is valid (if a time of zero is given, search will be depth 1)
-            time_limit = std::max(time_limit, 0);
+            // Clamp both time limits
+            suggested_time_limit = std::clamp(suggested_time_limit, 0, time - 50);
+            hard_time_limit = std::clamp(hard_time_limit, 0, time - 50);
         }
     }
 
     // Custom search
     explicit search_limits_t(int move_time, int depth, U64 max_nodes, std::vector<move_t> root_moves) :
-            time_limit(move_time), depth_limit(depth), node_limit(max_nodes), root_moves(std::move(root_moves)) {}
+            hard_time_limit(move_time), depth_limit(depth), node_limit(max_nodes), root_moves(std::move(root_moves)) {
+        game_situation = false;
+        suggested_time_limit = hard_time_limit;
+    }
 
-    int time_limit;
+    bool game_situation;
+    int suggested_time_limit;
+
+    int hard_time_limit;
     int depth_limit;
     U64 node_limit;
     std::vector<move_t> root_moves = std::vector<move_t>();
@@ -128,8 +137,8 @@ public:
 
     move_t think(const std::atomic_bool &aborted);
 private:
-    int search_aspiration(int prev_score, int depth, const std::atomic_bool &aborted);
-    int search_root(search_context_t &context, int alpha, int beta, int depth, const std::atomic_bool &aborted);
+    int search_aspiration(int prev_score, int depth, const std::atomic_bool &aborted, int &n_legal);
+    int search_root(search_context_t &context, int alpha, int beta, int depth, const std::atomic_bool &aborted, int &n_legal);
 
     template<bool PV, bool H>
     int search_ab(search_context_t &context, int alpha, int beta, int ply, int depth, bool can_null, move_t excluded,

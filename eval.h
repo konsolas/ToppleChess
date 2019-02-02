@@ -140,9 +140,8 @@ public:
     /// Initialise generic evaluation tables
     static void eval_init();
 
-private:
     double eval_material(const board_t &board, int &mg, int &eg); // returns tapering factor 0-1
-
+private:
     void eval_pst(const board_t &board, int &mg, int &eg);
 
     pawn_entry_t *eval_pawns(const board_t &board);
