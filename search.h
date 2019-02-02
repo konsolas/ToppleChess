@@ -99,8 +99,8 @@ struct search_limits_t {
             // Handle increment: Look to gain some time if there isn't much left
             suggested_time_limit += inc / 2;
 
-            // Allow search to use up to 3x as much time as suggested.
-            hard_time_limit = suggested_time_limit * 6;
+            // Allow search to use up to 4x as much time as suggested.
+            hard_time_limit = suggested_time_limit * 4;
 
             // Clamp both time limits
             suggested_time_limit = std::clamp(suggested_time_limit, 0, time - 50);
