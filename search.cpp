@@ -64,23 +64,24 @@ search_result_t search_t::think(const std::atomic_bool &aborted) {
             }
 
             // If in game situation, try and manage time
-            if (limits.game_situation && timer_started) {
+            if (limits.game_situation && timer_started && has_pv()) {
                 auto elapsed = CHRONO_DIFF(timer_start, engine_clock::now());
 
                 // If there is only one legal move, return immediately
-                if(n_legal <= 1) {
+                if (n_legal <= 1) {
                     break;
                 }
 
                 // Scale the search time based on the complexity of the position
-                int junk; double tapering_factor = evaluator.eval_material(main_context.board, junk, junk);
+                int junk;
+                double tapering_factor = evaluator.eval_material(main_context.board, junk, junk);
                 double complexity = std::clamp(n_legal / 30.0, 0.5, 3.0) * tapering_factor + (1 - tapering_factor);
                 int adjusted_suggestion = static_cast<int>(complexity * limits.suggested_time_limit);
 
                 // See if we can justify ending the search early, as long as we're not doing badly
-                if(depth <= 5 || score > prev_score - 50) {
+                if (depth <= 5 || score > prev_score - 50) {
                     // If it's unlikely that we'll search deeper
-                    if(elapsed > adjusted_suggestion * 0.75) {
+                    if (elapsed > adjusted_suggestion * 0.75) {
                         break;
                     }
                 }
@@ -108,7 +109,7 @@ void search_t::enable_timer() {
 
 void search_t::wait_for_timer() {
     std::unique_lock<std::mutex> lock(timer_mtx);
-    while(!timer_started) timer_cnd.wait(lock);
+    while (!timer_started) timer_cnd.wait(lock);
 }
 
 int search_t::search_aspiration(int prev_score, int depth, const std::atomic_bool &aborted, int &n_legal) {
@@ -123,10 +124,11 @@ int search_t::search_aspiration(int prev_score, int depth, const std::atomic_boo
         alpha = -INF, beta = INF;
     }
 
-    int researches = 0; int score;
+    int researches = 0;
+    int score;
 
     // Check if we need to search again
-    while(true) {
+    while (true) {
         score = search_root(main_context, alpha, beta, depth, aborted, n_legal);
         if (score == TIMEOUT) return score;
 
@@ -151,7 +153,8 @@ int search_t::search_aspiration(int prev_score, int depth, const std::atomic_boo
     return score;
 }
 
-int search_t::search_root(context_t &context, int alpha, int beta, int depth, const std::atomic_bool &aborted, int &n_legal) {
+int search_t::search_root(context_t &context, int alpha, int beta, int depth, const std::atomic_bool &aborted,
+                          int &n_legal) {
     nodes++;
     pv_table_len[0] = 0;
 
@@ -170,7 +173,9 @@ int search_t::search_root(context_t &context, int alpha, int beta, int depth, co
 
     int eval = evaluator.evaluate(context.board);
 
-    GenStage stage = GEN_NONE; move_t move{}; int move_score;
+    GenStage stage = GEN_NONE;
+    move_t move{};
+    int move_score;
     movesort_t gen(NORMAL, context, context.board.to_move(h.move), 0);
     n_legal = 0;
     while ((move = gen.next(stage, move_score)) != EMPTY_MOVE) {
@@ -203,7 +208,7 @@ int search_t::search_root(context_t &context, int alpha, int beta, int depth, co
 
             if (is_aborted(aborted)) return TIMEOUT;
 
-            if(score > best_score) {
+            if (score > best_score) {
                 best_score = score;
                 best_move = move;
                 if (score > alpha) {
@@ -262,7 +267,7 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
 
     if (is_aborted(aborted)) {
         return TIMEOUT;
-    } else if(ply >= MAX_PLY - 2) {
+    } else if (ply >= MAX_PLY - 2) {
         return std::clamp(evaluator.evaluate(context.board), alpha, beta);
     }
 
@@ -282,17 +287,19 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
     }
 
     // Mate distance pruning
-    if (ply) {
+    if (ply && !PV) {
         alpha = std::max(-TO_MATE_SCORE(ply), alpha);
         beta = std::min(TO_MATE_SCORE(ply + 1), beta);
-        if(alpha >= beta) return beta;
+        if (alpha >= beta) return beta;
     }
 
     bool in_check = context.board.is_incheck();
 
     // Probe transposition table
-    tt::entry_t h = {0}; tt::Bound h_bound = tt::NONE;
-    int eval; move_t tt_move = EMPTY_MOVE;
+    tt::entry_t h = {0};
+    tt::Bound h_bound = tt::NONE;
+    int eval;
+    move_t tt_move = EMPTY_MOVE;
     if (excluded == EMPTY_MOVE && tt->probe(context.board.record[context.board.now].hash, h)) {
         score = h.value(ply);
         eval = h.static_eval;
@@ -317,7 +324,8 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
             context.board.move(EMPTY_MOVE);
 
             int R = 2 + depth / 4;
-            null_score = -search_ab<false, H>(context, -beta, -beta + 1, ply + 1, depth - R - 1, false, EMPTY_MOVE, aborted);
+            null_score = -search_ab<false, H>(context, -beta, -beta + 1, ply + 1, depth - R - 1, false, EMPTY_MOVE,
+                                              aborted);
             context.board.unmove();
 
             if (is_aborted(aborted)) return TIMEOUT;
@@ -334,7 +342,7 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
     if (depth > 6 && tt_move == EMPTY_MOVE) {
         search_ab<false, H>(context, alpha, beta, ply, depth - 6, can_null, EMPTY_MOVE, aborted);
         if (is_aborted(aborted)) return TIMEOUT;
-        if(tt->probe(context.board.record[context.board.now].hash, h)) {
+        if (tt->probe(context.board.record[context.board.now].hash, h)) {
             score = h.value(ply);
             eval = h.static_eval;
             h_bound = h.bound();
@@ -342,7 +350,9 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
         }
     }
 
-    GenStage stage = GEN_NONE; move_t move{}; int move_score;
+    GenStage stage = GEN_NONE;
+    move_t move{};
+    int move_score;
     movesort_t gen(NORMAL, context, tt_move, ply);
     int n_legal = 0;
     while ((move = gen.next(stage, move_score)) != EMPTY_MOVE) {
@@ -399,22 +409,22 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
             }
 
             bool normal_search = true;
-            if(n_legal > 1 && !move_is_check && stage == GEN_QUIETS) {
+            if (n_legal > 1 && !move_is_check && stage == GEN_QUIETS) {
                 if (depth >= 3) {
                     // LMR
                     int R = !PV + depth / 8 + n_legal / 8;
-                    if(move_score <= n_legal) R++;
-                    if(tt_move.info.is_capture) R++;
-                    if(R >= 1 && context.board.see(reverse(move)) < 0) R--;
+                    if (move_score <= n_legal) R++;
+                    if (tt_move.info.is_capture) R++;
+                    if (R >= 1 && context.board.see(reverse(move)) < 0) R--;
 
                     if (R > 0) {
                         score = -search_ab<false, H>(context, -alpha - 1, -alpha, ply + 1, depth - R - 1 + ex,
                                                      can_null, EMPTY_MOVE, aborted);
                         normal_search = score > alpha;
                     }
-                } else if(ply) {
+                } else if (ply) {
                     // History pruning
-                    if(n_legal > move_score) {
+                    if (n_legal > move_score) {
                         context.board.unmove();
                         break;
                     }
@@ -440,7 +450,7 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
 
             if (is_aborted(aborted)) return TIMEOUT;
 
-            if(score > best_score) {
+            if (score > best_score) {
                 best_score = score;
                 best_move = move;
                 if (score > alpha) {
@@ -505,7 +515,7 @@ int search_t::search_qs(context_t &context, int alpha, int beta, int ply, const 
 
     if (is_aborted(aborted)) {
         return TIMEOUT;
-    } else if(ply >= MAX_PLY - 2) {
+    } else if (ply >= MAX_PLY - 2) {
         return std::clamp(evaluator.evaluate(context.board), alpha, beta);
     }
 
@@ -514,7 +524,9 @@ int search_t::search_qs(context_t &context, int alpha, int beta, int ply, const 
     if (stand_pat >= beta) return beta;
     if (alpha < stand_pat) alpha = stand_pat;
 
-    GenStage stage = GEN_NONE; move_t move{}; int move_score;
+    GenStage stage = GEN_NONE;
+    move_t move{};
+    int move_score;
     movesort_t gen(QUIESCENCE, context, EMPTY_MOVE, 0);
     while ((move = gen.next(stage, move_score)) != EMPTY_MOVE) {
         if (move.info.captured_type == KING) return INF; // Ignore this position in case of a king capture
@@ -567,9 +579,10 @@ bool search_t::has_pv() {
 }
 
 bool search_t::keep_searching(int depth) {
-    return nodes <= limits.node_limit
-           && depth <= limits.depth_limit
-           && (!timer_started || CHRONO_DIFF(timer_start, engine_clock::now()) <= limits.hard_time_limit);
+    return !has_pv()
+           || (nodes <= limits.node_limit
+               && depth <= limits.depth_limit
+               && (!timer_started || CHRONO_DIFF(timer_start, engine_clock::now()) <= limits.hard_time_limit));
 }
 
 bool search_t::is_aborted(const std::atomic_bool &aborted) {
