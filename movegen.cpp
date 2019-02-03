@@ -4,7 +4,7 @@
 
 #include "movegen.h"
 
-movegen_t::movegen_t(board_t &board) : board(board) {
+movegen_t::movegen_t(const board_t &board) : board(board) {
     record = board.record[board.now];
     team = record.next_move;
     x_team = Team(!record.next_move);

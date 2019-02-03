@@ -172,6 +172,12 @@ void tuner_t::print_params() {
     std::cout << "  mat_exch_rook " << current_params.mat_exch_rook << std::endl;
     std::cout << "  mat_exch_queen " << current_params.mat_exch_queen << std::endl;
 
+    std::cout << "  mat_opp_bishop ";
+    for (int param : current_params.mat_opp_bishop) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
     std::cout << "  n_pst_mg ";
     for (int param : current_params.n_pst_mg) {
         std::cout << param << ", ";

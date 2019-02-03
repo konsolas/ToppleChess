@@ -26,13 +26,13 @@ constexpr int KILLER_BASE = 1000000000;
 
 class movesort_t {
 public:
-    movesort_t(GenMode mode, search_context_t &context, move_t hash_move, int ply);
+    movesort_t(GenMode mode, const search_t::context_t &context, move_t hash_move, int ply);
     move_t next(GenStage &stage, int &score);
 
     move_t *generated_quiets(int &count);
 private:
     GenMode mode;
-    search_context_t &context;
+    const search_t::context_t &context;
     move_t hash_move;
     int ply;
 
@@ -43,13 +43,13 @@ private:
 
     int main_idx = 0;
     int main_buf_size = 0;
-    move_t main_buf[128] = {};
-    int main_scores[128] = {};
+    move_t main_buf[128];
+    int main_scores[128];
 
     int capt_idx = 0;
     int capt_buf_size = 0;
-    move_t capt_buf[128] = {};
-    int capt_scores[128] = {};
+    move_t capt_buf[128];
+    int capt_scores[128];
 };
 
 

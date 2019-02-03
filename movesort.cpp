@@ -4,7 +4,7 @@
 
 #include "movesort.h"
 
-movesort_t::movesort_t(GenMode mode, search_context_t &context, move_t hash_move, int ply) :
+movesort_t::movesort_t(GenMode mode, const search_t::context_t &context, move_t hash_move, int ply) :
         mode(mode), context(context), hash_move(hash_move), ply(ply), gen(movegen_t(context.board)) {
 
 }
@@ -58,18 +58,18 @@ move_t movesort_t::next(GenStage &stage, int &score) {
             // Generate killers
             if(mode != QUIESCENCE) stage = GEN_KILLER_1;
             else return EMPTY_MOVE;
-            if(context.board.is_pseudo_legal(context.h_killer.primary(ply))) {
-                return context.h_killer.primary(ply);
+            if(context.board.is_pseudo_legal(context.heur.killers.primary(ply))) {
+                return context.heur.killers.primary(ply);
             }
         case GEN_KILLER_1:
             stage = GEN_KILLER_2;
-            if(context.board.is_pseudo_legal(context.h_killer.secondary(ply))) {
-                return context.h_killer.secondary(ply);
+            if(context.board.is_pseudo_legal(context.heur.killers.secondary(ply))) {
+                return context.heur.killers.secondary(ply);
             }
         case GEN_KILLER_2:
             stage = GEN_KILLER_3;
-            if(ply > 2 && context.board.is_pseudo_legal(context.h_killer.primary(ply - 2))) {
-                return context.h_killer.primary(ply - 2);
+            if(ply > 2 && context.board.is_pseudo_legal(context.heur.killers.primary(ply - 2))) {
+                return context.heur.killers.primary(ply - 2);
             }
         case GEN_KILLER_3:
             stage = GEN_BAD_CAPT;
@@ -102,7 +102,7 @@ move_t movesort_t::next(GenStage &stage, int &score) {
 
             // Score quiets
             for (int i = 0; i < main_buf_size; i++) {
-                main_scores[i] = context.h_history.get(main_buf[i]);
+                main_scores[i] = context.heur.history.get(main_buf[i]);
             }
         case GEN_QUIETS:
             // Pick best quiet until there are none left
@@ -116,9 +116,9 @@ move_t movesort_t::next(GenStage &stage, int &score) {
                 buf_swap_main(best_main_idx, main_idx);
 
                 if (main_buf[main_idx] == hash_move
-                    || main_buf[main_idx] == context.h_killer.primary(ply)
-                    || main_buf[main_idx] == context.h_killer.secondary(ply)
-                    || main_buf[main_idx] == context.h_killer.primary(ply - 2)) {
+                    || main_buf[main_idx] == context.heur.killers.primary(ply)
+                    || main_buf[main_idx] == context.heur.killers.secondary(ply)
+                    || main_buf[main_idx] == context.heur.killers.primary(ply - 2)) {
                     main_idx++;
                     goto retry;
                 }

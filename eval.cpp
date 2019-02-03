@@ -202,12 +202,25 @@ int evaluator_t::evaluate(const board_t &board) {
 }
 
 double evaluator_t::eval_material(const board_t &board, int &mg, int &eg) {
+    // Check for opposite coloured bishops
+    bool opposite_coloured_bishops = board.bb_pieces[WHITE][BISHOP] && board.bb_pieces[BLACK][BISHOP]
+        && !multiple_bits(board.bb_pieces[WHITE][BISHOP]) && !multiple_bits(board.bb_pieces[BLACK][BISHOP])
+        && !same_colour(bit_scan(board.bb_pieces[WHITE][BISHOP]), bit_scan(board.bb_pieces[BLACK][BISHOP]));
+
     // Collect material data
     const int pawn_w = pop_count(board.bb_pieces[WHITE][PAWN]); 
     const int pawn_b = pop_count(board.bb_pieces[BLACK][PAWN]);
     const int pawn_balance = pawn_w - pawn_b;
     mg += params.mat_mg[PAWN] * pawn_balance;
     eg += params.mat_eg[PAWN] * pawn_balance;
+
+    if(opposite_coloured_bishops) {
+        if(pawn_balance > 0) {
+            eg -= params.mat_opp_bishop[std::min(2, pawn_balance - 1)];
+        } else if(pawn_balance < 0) {
+            eg += params.mat_opp_bishop[std::min(2, -pawn_balance - 1)];
+        }
+    }
 
     const int knight_w = pop_count(board.bb_pieces[WHITE][KNIGHT]);
     const int knight_b = pop_count(board.bb_pieces[BLACK][KNIGHT]);

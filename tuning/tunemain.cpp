@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
             } else if(cmd == "print") {
                 tuner.print_params();
             } else if(cmd == "optimise_pos") {
-                tuner.optimise(&tuner.get_current_params()->backwards_mg[0], 4);
+                tuner.optimise(tuner.get_current_params()->mat_opp_bishop, 3);
             }
         }
     }

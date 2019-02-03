@@ -9,7 +9,7 @@
 #include "eval.h"
 #include "endgame.h"
 
-#define TOPPLE_VER "0.3.4"
+#define TOPPLE_VER "0.3.5"
 
 const unsigned int MB = 1048576;
 
@@ -63,6 +63,7 @@ int main(int argc, char *argv[]) {
                 std::cout << "option name Hash type spin default 128 min 1 max 1048576" << std::endl;
                 std::cout << "option name Threads type spin default 1 min 1 max 128" << std::endl;
                 std::cout << "option name Clear Hash type button" << std::endl;
+                std::cout << "option name Ponder type check default false" << std::endl;
 
                 std::cout << "uciok" << std::endl;
             } else if (cmd == "setoption") {
@@ -99,6 +100,8 @@ int main(int argc, char *argv[]) {
             } else if (cmd == "isready") {
                 std::cout << "readyok" << std::endl;
             } else if (cmd == "stop") {
+                // Cancel waiting for ponderhit by enabling the search timer, and then hard-aborting.
+                search->enable_timer();
                 search_abort = true;
             } else if (cmd == "position") {
                 std::string type;
@@ -143,6 +146,7 @@ int main(int argc, char *argv[]) {
                     int max_time = INT_MAX;
                     int max_depth = MAX_PLY;
                     U64 max_nodes = UINT64_MAX;
+                    bool ponder = false;
                     std::vector<move_t> root_moves;
 
                     struct {
@@ -196,6 +200,8 @@ int main(int argc, char *argv[]) {
                         } else if (param == "movestogo") {
                             time_control.enabled = true;
                             iss >> time_control.moves;
+                        } else if (param == "ponder") {
+                            ponder = true;
                         }
                     }
 
@@ -215,28 +221,48 @@ int main(int argc, char *argv[]) {
                                                              root_moves);
                     search = new search_t(*board, evaluator, tt, threads, limits);
 
+                    if (!ponder) search->enable_timer();
+
                     // Start search
                     future = std::async(std::launch::async,
-                                        [search, &search_abort, limits] {
-                                            std::future<move_t> bm = std::async(std::launch::async, &search_t::think,
-                                                                                search, std::ref(search_abort));
+                                        [search, ponder, &search_abort, limits] {
+                                            std::future<search_result_t> bm = std::async(std::launch::async,
+                                                                                         &search_t::think,
+                                                                                         search,
+                                                                                         std::ref(search_abort));
 
-                                            move_t best_move{};
-                                            if (bm.wait_for(std::chrono::milliseconds(limits.time_limit)) ==
-                                                std::future_status::ready) {
-                                                best_move = bm.get();
-                                            } else {
-                                                search_abort = true;
-                                                best_move = bm.get();
+                                            search_result_t result;
+
+                                            // Wait for actual search to start
+                                            if (ponder) {
+                                                search->wait_for_timer();
                                             }
 
-                                            std::cout << "bestmove " << best_move << std::endl;
+                                            if (bm.wait_for(std::chrono::milliseconds(limits.hard_time_limit)) ==
+                                                std::future_status::ready) {
+                                                result = bm.get();
+                                            } else {
+                                                search_abort = true;
+                                                result = bm.get();
+                                            }
+
+                                            std::cout << "bestmove " << result.best_move;
+                                            if(result.ponder != EMPTY_MOVE) {
+                                                std::cout << " ponder " << result.ponder;
+                                            }
+                                            std::cout << std::endl;
                                         }
                     );
                 } else {
                     std::cout << "board=nullptr" << std::endl;
                 }
-            } else if(cmd == "ucinewgame") {
+            } else if (cmd == "ponderhit") {
+                if (search != nullptr) {
+                    search->enable_timer();
+                } else {
+                    std::cout << "search=nullptr" << std::endl;
+                }
+            } else if (cmd == "ucinewgame") {
                 tt->age();
             } else if (cmd == "eval") {
                 if (board != nullptr) {

@@ -18,7 +18,7 @@ public:
      *
      * @param board board to generate moves for
      */
-    explicit movegen_t(board_t &board);
+    explicit movegen_t(const board_t &board);
 
     /**
      * Generate moves in the current state of the board and save them to {@code buf}, overwriting it from index 0.
@@ -41,7 +41,7 @@ public:
      */
     int gen_quiets(move_t *buf);
 private:
-    board_t &board;
+    const board_t &board;
 
     Team team;
     Team x_team;

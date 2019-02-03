@@ -21,6 +21,7 @@ struct eval_params_t {
     int mat_exch_minor = 3;
     int mat_exch_rook = 5;
     int mat_exch_queen = 13;
+    int mat_opp_bishop[3] = {73, 56, 44}; // [PAWN ADVANTAGE]
 
     /// Piece-square tables
 
@@ -140,9 +141,8 @@ public:
     /// Initialise generic evaluation tables
     static void eval_init();
 
-private:
     double eval_material(const board_t &board, int &mg, int &eg); // returns tapering factor 0-1
-
+private:
     void eval_pst(const board_t &board, int &mg, int &eg);
 
     pawn_entry_t *eval_pawns(const board_t &board);

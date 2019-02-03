@@ -31,7 +31,7 @@ namespace search_heur {
             tableHist(bad_move, penalty);
         }
 
-        int get(move_t move) {
+        int get(move_t move) const {
             return historyTable[move.info.team][move.info.from][move.info.to];
         }
     private:
@@ -63,22 +63,29 @@ namespace search_heur {
             }
         }
 
-        move_t primary(int ply) {
+        move_t primary(int ply) const {
             return killers[ply][0];
         }
 
-        move_t secondary(int ply) {
+        move_t secondary(int ply) const {
             return killers[ply][1];
         }
 
     private:
         move_t killers[MAX_PLY][2] = {{}};
     };
+
+    struct heuristic_set_t {
+        killer_heur_t killers;
+        history_heur_t history;
+    };
 }
 
 struct search_limits_t {
     // Game situation
     explicit search_limits_t(int now, int time, int inc, int moves_to_go) {
+        game_situation = true;
+
         // Set other limits
         depth_limit = MAX_PLY;
         node_limit = UINT64_MAX;
@@ -86,56 +93,73 @@ struct search_limits_t {
         // Handle time control
         {
             // Try and use a consistent amount of time per move
-            time_limit = (time /
+            suggested_time_limit = (time /
                           (moves_to_go > 0 ? moves_to_go + 1 : std::max(50 - now, 30)));
 
             // Handle increment: Look to gain some time if there isn't much left
-            time_limit += inc / 2;
+            suggested_time_limit += inc / 2;
 
-            // Add a 25ms buffer to prevent losses from timeout.
-            time_limit = std::min(time_limit, time - 50);
+            // Allow search to use up to 3x as much time as suggested.
+            hard_time_limit = suggested_time_limit * 3;
 
-            // Ensure time is valid (if a time of zero is given, search will be depth 1)
-            time_limit = std::max(time_limit, 0);
+            // Clamp both time limits
+            suggested_time_limit = std::clamp(suggested_time_limit, 0, time - 50);
+            hard_time_limit = std::clamp(hard_time_limit, 0, time - 50);
         }
     }
 
     // Custom search
     explicit search_limits_t(int move_time, int depth, U64 max_nodes, std::vector<move_t> root_moves) :
-            time_limit(move_time), depth_limit(depth), node_limit(max_nodes), root_moves(std::move(root_moves)) {}
+            hard_time_limit(move_time), depth_limit(depth), node_limit(max_nodes), root_moves(std::move(root_moves)) {
+        game_situation = false;
+        suggested_time_limit = hard_time_limit;
+    }
 
-    int time_limit;
+    bool game_situation;
+    int suggested_time_limit;
+
+    int hard_time_limit;
     int depth_limit;
     U64 node_limit;
     std::vector<move_t> root_moves = std::vector<move_t>();
 };
 
-struct search_context_t {
-    board_t board;
+struct search_result_t {
+    move_t best_move{};
+    move_t ponder{};
+    int score = 0;
 
-    // Heuristics
-    search_heur::killer_heur_t h_killer;
-    search_heur::history_heur_t h_history;
-
-    // SMP
-    int tid = 0;
+    int depth = 0;
+    search_heur::heuristic_set_t heur;
 };
 
 class search_t {
     friend class movesort_t;
+
+    struct context_t {
+        board_t board;
+
+        // Heuristics
+        search_heur::heuristic_set_t heur;
+
+        // SMP
+        int tid = 0;
+    };
 public:
     explicit search_t(board_t board, evaluator_t &evaluator, tt::hash_t *tt, unsigned int threads, search_limits_t limits);
 
-    move_t think(const std::atomic_bool &aborted);
+    search_result_t think(const std::atomic_bool &aborted);
+    void enable_timer();
+    void wait_for_timer();
 private:
-    int search_aspiration(int prev_score, int depth, const std::atomic_bool &aborted);
-    int search_root(search_context_t &context, int alpha, int beta, int depth, const std::atomic_bool &aborted);
+    int search_aspiration(int prev_score, int depth, const std::atomic_bool &aborted, int &n_legal);
+    int search_root(context_t &context, int alpha, int beta, int depth, const std::atomic_bool &aborted, int &n_legal);
 
     template<bool PV, bool H>
-    int search_ab(search_context_t &context, int alpha, int beta, int ply, int depth, bool can_null, move_t excluded,
+    int search_ab(context_t &context, int alpha, int beta, int ply, int depth, bool can_null, move_t excluded,
                   const std::atomic_bool &aborted);
     template<bool PV, bool H>
-    int search_qs(search_context_t &context, int alpha, int beta, int ply, const std::atomic_bool &aborted);
+    int search_qs(context_t &context, int alpha, int beta, int ply, const std::atomic_bool &aborted);
 
     void save_pv();
     bool has_pv();
@@ -150,9 +174,15 @@ private:
     // Shared structures
     evaluator_t &evaluator;
     tt::hash_t *tt;
-    std::chrono::steady_clock::time_point start;
     unsigned int threads;
     search_limits_t limits;
+
+    // Timing
+    std::mutex timer_mtx;
+    std::condition_variable timer_cnd;
+    bool timer_started = false;
+    std::chrono::steady_clock::time_point timer_start;
+    std::chrono::steady_clock::time_point start;
 
     // PV table (main thread only)
     int pv_table_len[MAX_PLY] = {};
@@ -161,7 +191,7 @@ private:
     move_t last_pv[MAX_PLY] = {};
 
     // Main search context
-    search_context_t main_context;
+    context_t main_context;
 
     // Global stats
     U64 nodes = 0;
