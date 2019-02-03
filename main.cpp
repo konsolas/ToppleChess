@@ -246,8 +246,11 @@ int main(int argc, char *argv[]) {
                                                 result = bm.get();
                                             }
 
-                                            std::cout << "bestmove " << result.best_move << " "
-                                                      << "ponder " << result.ponder << std::endl;
+                                            std::cout << "bestmove " << result.best_move;
+                                            if(result.ponder != EMPTY_MOVE) {
+                                                std::cout << " ponder " << result.ponder;
+                                            }
+                                            std::cout << std::endl;
                                         }
                     );
                 } else {
