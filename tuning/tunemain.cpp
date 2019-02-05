@@ -10,7 +10,7 @@
 #include "tuner.h"
 #include "../endgame.h"
 
-#define TOPPLE_TUNE_VER "0.0.1"
+#define TOPPLE_TUNE_VER "0.0.2"
 
 double get_result(const std::string &result) {
     if(result == "1-0") {
@@ -52,11 +52,31 @@ int main(int argc, char *argv[]) {
         while (std::getline(file, line)) {
             std::string::size_type pos = line.find("c9");
 
-            std::string fen = line.substr(0, pos);
-            std::string result = line.substr(pos + 4, line.find(';') - pos - 4 - 1);
+            if(pos != std::string::npos) {
+                std::string fen = line.substr(0, pos);
+                std::string result = line.substr(pos + 4, line.find(';') - pos - 4 - 1);
 
-            boards.emplace_back(fen);
-            results.push_back(get_result(result));
+                boards.emplace_back(fen);
+                results.push_back(get_result(result));
+                continue;
+            }
+
+            pos = line.find("c1");
+            if(pos != std::string::npos) {
+                std::string fen = line.substr(0, pos);
+                std::string result = line.substr(pos + 3, line.find(';') - pos - 3);
+                if(result.find('*') != std::string::npos) {
+                    continue;
+                }
+
+                boards.emplace_back(fen);
+                results.push_back(get_result(result));
+                continue;
+            }
+
+            if(!line.empty()) {
+                std::cout << "warn: missing position: " << line << std::endl;
+            }
         }
     } else {
         throw std::invalid_argument("file not found");
@@ -64,7 +84,7 @@ int main(int argc, char *argv[]) {
 
     std::cout << "loaded " << boards.size() << " positions" << std::endl;
 
-    tuner_t tuner = tuner_t(boards.size(), boards, results);
+    tuner_t tuner = tuner_t(4, boards.size(), boards, results);
 
     while (true) {
         std::string input;
