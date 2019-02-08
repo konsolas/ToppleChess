@@ -15,6 +15,8 @@
 
 #define MAX_PLY 128
 
+constexpr unsigned int MB = 1048576;
+
 /**
  * BitBoard type.
  */

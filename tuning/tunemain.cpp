@@ -99,33 +99,40 @@ int main(int argc, char *argv[]) {
             if(cmd == "quit") {
                 break;
             } else if(cmd == "optimise") {
-                std::string parameter;
-                iss >> parameter;
+                std::string iterations;
+                iss >> iterations;
 
-                if(parameter == "once") {
-                    tuner.optimise(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int));
+                std::string max_iter;
+                iss >> max_iter;
+                int n_iter = std::stoi(max_iter);
+
+                if(iterations == "once") {
+                    tuner.optimise(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int), n_iter);
                 } else {
-                    int times = std::stoi(parameter);
+                    int times = std::stoi(iterations);
                     for(int i = 0; i < times; i++) {
-                        tuner.optimise(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int));
+                        tuner.optimise(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int), n_iter);
                     }
                 }
+
+                tuner.print_params();
             } else if(cmd == "random_optimise") {
                 std::string parameter;
                 iss >> parameter;
 
-                if(parameter == "once") {
-                    tuner.random_optimise(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int));
-                } else {
-                    int times = std::stoi(parameter);
-                    for(int i = 0; i < times; i++) {
-                        tuner.random_optimise(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int));
-                    }
+                std::string max_iter;
+                iss >> max_iter;
+                int n_iter = std::stoi(max_iter);
+
+                int times = std::stoi(parameter);
+                for(int i = 0; i < times; i++) {
+                    tuner.random_optimise(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int), n_iter);
                 }
+
+                tuner.print_params();
             } else if(cmd == "print") {
                 tuner.print_params();
             } else if(cmd == "optimise_pos") {
-                tuner.optimise(tuner.get_current_params()->mat_opp_bishop, 3);
             }
         }
     }

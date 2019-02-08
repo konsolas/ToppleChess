@@ -9,9 +9,7 @@
 #include "eval.h"
 #include "endgame.h"
 
-#define TOPPLE_VER "0.3.5"
-
-const unsigned int MB = 1048576;
+#define TOPPLE_VER "0.3.6"
 
 U64 perft(board_t &, int);
 

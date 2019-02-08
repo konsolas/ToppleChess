@@ -127,10 +127,6 @@ struct search_limits_t {
 struct search_result_t {
     move_t best_move{};
     move_t ponder{};
-    int score = 0;
-
-    int depth = 0;
-    search_heur::heuristic_set_t heur;
 };
 
 class search_t {

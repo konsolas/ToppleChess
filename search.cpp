@@ -95,7 +95,7 @@ search_result_t search_t::think(const std::atomic_bool &aborted) {
 
     wait_for_timer();
 
-    return {last_pv[0], last_pv[1], score, depth, main_context.heur};
+    return {last_pv[0], last_pv[1]};
 }
 
 void search_t::enable_timer() {

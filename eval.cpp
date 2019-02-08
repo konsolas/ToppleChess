@@ -165,7 +165,7 @@ evaluator_t::evaluator_t(eval_params_t params, size_t pawn_hash_size) : params(p
         kat_table[i] = (int) (double(params.kat_table_max) /
                 (1 + exp((params.kat_table_translate - i) / double(params.kat_table_scale)))) - params.kat_table_offset;
         if(i > 0 && kat_table[i] == kat_table[i-1]) {
-            std::cout << "duplicate in kat_table, i=" << i << std::endl;
+            //std::cout << "duplicate in kat_table, i=" << i << std::endl;
         }
     }
 }
@@ -207,6 +207,10 @@ double evaluator_t::eval_material(const board_t &board, int &mg, int &eg) {
         && !multiple_bits(board.bb_pieces[WHITE][BISHOP]) && !multiple_bits(board.bb_pieces[BLACK][BISHOP])
         && !same_colour(bit_scan(board.bb_pieces[WHITE][BISHOP]), bit_scan(board.bb_pieces[BLACK][BISHOP]));
 
+    bool only_bishops = !board.bb_pieces[WHITE][KNIGHT] && !board.bb_pieces[BLACK][KNIGHT]
+            && !board.bb_pieces[WHITE][ROOK] && !board.bb_pieces[BLACK][ROOK]
+            && !board.bb_pieces[WHITE][QUEEN] && !board.bb_pieces[BLACK][QUEEN];
+
     // Collect material data
     const int pawn_w = pop_count(board.bb_pieces[WHITE][PAWN]); 
     const int pawn_b = pop_count(board.bb_pieces[BLACK][PAWN]);
@@ -216,9 +220,11 @@ double evaluator_t::eval_material(const board_t &board, int &mg, int &eg) {
 
     if(opposite_coloured_bishops) {
         if(pawn_balance > 0) {
-            eg -= params.mat_opp_bishop[std::min(2, pawn_balance - 1)];
+            int idx = std::min(2, pawn_balance - 1);
+            eg -= only_bishops ? params.mat_opp_bishop_only_eg[idx] : params.mat_opp_bishop_eg[idx];
         } else if(pawn_balance < 0) {
-            eg += params.mat_opp_bishop[std::min(2, -pawn_balance - 1)];
+            int idx = std::min(2, -pawn_balance - 1);
+            eg += only_bishops ? params.mat_opp_bishop_only_eg[idx] : params.mat_opp_bishop_eg[idx];
         }
     }
 

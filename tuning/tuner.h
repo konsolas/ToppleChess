@@ -27,10 +27,10 @@ public:
     void print_params();
     double get_current_error() { return current_error; }
 
-    void optimise(int *parameter, size_t count);
-    void random_optimise(int *parameter, size_t count);
+    void optimise(int *parameter, size_t count, int max_iter);
+    void random_optimise(int *parameter, size_t count, int max_iter);
 private:
-    double momentum_optimise(int *parameter, double current_mea);
+    double momentum_optimise(int *parameter, double current_mea, int max_iter, int step);
     int quiesce(board_t &board, int alpha, int beta, evaluator_t &evaluator);
     double sigmoid(double score);
     double mean_evaluation_error();
