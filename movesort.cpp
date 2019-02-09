@@ -58,17 +58,23 @@ move_t movesort_t::next(GenStage &stage, int &score) {
             // Generate killers
             if(mode != QUIESCENCE) stage = GEN_KILLER_1;
             else return EMPTY_MOVE;
-            if(context.board.is_pseudo_legal(context.heur.killers.primary(ply))) {
+            if(context.board.is_pseudo_legal(context.heur.killers.primary(ply))
+                && context.heur.killers.primary(ply) != hash_move) {
                 return context.heur.killers.primary(ply);
             }
         case GEN_KILLER_1:
             stage = GEN_KILLER_2;
-            if(context.board.is_pseudo_legal(context.heur.killers.secondary(ply))) {
+            if(context.board.is_pseudo_legal(context.heur.killers.secondary(ply))
+                && context.heur.killers.secondary(ply) != hash_move
+                && context.heur.killers.secondary(ply) != context.heur.killers.primary(ply)) {
                 return context.heur.killers.secondary(ply);
             }
         case GEN_KILLER_2:
             stage = GEN_KILLER_3;
-            if(ply > 2 && context.board.is_pseudo_legal(context.heur.killers.primary(ply - 2))) {
+            if(ply > 2 && context.board.is_pseudo_legal(context.heur.killers.primary(ply - 2))
+                && context.heur.killers.primary(ply - 2) != hash_move
+                && context.heur.killers.primary(ply - 2) != context.heur.killers.primary(ply)
+                && context.heur.killers.primary(ply - 2) != context.heur.killers.secondary(ply)) {
                 return context.heur.killers.primary(ply - 2);
             }
         case GEN_KILLER_3:
