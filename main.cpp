@@ -23,9 +23,6 @@ int main(int argc, char *argv[]) {
     // Board
     board_t *board = nullptr;
 
-    // Evaluator
-    evaluator_t evaluator = evaluator_t(eval_params_t(), 32 * MB);
-
     // Hash
     uint64_t hash_size = 128;
     tt::hash_t *tt;
@@ -217,7 +214,7 @@ int main(int argc, char *argv[]) {
                                                              max_depth,
                                                              max_nodes,
                                                              root_moves);
-                    search = new search_t(*board, evaluator, tt, threads, limits);
+                    search = new search_t(*board, tt, threads, limits);
 
                     if (!ponder) search->enable_timer();
 
@@ -264,7 +261,7 @@ int main(int argc, char *argv[]) {
                 tt->age();
             } else if (cmd == "eval") {
                 if (board != nullptr) {
-                    std::cout << evaluator.evaluate(*board) << std::endl;
+                    std::cout << evaluator_t(eval_params_t(), MB).evaluate(*board) << std::endl;
                 } else {
                     std::cout << "board=nullptr" << std::endl;
                 }

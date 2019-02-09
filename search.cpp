@@ -13,8 +13,8 @@
 
 const int TIMEOUT = -INF * 2;
 
-search_t::search_t(board_t board, evaluator_t &evaluator, tt::hash_t *tt, unsigned int threads, search_limits_t limits)
-        : evaluator(evaluator), tt(tt), threads(threads), limits(std::move(limits)) {
+search_t::search_t(board_t board, tt::hash_t *tt, unsigned int threads, search_limits_t limits)
+        : tt(tt), threads(threads), limits(std::move(limits)) {
     main_context.board = board;
 }
 
@@ -74,7 +74,7 @@ search_result_t search_t::think(const std::atomic_bool &aborted) {
 
                 // Scale the search time based on the complexity of the position
                 int junk;
-                double tapering_factor = evaluator.eval_material(main_context.board, junk, junk);
+                double tapering_factor = main_context.evaluator.eval_material(main_context.board, junk, junk);
                 double complexity = std::clamp(n_legal / 30.0, 0.5, 3.0) * tapering_factor + (1 - tapering_factor);
                 int adjusted_suggestion = static_cast<int>(complexity * limits.suggested_time_limit);
 
@@ -171,7 +171,7 @@ int search_t::search_root(context_t &context, int alpha, int beta, int depth, co
     tt::entry_t h = {0};
     tt->probe(context.board.record[context.board.now].hash, h);
 
-    int eval = evaluator.evaluate(context.board);
+    int eval = context.evaluator.evaluate(context.board);
 
     GenStage stage = GEN_NONE;
     move_t move{};
@@ -268,7 +268,7 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
     if (is_aborted(aborted)) {
         return TIMEOUT;
     } else if (ply >= MAX_PLY - 2) {
-        return std::clamp(evaluator.evaluate(context.board), alpha, beta);
+        return std::clamp(context.evaluator.evaluate(context.board), alpha, beta);
     }
 
     // Quiescence search
@@ -314,7 +314,7 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
         tt_move = context.board.to_move(h.move);
     } else {
         score = -INF;
-        eval = evaluator.evaluate(context.board);
+        eval = context.evaluator.evaluate(context.board);
     }
 
     // Null move pruning
@@ -516,10 +516,10 @@ int search_t::search_qs(context_t &context, int alpha, int beta, int ply, const 
     if (is_aborted(aborted)) {
         return TIMEOUT;
     } else if (ply >= MAX_PLY - 2) {
-        return std::clamp(evaluator.evaluate(context.board), alpha, beta);
+        return std::clamp(context.evaluator.evaluate(context.board), alpha, beta);
     }
 
-    int stand_pat = evaluator.evaluate(context.board);
+    int stand_pat = context.evaluator.evaluate(context.board);
 
     if (stand_pat >= beta) return beta;
     if (alpha < stand_pat) alpha = stand_pat;
