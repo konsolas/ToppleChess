@@ -14,15 +14,15 @@ enum GamePhase {
 
 struct eval_params_t {
     /// Material
-    int mat_mg[5] = {89, 390, 462, 590, 1261,};
-    int mat_eg[5] = {109, 377, 420, 692, 1317,};
-    int mat_exch_scale = 10;
+    int mat_mg[5] = {81, 362, 418, 529, 1175,};
+    int mat_eg[5] = {100, 367, 410, 688, 1310,};
+    int mat_exch_scale = 3;
     int mat_exch_pawn = 0;
-    int mat_exch_minor = 4;
-    int mat_exch_rook = 6;
-    int mat_exch_queen = 19;
-    int mat_opp_bishop_only_eg[3] = {124, 132, 16,}; // [PAWN ADVANTAGE]
-    int mat_opp_bishop_eg[3] = {52, 37, 47,}; // [PAWN ADVANTAGE]
+    int mat_exch_minor = 3;
+    int mat_exch_rook = 5;
+    int mat_exch_queen = 13;
+    int mat_opp_bishop_only_eg[3] = {106, 107, -3}; // [PAWN ADVANTAGE]
+    int mat_opp_bishop_eg[3] = {40, 26, 40}; // [PAWN ADVANTAGE]
 
     /// Piece-square tables
 
@@ -32,82 +32,82 @@ struct eval_params_t {
     // A2, B2, C2, D2
     // A1, B1, C1, D1
     // Horizontal, Vertical and diagonal symmetry
-    int n_pst_mg[16] = {47, 71, 82, 88, 44, 80, 90, 89, 14, 18, 65, 60, -94, 32, 1, 31,
+    int n_pst_mg[16] = {38, 60, 70, 74, 36, 68, 78, 72, 5, 13, 55, 48, -93, 24, -5, 16,
     };
-    int q_pst_mg[16] = {-22, -39, -21, -31, -13, 11, -6, -15, -37, -43, 14, -3, -23, -31, -25, 3,
+    int q_pst_mg[16] = {-19, -31, -18, -25, -14, 10, -4, -10, -33, -34, 13, 0, -22, -31, -24, 4,
     };
-    int n_pst_eg[16] = {-14, 8, 32, 34, -31, -5, 8, 18, -50, -14, -14, 0, -79, -64, -22, -27,
+    int n_pst_eg[16] = {-17, 6, 28, 33, -30, -8, 2, 18, -47, -17, -17, 0, -72, -67, -23, -23,
     };
-    int q_pst_eg[16] = {-11, 44, 17, 54, -34, -43, 1, 16, -40, -10, -50, -14, -48, -23, -25, -47,
+    int q_pst_eg[16] = {-15, 32, 16, 50, -18, -31, 6, 16, -35, -15, -32, -8, -39, -14, -15, -33,
     };
 
     // PST for pawn, rook:
     // A8, B8, C8, D8, A7, B7, C7, D7, etc.
     // Only vertical symmetry
-    int b_pst_mg[32] = {-91, -58, -125, -62, -57, -6, -21, -100, -35, 21, 17, -16, 8, -11, -12, -1, 16, -7, 5, 2, -6, 19, 13, 7, -7,
-                        3, 7, -17, -49, -31, -41, -53,
+    int b_pst_mg[32] = {-83, -43, -85, -46, -54, -4, -18, -103, -29, 30, 19, -19, 3, -13, -18, -4, 9, -13, 2, -4, -12, 16, 6, 2, -11,
+                        -2, 2, -23, -53, -31, -43, -56,
     };
-    int r_pst_mg[32] = {50, 17, -18, 49, 6, 5, 11, 33, -36, -1, 11, -7, -20, -18, -1, -2, -36, -34, -6, -15, -40, -15, -11, -33, -40,
-                        -9, -20, -53, -11, -6, -7, 12,};
-    int b_pst_eg[32] = {-16, -25, -18, -26, -12, -14, -12, -19, -6, -10, -7, -9, -5, 1, -2, 2, -11, -4, -7, 5, -4, -13, -8, -9, -12,
-                        -27, -26, -15, -26, -37, -44, -21,};
-    int r_pst_eg[32] = {32, 37, 46, 31, 27, 31, 30, 25, 24, 20, 14, 15, 19, 20, 19, 14, 23, 21, 19, 16, 17, 11, 12, 13, 18, 12, 15, 29, 20, 22, 25, 9,};
+    int r_pst_mg[32] = {74, 29, 9, 47, 45, 42, 57, 65, -8, 24, 40, 20, 0, -1, 9, 14, -30, -29, 4, -10, -35, -13, -3, -26, -40, -5, -14, -47, -11, -12, -3, 9,};
+    int b_pst_eg[32] = {-18, -32, -26, -34, -14, -17, -17, -16, -10, -18, -13, -7, -6, 0, -3, 0, -11, -2, -5, 5, -3, -15, -9, -8, -11
+            , -29, -25, -14, -24, -37, -43, -18,};
+    int r_pst_eg[32] = { 34, 41, 49, 40, 27, 30, 29, 25, 20, 14, 8, 10, 15, 14, 18, 12, 23, 21, 16, 16, 17, 9, 8, 13, 18, 9, 12, 29, 16, 20, 20, 11,
+    };
     // Pawns have first and eighth rank excluded
-    int p_pst_mg[24] = {186, 244, 124, 129, 57, 71, 51, 26, 35, 29, 17, 32, 17, 3, 10, 22, 1, -6, 12, -1, -4, 21, 10, -6,};
-    int p_pst_eg[24] = {156, 130, 143, 147, 63, 54, 59, 49, 31, 29, 32, 20, 22, 19, 16, 9, 14, 15, 7, 4, 19, 13, 15, 2,};
+    int p_pst_mg[24] = {230, 283, 185, 190, 37, 56, 37, 21, 29, 25, 15, 28, 14, 3, 10, 20, -1, -5, 11, -2, -6, 21, 9, -6,};
+    int p_pst_eg[24] = {131, 108, 119, 119, 57, 48, 52, 42, 26, 22, 26, 16, 18, 16, 13, 5, 12, 12, 4, 3, 16, 8, 12, 1,};
 
     // PST for king:
     // A3, B3, C3, D3, E3, F3, G3, H3, A2, B2, C2, etc.
     // mg: First 3 ranks only. Default to king_pst_exposed_mg for higher ranks.
     // eg: Horizontal, vertical and diagonal symmetry, like N, B, Q
-    int k_pst_mg[24] = {-16, -4, 6, 7, 6, 3, 23, -11, 47, 57, 24, -51, -19, 19, 79, 93, 43, 92, 62, 22, 38, 57, 123, 107,};
-    int k_pst_exposed_mg = 44;
+    int k_pst_mg[24] = {15, 3, 3, 0, 10, 8, 30, 17, 58, 55, 22, -44, -22, 18, 71, 101, 63, 91, 62, 26, 35, 55, 120, 121,};
+    int k_pst_exposed_mg = 81;
     int k_pst_eg[16] = {
-            25, 62, 80, 82, 41, 64, 79, 81, 10, 38, 65, 80, -41, -4, 25, 22,
+            20, 51, 67, 69, 38, 60, 72, 73, 12, 38, 60, 76, -33, 3, 28, 24,
     };
 
     /// Pawn structure
 
     // Pawn structure: doubled, isolated, backwards, chain, protected, etc.
-    int isolated_mg[6][2] = {{-11, -36}, {-15, -35}, {-11, -22}, {-11, -20}, {-6, 11}, {0, -21},}; // [RANK][OPEN FILE]
-    int isolated_eg[6][2] = {{3, -4}, {2, -9}, {-4, -16}, {-15, -16}, {-26, 1}, {0, -13},}; // [RANK][OPEN FILE]
-    int backwards_mg[2] = {-4, -25,}; // [OPEN FILE]
-    int backwards_eg[2] = {-9, -14,}; // [OPEN FILE]
-    int doubled_mg[2] = {-4, 18,}; // [OPEN FILE]
-    int doubled_eg[2] = {-23, -31,}; // [OPEN FILE]
-    int blocked_mg[2] = {-15, -17,}; // [OPEN_FILE]
-    int blocked_eg[2] = {-5, 2,}; // [OPEN_FILE]
-    int chain_mg[5] = {11, 20, 24, 37, 172,}; // [RANK]
-    int chain_eg[5] = {17, 6, 3, 28, -42,}; // [RANK]
+    int isolated_mg[6][2] = {{-7, -35}, {-8, -33}, {-11, -23}, {-8, -21}, {6, -15}, {0, -61},}; // [RANK][OPEN FILE]
+    int isolated_eg[6][2] = {{2, -3}, {-1, -9}, {-3, -17}, {-13, -16}, {-28, 10}, {0, 10},}; // [RANK][OPEN FILE]
+    int backwards_mg[2] = {-2, -20,}; // [OPEN FILE]
+    int backwards_eg[2] = {-6, -13,}; // [OPEN FILE]
+    int doubled_mg[2] = {-4, 23,}; // [OPEN FILE]
+    int doubled_eg[2] = {-23, -32,}; // [OPEN FILE]
+    int blocked_mg[2] = {-15, -16,}; // [OPEN_FILE]
+    int blocked_eg[2] = {-3, -1,}; // [OPEN_FILE]
+    int chain_mg[5] = {11, 18, 23, 35, 94,}; // [RANK]
+    int chain_eg[5] = {14, 3, 0, 25, -15,}; // [RANK]
     // Passed pawns
-    int passed_mg[6] = {2, 0, -13, 7, 10, -40,}; // [RANK]
-    int passed_eg[6] = {7, 14, 46, 75, 127, 154,}; // [RANK]
+    int passed_mg[6] = {-1, 0, -17, -2, 21, -99,}; // [RANK]
+    int passed_eg[6] = {5, 11, 43, 70, 112, 140,}; // [RANK]
 
     /// King safety
-    int ks_pawn_shield[4] = {-36, -5, 18, 21,}; // 0, 1, 2, and 3 pawns close to the king
+    int ks_pawn_shield[4] = {-38, -5, 18, 22,}; // 0, 1, 2, and 3 pawns close to the king
 
-    int kat_open_file = 8;
-    int kat_attack_weight[5] = {-1, 10, 6, 6, 8,};
-    int kat_defence_weight[5] = {5, 2, 3, 1, 1,};
+    int kat_open_file = 19;
+    int kat_attack_weight[5] = {-3, 13, 8, 8, 10,};
+    int kat_defence_weight[5] = {4, 3, 4, 0, -1,};
 
-    int kat_table_scale = 18;
+    int kat_table_scale = 13;
     int kat_table_translate = 32;
-    int kat_table_max = 406;
+    int kat_table_max = 267;
     int kat_table_offset = 10;
 
     /// Other positional
-    int pos_bishop_pair_mg = 47;
-    int pos_bishop_pair_eg = 65;
+    int pos_bishop_pair_mg = 53;
+    int pos_bishop_pair_eg = 51;
 
-    int pos_r_trapped_mg = -94;
-    int pos_r_open_file_mg = 33;
-    int pos_r_open_file_eg = 13;
-    int pos_r_behind_own_passer_mg = 2;
-    int pos_r_behind_own_passer_eg = 3;
-    int pos_r_behind_enemy_passer_mg = 1;
-    int pos_r_behind_enemy_passer_eg = 3;
-    int pos_r_xray_pawn_mg = 12;
-    int pos_r_xray_pawn_eg = 10;
+    int pos_r_trapped_mg = -90;
+    int pos_r_open_file_mg = 17;
+    int pos_r_open_file_eg = -23;
+    int pos_r_behind_own_passer_mg = 4;
+    int pos_r_behind_own_passer_eg = 8;
+    int pos_r_behind_enemy_passer_mg = 5;
+    int pos_r_behind_enemy_passer_eg = 1;
+    int pos_r_xray_pawn_mg = 6;
+    int pos_r_xray_pawn_eg = 7;
 
     // TODO: Square colour weaknesses, mobility, etc.
 };
