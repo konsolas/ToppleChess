@@ -201,7 +201,6 @@ int main(int argc, char *argv[]) {
                     }
 
                     // Setup
-                    delete search;
                     search_abort = false;
 
                     search_limits_t limits = time_control.enabled ?
@@ -246,6 +245,8 @@ int main(int argc, char *argv[]) {
                                                 std::cout << " ponder " << result.ponder;
                                             }
                                             std::cout << std::endl;
+
+                                            delete search;
                                         }
                     );
                 } else {

@@ -29,7 +29,7 @@ search_result_t search_t::think(const std::atomic_bool &aborted) {
         std::vector<std::future<int>> helper_threads(threads - 1);
         std::vector<context_t> helper_contexts(threads - 1);
         for (unsigned int i = 0; i < threads - 1; i++) {
-            helper_contexts[i] = main_context;
+            helper_contexts[i].board = main_context.board;
             helper_contexts[i].tid = i + 1;
         }
         std::atomic_bool helper_thread_aborted;
