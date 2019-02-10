@@ -21,8 +21,7 @@ struct eval_params_t {
     int mat_exch_minor = 3;
     int mat_exch_rook = 5;
     int mat_exch_queen = 13;
-    int mat_opp_bishop_only_eg[3] = {106, 107, -3}; // [PAWN ADVANTAGE]
-    int mat_opp_bishop_eg[3] = {40, 26, 40}; // [PAWN ADVANTAGE]
+    int mat_opp_bishop[3] = {73, 56, 44}; // [PAWN ADVANTAGE]
 
     /// Piece-square tables
 
