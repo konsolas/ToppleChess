@@ -89,6 +89,8 @@ int main(int argc, char *argv[]) {
                     } else {
                         std::cout << "unrecognised option" << std::endl;
                     }
+                } else if(name == "Ponder") {
+                    // Do nothing
                 } else {
                     std::cout << "unrecognised option" << std::endl;
                 }

@@ -267,8 +267,8 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
 
     if (is_aborted(aborted)) {
         return TIMEOUT;
-    } else if (ply >= MAX_PLY - 2) {
-        return std::clamp(context.evaluator.evaluate(context.board), alpha, beta);
+    } else if (ply >= MAX_PLY - 1) {
+        return context.evaluator.evaluate(context.board);
     }
 
     // Quiescence search
@@ -283,7 +283,7 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
     if (context.board.record[context.board.now].halfmove_clock >= 100
         || context.board.is_repetition_draw(ply, 2)
         || context.board.is_repetition_draw(100, 3)) {
-        return std::clamp(0, alpha, beta);
+        return 0;
     }
 
     // Mate distance pruning
@@ -319,7 +319,7 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
 
     // Null move pruning
     int null_score = 0;
-    if (can_null && !in_check && !PV && excluded == EMPTY_MOVE && eval >= beta) {
+    if (can_null && !in_check && !PV && excluded == EMPTY_MOVE && eval >= beta + 128) {
         if (context.board.non_pawn_material(context.board.record[context.board.now].next_move) != 0) {
             context.board.move(EMPTY_MOVE);
 
@@ -371,9 +371,9 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
         if (depth >= 8 && move == tt_move
             && (h_bound == tt::LOWER || h_bound == tt::EXACT)
             && excluded == EMPTY_MOVE
-            && h.depth() >= depth - 3
+            && h.depth() >= depth - 2
             && abs(h.value(ply)) < MINCHECKMATE) {
-            int reduced_beta = (h.value(ply)) - 2 * depth;
+            int reduced_beta = (h.value(ply)) - depth;
             score = search_ab<false, H>(context, reduced_beta - 1, reduced_beta, ply + 1, depth / 2,
                                         can_null, move, aborted);
             if (is_aborted(aborted)) return TIMEOUT;
@@ -395,7 +395,7 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
 
             bool move_is_check = context.board.is_incheck();
 
-            // Check
+            // Check and castling extensions
             if (move_is_check) {
                 ex = 1;
             }
@@ -515,8 +515,8 @@ int search_t::search_qs(context_t &context, int alpha, int beta, int ply, const 
 
     if (is_aborted(aborted)) {
         return TIMEOUT;
-    } else if (ply >= MAX_PLY - 2) {
-        return std::clamp(context.evaluator.evaluate(context.board), alpha, beta);
+    } else if (ply >= MAX_PLY - 1) {
+        return context.evaluator.evaluate(context.board);
     }
 
     int stand_pat = context.evaluator.evaluate(context.board);

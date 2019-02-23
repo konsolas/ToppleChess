@@ -36,6 +36,8 @@ private:
     move_t hash_move;
     int ply;
 
+    move_t killer_1, killer_2, killer_3;
+
     void buf_swap_main(int a, int b);
     void buf_swap_capt(int a, int b);
 
