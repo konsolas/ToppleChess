@@ -234,7 +234,7 @@ int search_t::search_root(context_t &context, int alpha, int beta, int depth, co
 
                     if (depth > 1 && CHRONO_DIFF(start, engine_clock::now()) > 1000) {
                         save_pv();
-                        print_stats(score, depth, tt::LOWER);
+                        print_stats(score, depth, tt::EXACT);
                     }
                 }
             }
@@ -402,7 +402,7 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
 
             // Futility pruning
             if (!in_check && ex == 0 && n_legal > 1) {
-                if (depth <= 6 && eval + 64 + 32 * depth < alpha && stage == GEN_QUIETS) {
+                if (depth <= 6 && eval + 64 + 32 * depth < alpha && stage == GEN_QUIETS && best_score > -MINCHECKMATE) {
                     context.board.unmove();
                     break;
                 }
@@ -424,7 +424,7 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
                     }
                 } else if (ply) {
                     // History pruning
-                    if (n_legal > move_score) {
+                    if (n_legal > move_score && best_score > -MINCHECKMATE) {
                         context.board.unmove();
                         break;
                     }
