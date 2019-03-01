@@ -165,7 +165,7 @@ evaluator_t::evaluator_t(eval_params_t params, size_t pawn_hash_size) : params(p
         kat_table[i] = (int) (double(params.kat_table_max) /
                 (1 + exp((params.kat_table_translate - i) / double(params.kat_table_scale)))) - params.kat_table_offset;
         if(i > 0 && kat_table[i] == kat_table[i-1]) {
-            std::cout << "duplicate in kat_table, i=" << i << std::endl;
+            //std::cout << "duplicate in kat_table, i=" << i << std::endl;
         }
     }
 }

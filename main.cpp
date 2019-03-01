@@ -1,3 +1,4 @@
+#include <memory>
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -9,9 +10,7 @@
 #include "eval.h"
 #include "endgame.h"
 
-#define TOPPLE_VER "0.3.5"
-
-const unsigned int MB = 1048576;
+#define TOPPLE_VER "0.3.6"
 
 U64 perft(board_t &, int);
 
@@ -23,10 +22,7 @@ int main(int argc, char *argv[]) {
     eg_init();
 
     // Board
-    board_t *board = nullptr;
-
-    // Evaluator
-    evaluator_t evaluator = evaluator_t(eval_params_t(), 32 * MB);
+    std::unique_ptr<board_t> board = nullptr;
 
     // Hash
     uint64_t hash_size = 128;
@@ -34,7 +30,7 @@ int main(int argc, char *argv[]) {
     tt = new tt::hash_t(hash_size * MB);
 
     // Search
-    search_t *search = nullptr;
+    std::unique_ptr<search_t> search = nullptr;
     std::atomic_bool search_abort;
     std::future<void> future;
 
@@ -92,23 +88,28 @@ int main(int argc, char *argv[]) {
                         delete tt;
                         tt = new tt::hash_t(hash_size * MB);
                     } else {
-                        std::cout << "unrecognised option" << std::endl;
+                        std::cout << "info string unrecognised option " << name << std::endl;
                     }
+                } else if(name == "Ponder") {
+                    // Do nothing
                 } else {
-                    std::cout << "unrecognised option" << std::endl;
+                    std::cout << "info string unrecognised option " << name << std::endl;
                 }
             } else if (cmd == "isready") {
                 std::cout << "readyok" << std::endl;
             } else if (cmd == "stop") {
-                // Cancel waiting for ponderhit by enabling the search timer, and then hard-aborting.
-                search->enable_timer();
-                search_abort = true;
+                if(search) {
+                    // Cancel waiting for ponderhit by enabling the search timer, and then hard-aborting.
+                    search->enable_timer();
+                    search_abort = true;
+                } else {
+                    std::cout << "info string stop command received, but no search was in progress" << std::endl;
+                }
             } else if (cmd == "position") {
                 std::string type;
                 while (iss >> type) {
                     if (type == "startpos") {
-                        delete board;
-                        board = new board_t("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+                        board = std::make_unique<board_t>("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
                     } else if (type == "fen") {
                         std::string fen;
                         for (int i = 0; i < 6; i++) {
@@ -117,10 +118,9 @@ int main(int argc, char *argv[]) {
                             fen += component + " ";
                         }
 
-                        delete board;
-                        board = new board_t(fen);
+                        board = std::make_unique<board_t>(fen);
                     } else if (type == "moves") {
-                        if (board != nullptr) {
+                        if (board) {
                             // Read moves
                             std::string move_str;
                             while (iss >> move_str) {
@@ -128,20 +128,22 @@ int main(int argc, char *argv[]) {
                                 if (board->is_pseudo_legal(move)) {
                                     board->move(move);
                                     if (board->is_illegal()) {
-                                        std::cout << "illegal move: " << move_str << std::endl;
+                                        std::cout << "info string illegal move " << move_str << std::endl;
                                         board->unmove();
                                     }
                                 } else {
-                                    std::cout << "invalid move: " << move_str << std::endl;
+                                    std::cout << "info string invalid move " << move_str << std::endl;
                                 }
                             }
                         } else {
-                            std::cout << "board=nullptr" << std::endl;
+                            std::cout << "info string no start position specified" << std::endl;
                         }
                     }
                 }
             } else if (cmd == "go") {
-                if (board != nullptr) {
+                if(search) {
+                    std::cout << "info string go command received, but search already in progress" << std::endl;
+                } else if (board) {
                     // Parse parameters
                     int max_time = INT_MAX;
                     int max_depth = MAX_PLY;
@@ -206,7 +208,6 @@ int main(int argc, char *argv[]) {
                     }
 
                     // Setup
-                    delete search;
                     search_abort = false;
 
                     search_limits_t limits = time_control.enabled ?
@@ -219,18 +220,17 @@ int main(int argc, char *argv[]) {
                                                              max_depth,
                                                              max_nodes,
                                                              root_moves);
-                    search = new search_t(*board, evaluator, tt, threads, limits);
+                    search = std::make_unique<search_t>(*board, tt, threads, limits);
 
                     if (!ponder) search->enable_timer();
 
                     // Start search
                     future = std::async(std::launch::async,
-                                        [search, ponder, &search_abort, limits] {
+                                        [&tt, &search, ponder, &search_abort, limits] {
                                             std::future<search_result_t> bm = std::async(std::launch::async,
                                                                                          &search_t::think,
-                                                                                         search,
+                                                                                         search.get(),
                                                                                          std::ref(search_abort));
-
                                             search_result_t result;
 
                                             // Wait for actual search to start
@@ -251,35 +251,47 @@ int main(int argc, char *argv[]) {
                                                 std::cout << " ponder " << result.ponder;
                                             }
                                             std::cout << std::endl;
+
+                                            search = nullptr;
+
+                                            // Age the transposition table
+                                            tt->age();
                                         }
                     );
                 } else {
-                    std::cout << "board=nullptr" << std::endl;
+                    std::cout << "info string search command received, but no position specified" << std::endl;
                 }
             } else if (cmd == "ponderhit") {
-                if (search != nullptr) {
+                if (search) {
                     search->enable_timer();
                 } else {
-                    std::cout << "search=nullptr" << std::endl;
+                    std::cout << "info string ponderhit command received, but no search in progress" << std::endl;
                 }
             } else if (cmd == "ucinewgame") {
-                tt->age();
-            } else if (cmd == "eval") {
-                if (board != nullptr) {
-                    std::cout << evaluator.evaluate(*board) << std::endl;
+                if(search) {
+                    std::cout << "info string ucinewgame command received, but search is in progress" << std::endl;
                 } else {
-                    std::cout << "board=nullptr" << std::endl;
+                    delete tt;
+                    tt = new tt::hash_t(hash_size * MB);
+                }
+            } else if (cmd == "eval") {
+                if (board) {
+                    std::cout << evaluator_t(eval_params_t(), MB).evaluate(*board) << std::endl;
+                } else {
+                    std::cout << "info string eval command received, but no position specified" << std::endl;
                 }
             } else if (cmd == "print") {
-                if (board == nullptr) {
-                    std::cout << "nullptr" << std::endl;
-                } else {
+                if (board) {
                     std::cout << *board << std::endl;
+                } else {
+                    std::cout << "nullptr" << std::endl;
                 }
             } else if (cmd == "quit") {
                 search_abort = true;
-                std::cout << "exiting" << std::endl;
+                std::cout << "info string exiting" << std::endl;
                 break;
+            } else if (!cmd.empty()) {
+                std::cout << "info string unrecognised command " << cmd << std::endl;
             }
         }
     }

@@ -6,7 +6,25 @@
 
 movesort_t::movesort_t(GenMode mode, const search_t::context_t &context, move_t hash_move, int ply) :
         mode(mode), context(context), hash_move(hash_move), ply(ply), gen(movegen_t(context.board)) {
+    killer_1 = context.heur.killers.primary(ply);
+    killer_2 = context.heur.killers.secondary(ply);
+    if(ply > 2) {
+        killer_3 = context.heur.killers.primary(ply - 2);
+    } else {
+        killer_3 = EMPTY_MOVE;
+    }
 
+    if(killer_1 == hash_move) {
+        killer_1 = EMPTY_MOVE;
+    }
+
+    if(killer_2 == killer_1 || killer_2 == hash_move) {
+        killer_2 = EMPTY_MOVE;
+    }
+
+    if(killer_3 == killer_2 || killer_3 == killer_1 || killer_3 == hash_move) {
+        killer_3 = EMPTY_MOVE;
+    }
 }
 
 move_t movesort_t::next(GenStage &stage, int &score) {
@@ -58,18 +76,18 @@ move_t movesort_t::next(GenStage &stage, int &score) {
             // Generate killers
             if(mode != QUIESCENCE) stage = GEN_KILLER_1;
             else return EMPTY_MOVE;
-            if(context.board.is_pseudo_legal(context.heur.killers.primary(ply))) {
-                return context.heur.killers.primary(ply);
+            if(context.board.is_pseudo_legal(killer_1)) {
+                return killer_1;
             }
         case GEN_KILLER_1:
             stage = GEN_KILLER_2;
-            if(context.board.is_pseudo_legal(context.heur.killers.secondary(ply))) {
-                return context.heur.killers.secondary(ply);
+            if(context.board.is_pseudo_legal(killer_2)) {
+                return killer_2;
             }
         case GEN_KILLER_2:
             stage = GEN_KILLER_3;
-            if(ply > 2 && context.board.is_pseudo_legal(context.heur.killers.primary(ply - 2))) {
-                return context.heur.killers.primary(ply - 2);
+            if(context.board.is_pseudo_legal(killer_3)) {
+                return killer_3;
             }
         case GEN_KILLER_3:
             stage = GEN_BAD_CAPT;
@@ -116,9 +134,9 @@ move_t movesort_t::next(GenStage &stage, int &score) {
                 buf_swap_main(best_main_idx, main_idx);
 
                 if (main_buf[main_idx] == hash_move
-                    || main_buf[main_idx] == context.heur.killers.primary(ply)
-                    || main_buf[main_idx] == context.heur.killers.secondary(ply)
-                    || main_buf[main_idx] == context.heur.killers.primary(ply - 2)) {
+                    || main_buf[main_idx] == killer_1
+                    || main_buf[main_idx] == killer_2
+                    || main_buf[main_idx] == killer_3) {
                     main_idx++;
                     goto retry;
                 }

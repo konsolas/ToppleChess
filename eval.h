@@ -112,7 +112,6 @@ struct eval_params_t {
 };
 
 class evaluator_t {
-    size_t pawn_hash_entries;
     static constexpr size_t bucket_size = 4;
     struct pawn_entry_t {
         U64 hash;
@@ -125,7 +124,10 @@ class evaluator_t {
         U64 defended[2];
         U64 open_files;
         U64 attackable[2];
-    } *pawn_hash_table = nullptr;
+    };
+
+    size_t pawn_hash_entries;
+    pawn_entry_t *pawn_hash_table;
 
     int pst[2][6][64][2] = {}; // [TEAM][PIECE][SQUARE][MG/EG]
     int kat_table[96] = {};
@@ -133,7 +135,8 @@ class evaluator_t {
     eval_params_t params;
 public:
     evaluator_t(eval_params_t params, size_t pawn_hash_size);
-
+    evaluator_t(const evaluator_t&) = delete;
+    evaluator_t& operator=(const evaluator_t &) = delete;
     ~evaluator_t();
 
     int evaluate(const board_t &board);

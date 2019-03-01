@@ -127,26 +127,26 @@ struct search_limits_t {
 struct search_result_t {
     move_t best_move{};
     move_t ponder{};
-    int score = 0;
-
-    int depth = 0;
-    search_heur::heuristic_set_t heur;
 };
 
 class search_t {
     friend class movesort_t;
 
     struct context_t {
+        // Board representation
         board_t board;
 
         // Heuristics
         search_heur::heuristic_set_t heur;
 
+        // Evaluator
+        evaluator_t evaluator = evaluator_t(eval_params_t(), 16 * MB);
+
         // SMP
         int tid = 0;
     };
 public:
-    explicit search_t(board_t board, evaluator_t &evaluator, tt::hash_t *tt, unsigned int threads, search_limits_t limits);
+    explicit search_t(board_t board, tt::hash_t *tt, unsigned int threads, search_limits_t limits);
 
     search_result_t think(const std::atomic_bool &aborted);
     void enable_timer();
@@ -172,7 +172,6 @@ private:
     void print_stats(int score, int depth, tt::Bound bound);
 
     // Shared structures
-    evaluator_t &evaluator;
     tt::hash_t *tt;
     unsigned int threads;
     search_limits_t limits;

@@ -11,8 +11,8 @@
 #include "../movegen.h"
 #include "../movesort.h"
 
-tuner_t::tuner_t(size_t entries, std::vector<board_t> &positions, std::vector<double> &results)
-        : entries(entries), positions(positions), results(results) {
+tuner_t::tuner_t(unsigned int threads, size_t entries, std::vector<board_t> &positions, std::vector<double> &results)
+        : threads(threads), entries(entries), positions(positions), results(results) {
     if (positions.size() != entries || results.size() != entries) throw std::invalid_argument("invalid entry count");
 
     current_error = mean_evaluation_error();
@@ -20,7 +20,7 @@ tuner_t::tuner_t(size_t entries, std::vector<board_t> &positions, std::vector<do
     std::cout << "starting error: " << current_error << std::endl;
 
     // Pick scaling constant
-    current_error = momentum_optimise(&scaling_constant, current_error);
+    current_error = momentum_optimise(&scaling_constant, current_error, 500, 1);
     std::cout << "scaling constant = " << scaling_constant << std::endl;
 }
 
@@ -68,52 +68,78 @@ double tuner_t::sigmoid(double score) {
 
 double tuner_t::mean_evaluation_error() {
     evaluator_t evaluator(current_params, 4096);
+    const size_t section_size = entries / threads;
+
+    std::vector<std::future<double>> futures(threads);
+    for(unsigned int thread = 0; thread < threads; thread++) {
+        futures[thread] = std::async(std::launch::async, [this, section_size, thread] () -> double {
+            evaluator_t local_evaluator(current_params, 8 * MB);
+            size_t start = section_size * thread;
+            size_t end = section_size * (thread + 1);
+
+            double total_squared_error = 0;
+            for(size_t i = start; i < end; i++) {
+                int raw_eval = local_evaluator.evaluate(positions[i]);
+                if (positions[i].record[positions[i].now].next_move) raw_eval = -raw_eval;
+                double eval = sigmoid((double) raw_eval);
+                double error = eval - results[i];
+                total_squared_error += error * error;
+            }
+
+            return total_squared_error;
+        });
+    }
 
     double total_squared_error = 0;
-    for (size_t i = 0; i < entries; i++) {
+
+    // Add on the missing bits (up to 3)
+    for(size_t i = section_size * threads; i < entries; i++) {
         int raw_eval = evaluator.evaluate(positions[i]);
         if (positions[i].record[positions[i].now].next_move) raw_eval = -raw_eval;
         double eval = sigmoid((double) raw_eval);
         double error = eval - results[i];
-
         total_squared_error += error * error;
+    }
+
+    for(unsigned int thread = 0; thread < threads; thread++) {
+        total_squared_error += futures[thread].get();
     }
 
     return total_squared_error / entries;
 }
 
-double tuner_t::momentum_optimise(int *parameter, double current_mea) {
+double tuner_t::momentum_optimise(int *parameter, double current_mea, int max_iter, int step) {
     int original = *parameter;
 
     // Determine direction
     double adjusted_mea;
-    *parameter = original + 1;
+    *parameter = original + step;
     if ((adjusted_mea = mean_evaluation_error()) < current_mea) {
         std::cout << "optimising parameter (increasing): " << *parameter << std::endl;
 
-        while (adjusted_mea < current_mea) {
+        while (adjusted_mea < current_mea && abs(*parameter - original) <= max_iter) {
             current_mea = adjusted_mea;
-            *parameter += 1;
+            *parameter += step;
             adjusted_mea = mean_evaluation_error();
 
             std::cout << " : parameter: " << *parameter << " -> " << adjusted_mea << std::endl;
         }
 
-        *parameter -= 1;
+        *parameter -= step;
     } else {
         std::cout << "optimising parameter (decreasing): " << *parameter << std::endl;
 
-        *parameter = original - 1;
+        *parameter = original - step;
         adjusted_mea = mean_evaluation_error();
-        while (adjusted_mea < current_mea) {
+        while (adjusted_mea < current_mea && abs(*parameter - original) <= max_iter) {
             current_mea = adjusted_mea;
-            *parameter -= 1;
+            *parameter -= step;
             adjusted_mea = mean_evaluation_error();
 
             std::cout << " : parameter: " << *parameter << " -> " << adjusted_mea << std::endl;
         }
 
-        *parameter += 1;
+        *parameter += step;
     }
 
     std::cout << "parameter optimised: " << *parameter << " -> " << current_mea << std::endl;
@@ -121,14 +147,15 @@ double tuner_t::momentum_optimise(int *parameter, double current_mea) {
     return current_mea;
 }
 
-void tuner_t::optimise(int *parameter, size_t count) {
-    for (int i = 0; i < count; i++) {
+void tuner_t::optimise(int *parameter, size_t count, int max_iter) {
+    for (size_t i = 0; i < count; i++) {
         std::cout << "parameter " << i << " of " << count << std::endl;
-        current_error = momentum_optimise(parameter + i, current_error);
+        current_error = momentum_optimise(parameter + i, current_error, max_iter, 5);
+        current_error = momentum_optimise(parameter + i, current_error, max_iter, 1);
     }
 
     std::cout << "Final result:";
-    for (int i = 0; i < count; i++) {
+    for (size_t i = 0; i < count; i++) {
         std::cout << " " << *(parameter + i);
         if (i < count - 1) {
             std::cout << ",";
@@ -137,18 +164,19 @@ void tuner_t::optimise(int *parameter, size_t count) {
     std::cout << std::endl;
 }
 
-void tuner_t::random_optimise(int *parameter, size_t count) {
-    std::vector<int> indices;
+void tuner_t::random_optimise(int *parameter, size_t count, int max_iter) {
+    std::vector<size_t> indices;
     indices.reserve(count);
-    for(int i = 0; i < count; i++) {
+    for(size_t i = 0; i < count; i++) {
         indices.push_back(i);
     }
 
     std::shuffle(indices.begin(), indices.end(), std::mt19937(std::random_device()()));
 
-    for(int i = 0; i < count; i++) {
+    for(size_t i = 0; i < count; i++) {
         std::cout << "parameter " << i << " of " << count << std::endl;
-        current_error = momentum_optimise(parameter + indices[i], current_error);
+        current_error = momentum_optimise(parameter + indices[i], current_error, max_iter, 5);
+        current_error = momentum_optimise(parameter + indices[i], current_error, max_iter, 1);
     }
 }
 

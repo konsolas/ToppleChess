@@ -13,8 +13,8 @@
 
 const int TIMEOUT = -INF * 2;
 
-search_t::search_t(board_t board, evaluator_t &evaluator, tt::hash_t *tt, unsigned int threads, search_limits_t limits)
-        : evaluator(evaluator), tt(tt), threads(threads), limits(std::move(limits)) {
+search_t::search_t(board_t board, tt::hash_t *tt, unsigned int threads, search_limits_t limits)
+        : tt(tt), threads(threads), limits(std::move(limits)) {
     main_context.board = board;
 }
 
@@ -29,7 +29,7 @@ search_result_t search_t::think(const std::atomic_bool &aborted) {
         std::vector<std::future<int>> helper_threads(threads - 1);
         std::vector<context_t> helper_contexts(threads - 1);
         for (unsigned int i = 0; i < threads - 1; i++) {
-            helper_contexts[i] = main_context;
+            helper_contexts[i].board = main_context.board;
             helper_contexts[i].tid = i + 1;
         }
         std::atomic_bool helper_thread_aborted;
@@ -74,7 +74,7 @@ search_result_t search_t::think(const std::atomic_bool &aborted) {
 
                 // Scale the search time based on the complexity of the position
                 int junk;
-                double tapering_factor = evaluator.eval_material(main_context.board, junk, junk);
+                double tapering_factor = main_context.evaluator.eval_material(main_context.board, junk, junk);
                 double complexity = std::clamp(n_legal / 30.0, 0.5, 3.0) * tapering_factor + (1 - tapering_factor);
                 int adjusted_suggestion = static_cast<int>(complexity * limits.suggested_time_limit);
 
@@ -95,7 +95,7 @@ search_result_t search_t::think(const std::atomic_bool &aborted) {
 
     wait_for_timer();
 
-    return {last_pv[0], last_pv[1], score, depth, main_context.heur};
+    return {last_pv[0], last_pv[1]};
 }
 
 void search_t::enable_timer() {
@@ -171,7 +171,7 @@ int search_t::search_root(context_t &context, int alpha, int beta, int depth, co
     tt::entry_t h = {0};
     tt->probe(context.board.record[context.board.now].hash, h);
 
-    int eval = evaluator.evaluate(context.board);
+    int eval = context.evaluator.evaluate(context.board);
 
     GenStage stage = GEN_NONE;
     move_t move{};
@@ -234,7 +234,7 @@ int search_t::search_root(context_t &context, int alpha, int beta, int depth, co
 
                     if (depth > 1 && CHRONO_DIFF(start, engine_clock::now()) > 1000) {
                         save_pv();
-                        print_stats(score, depth, tt::LOWER);
+                        print_stats(score, depth, tt::EXACT);
                     }
                 }
             }
@@ -267,8 +267,8 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
 
     if (is_aborted(aborted)) {
         return TIMEOUT;
-    } else if (ply >= MAX_PLY - 2) {
-        return std::clamp(evaluator.evaluate(context.board), alpha, beta);
+    } else if (ply >= MAX_PLY - 1) {
+        return context.evaluator.evaluate(context.board);
     }
 
     // Quiescence search
@@ -283,7 +283,7 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
     if (context.board.record[context.board.now].halfmove_clock >= 100
         || context.board.is_repetition_draw(ply, 2)
         || context.board.is_repetition_draw(100, 3)) {
-        return std::clamp(0, alpha, beta);
+        return 0;
     }
 
     // Mate distance pruning
@@ -314,12 +314,12 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
         tt_move = context.board.to_move(h.move);
     } else {
         score = -INF;
-        eval = evaluator.evaluate(context.board);
+        eval = context.evaluator.evaluate(context.board);
     }
 
     // Null move pruning
     int null_score = 0;
-    if (can_null && !in_check && !PV && excluded == EMPTY_MOVE && eval >= beta) {
+    if (can_null && !in_check && !PV && excluded == EMPTY_MOVE && eval >= beta + 128) {
         if (context.board.non_pawn_material(context.board.record[context.board.now].next_move) != 0) {
             context.board.move(EMPTY_MOVE);
 
@@ -371,9 +371,9 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
         if (depth >= 8 && move == tt_move
             && (h_bound == tt::LOWER || h_bound == tt::EXACT)
             && excluded == EMPTY_MOVE
-            && h.depth() >= depth - 3
+            && h.depth() >= depth - 2
             && abs(h.value(ply)) < MINCHECKMATE) {
-            int reduced_beta = (h.value(ply)) - 2 * depth;
+            int reduced_beta = (h.value(ply)) - depth;
             score = search_ab<false, H>(context, reduced_beta - 1, reduced_beta, ply + 1, depth / 2,
                                         can_null, move, aborted);
             if (is_aborted(aborted)) return TIMEOUT;
@@ -395,14 +395,14 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
 
             bool move_is_check = context.board.is_incheck();
 
-            // Check
+            // Check and castling extensions
             if (move_is_check) {
                 ex = 1;
             }
 
             // Futility pruning
             if (!in_check && ex == 0 && n_legal > 1) {
-                if (depth <= 6 && eval + 64 + 32 * depth < alpha && stage == GEN_QUIETS) {
+                if (depth <= 6 && eval + 64 + 32 * depth < alpha && stage == GEN_QUIETS && best_score > -MINCHECKMATE) {
                     context.board.unmove();
                     break;
                 }
@@ -424,7 +424,7 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
                     }
                 } else if (ply) {
                     // History pruning
-                    if (n_legal > move_score) {
+                    if (n_legal > move_score && best_score > -MINCHECKMATE) {
                         context.board.unmove();
                         break;
                     }
@@ -515,11 +515,11 @@ int search_t::search_qs(context_t &context, int alpha, int beta, int ply, const 
 
     if (is_aborted(aborted)) {
         return TIMEOUT;
-    } else if (ply >= MAX_PLY - 2) {
-        return std::clamp(evaluator.evaluate(context.board), alpha, beta);
+    } else if (ply >= MAX_PLY - 1) {
+        return context.evaluator.evaluate(context.board);
     }
 
-    int stand_pat = evaluator.evaluate(context.board);
+    int stand_pat = context.evaluator.evaluate(context.board);
 
     if (stand_pat >= beta) return beta;
     if (alpha < stand_pat) alpha = stand_pat;

@@ -10,7 +10,7 @@
 #include "tuner.h"
 #include "../endgame.h"
 
-#define TOPPLE_TUNE_VER "0.0.1"
+#define TOPPLE_TUNE_VER "0.0.2"
 
 double get_result(const std::string &result) {
     if(result == "1-0") {
@@ -52,11 +52,31 @@ int main(int argc, char *argv[]) {
         while (std::getline(file, line)) {
             std::string::size_type pos = line.find("c9");
 
-            std::string fen = line.substr(0, pos);
-            std::string result = line.substr(pos + 4, line.find(';') - pos - 4 - 1);
+            if(pos != std::string::npos) {
+                std::string fen = line.substr(0, pos);
+                std::string result = line.substr(pos + 4, line.find(';') - pos - 4 - 1);
 
-            boards.emplace_back(fen);
-            results.push_back(get_result(result));
+                boards.emplace_back(fen);
+                results.push_back(get_result(result));
+                continue;
+            }
+
+            pos = line.find("c1");
+            if(pos != std::string::npos) {
+                std::string fen = line.substr(0, pos);
+                std::string result = line.substr(pos + 3, line.find(';') - pos - 3);
+                if(result.find('*') != std::string::npos) {
+                    continue;
+                }
+
+                boards.emplace_back(fen);
+                results.push_back(get_result(result));
+                continue;
+            }
+
+            if(!line.empty()) {
+                std::cout << "warn: missing position: " << line << std::endl;
+            }
         }
     } else {
         throw std::invalid_argument("file not found");
@@ -64,7 +84,7 @@ int main(int argc, char *argv[]) {
 
     std::cout << "loaded " << boards.size() << " positions" << std::endl;
 
-    tuner_t tuner = tuner_t(boards.size(), boards, results);
+    tuner_t tuner = tuner_t(4, boards.size(), boards, results);
 
     while (true) {
         std::string input;
@@ -79,33 +99,41 @@ int main(int argc, char *argv[]) {
             if(cmd == "quit") {
                 break;
             } else if(cmd == "optimise") {
-                std::string parameter;
-                iss >> parameter;
+                std::string iterations;
+                iss >> iterations;
 
-                if(parameter == "once") {
-                    tuner.optimise(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int));
+                std::string max_iter;
+                iss >> max_iter;
+                int n_iter = std::stoi(max_iter);
+
+                if(iterations == "once") {
+                    tuner.optimise(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int), n_iter);
                 } else {
-                    int times = std::stoi(parameter);
+                    int times = std::stoi(iterations);
                     for(int i = 0; i < times; i++) {
-                        tuner.optimise(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int));
+                        tuner.optimise(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int), n_iter);
                     }
                 }
+
+                tuner.print_params();
             } else if(cmd == "random_optimise") {
                 std::string parameter;
                 iss >> parameter;
 
-                if(parameter == "once") {
-                    tuner.random_optimise(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int));
-                } else {
-                    int times = std::stoi(parameter);
-                    for(int i = 0; i < times; i++) {
-                        tuner.random_optimise(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int));
-                    }
+                std::string max_iter;
+                iss >> max_iter;
+                int n_iter = std::stoi(max_iter);
+
+                int times = std::stoi(parameter);
+                for(int i = 0; i < times; i++) {
+                    tuner.random_optimise(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int), n_iter);
                 }
+
+                tuner.print_params();
             } else if(cmd == "print") {
                 tuner.print_params();
             } else if(cmd == "optimise_pos") {
-                tuner.optimise(tuner.get_current_params()->mat_opp_bishop, 3);
+                tuner.optimise(tuner.get_current_params()->mat_opp_bishop_only_eg, 6, 10);
             }
         }
     }
