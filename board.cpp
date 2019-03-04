@@ -388,6 +388,8 @@ void board_t::switch_piece(Team side, Piece piece, uint8_t sq) {
         U64 square_hash = zobrist::squares[sq][side][piece];
         record[now].hash ^= square_hash;
         if(piece == PAWN) record[now].pawn_hash ^= square_hash;
+        if(sq_data[sq].occupied) record[now].material.info.inc(side, piece);
+        else record[now].material.info.dec(side, piece);
     }
 }
 
@@ -443,7 +445,7 @@ bool board_t::is_pseudo_legal(move_t move) const {
         }
     }
 
-    if (move.info.is_capture) {
+    if (move.info.is_capture && !move.info.is_ep) {
         if ((bb_pieces[x_team][move.info.captured_type] & single_bit(move.info.to)) == 0) return false;
     } else {
         if ((bb_side[x_team] & single_bit(move.info.to)) != 0) return false;
@@ -584,7 +586,7 @@ void board_t::mirror() {
 }
 
 int board_t::see(move_t move) const {
-    if(move == EMPTY_MOVE)
+    if(move == EMPTY_MOVE || move.info.is_ep)
         return 0;
 
     // State

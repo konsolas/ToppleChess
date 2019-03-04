@@ -5,6 +5,7 @@
 #include "eval.h"
 #include "board.h"
 #include "endgame.h"
+#include "hash.h"
 #include <sstream>
 #include <algorithm>
 #include <cstring>
@@ -202,15 +203,15 @@ int evaluator_t::evaluate(const board_t &board) {
 }
 
 double evaluator_t::eval_material(const board_t &board, int &mg, int &eg) {
+    material_data_t material = board.record[board.now].material;
+    
     // Check for opposite coloured bishops
     bool opposite_coloured_bishops = board.bb_pieces[WHITE][BISHOP] && board.bb_pieces[BLACK][BISHOP]
         && !multiple_bits(board.bb_pieces[WHITE][BISHOP]) && !multiple_bits(board.bb_pieces[BLACK][BISHOP])
         && !same_colour(bit_scan(board.bb_pieces[WHITE][BISHOP]), bit_scan(board.bb_pieces[BLACK][BISHOP]));
 
     // Collect material data
-    const int pawn_w = pop_count(board.bb_pieces[WHITE][PAWN]); 
-    const int pawn_b = pop_count(board.bb_pieces[BLACK][PAWN]);
-    const int pawn_balance = pawn_w - pawn_b;
+    const int pawn_balance = material.info.w_pawns - material.info.b_pawns;
     mg += params.mat_mg[PAWN] * pawn_balance;
     eg += params.mat_eg[PAWN] * pawn_balance;
 
@@ -222,38 +223,30 @@ double evaluator_t::eval_material(const board_t &board, int &mg, int &eg) {
         }
     }
 
-    const int knight_w = pop_count(board.bb_pieces[WHITE][KNIGHT]);
-    const int knight_b = pop_count(board.bb_pieces[BLACK][KNIGHT]);
-    const int knight_balance = knight_w - knight_b;
+    const int knight_balance = material.info.w_knights - material.info.b_knights;
     mg += params.mat_mg[KNIGHT] * knight_balance;
     eg += params.mat_eg[KNIGHT] * knight_balance;
 
-    const int bishop_w = pop_count(board.bb_pieces[WHITE][BISHOP]);
-    const int bishop_b = pop_count(board.bb_pieces[BLACK][BISHOP]);
-    const int bishop_balance = bishop_w - bishop_b;
+    const int bishop_balance = material.info.w_bishops - material.info.b_bishops;
     mg += params.mat_mg[BISHOP] * bishop_balance;
     eg += params.mat_eg[BISHOP] * bishop_balance;
     
-    const int rook_w = pop_count(board.bb_pieces[WHITE][ROOK]);
-    const int rook_b = pop_count(board.bb_pieces[BLACK][ROOK]);
-    const int rook_balance = rook_w - rook_b;    
+    const int rook_balance = material.info.w_rooks - material.info.b_rooks;    
     mg += params.mat_mg[ROOK] * rook_balance;
     eg += params.mat_eg[ROOK] * rook_balance;
 
-    const int queen_w = pop_count(board.bb_pieces[WHITE][QUEEN]);
-    const int queen_b = pop_count(board.bb_pieces[BLACK][QUEEN]);
-    const int queen_balance = queen_w - queen_b;
+    const int queen_balance = material.info.w_queens - material.info.b_queens;
     mg += params.mat_mg[QUEEN] * queen_balance;
     eg += params.mat_eg[QUEEN] * queen_balance;
 
-    const int mat_w = params.mat_exch_pawn * (pawn_w)
-                      + params.mat_exch_minor * (knight_w + bishop_w)
-                      + params.mat_exch_rook * (rook_w)
-                      + params.mat_exch_queen * (queen_w);
-    const int mat_b = params.mat_exch_pawn * (pawn_b)
-                      + params.mat_exch_minor * (knight_b + bishop_b)
-                      + params.mat_exch_rook * (rook_b)
-                      + params.mat_exch_queen * (queen_b);
+    const int mat_w = params.mat_exch_pawn * (material.info.w_pawns)
+                      + params.mat_exch_minor * (material.info.w_knights + material.info.w_bishops)
+                      + params.mat_exch_rook * (material.info.w_rooks)
+                      + params.mat_exch_queen * (material.info.w_queens);
+    const int mat_b = params.mat_exch_pawn * (material.info.b_pawns)
+                      + params.mat_exch_minor * (material.info.b_knights + material.info.b_bishops)
+                      + params.mat_exch_rook * (material.info.b_rooks)
+                      + params.mat_exch_queen * (material.info.b_queens);
     const int mat_max = 2 * (params.mat_exch_pawn * 8
                              + params.mat_exch_minor * (2 + 2)
                              + params.mat_exch_rook * 2

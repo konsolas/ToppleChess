@@ -29,6 +29,7 @@ struct game_record_t {
     int halfmove_clock; // Moves since last pawn move or capture
     U64 hash;
     U64 pawn_hash;
+    material_data_t material;
 };
 
 /**

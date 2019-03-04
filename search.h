@@ -90,22 +90,24 @@ struct search_limits_t {
         depth_limit = MAX_PLY;
         node_limit = UINT64_MAX;
 
-        // Handle time control
-        {
-            // Try and use a consistent amount of time per move
-            suggested_time_limit = (time /
-                          (moves_to_go > 0 ? moves_to_go + 1 : std::max(50 - now, 30)));
-
-            // Handle increment: Look to gain some time if there isn't much left
+        if(moves_to_go > 0) {
+            // Repeating time controls
+            suggested_time_limit = (time / (moves_to_go + 1));
             suggested_time_limit += inc / 2;
-
-            // Allow search to use up to 3x as much time as suggested.
             hard_time_limit = suggested_time_limit * 3;
-
-            // Clamp both time limits
-            suggested_time_limit = std::clamp(suggested_time_limit, 0, time - 50);
-            hard_time_limit = std::clamp(hard_time_limit, 0, time - 50);
+            if(moves_to_go > 1 && hard_time_limit > time / 2) {
+                hard_time_limit = time / 2;
+            }
+        } else {
+            // Other time controls
+            suggested_time_limit = (time / std::max(50 - now, 30));
+            suggested_time_limit += inc / 2;
+            hard_time_limit = suggested_time_limit * 3;
         }
+
+        // Clamp both time limits
+        suggested_time_limit = std::clamp(suggested_time_limit, 10, std::max(10, time - 50));
+        hard_time_limit = std::clamp(hard_time_limit, 10, std::max(10, time - 50));
     }
 
     // Custom search
@@ -146,7 +148,7 @@ class search_t {
         int tid = 0;
     };
 public:
-    explicit search_t(board_t board, tt::hash_t *tt, unsigned int threads, search_limits_t limits);
+    explicit search_t(board_t board, tt::hash_t *tt, unsigned int threads, size_t syzygy_resolve, search_limits_t limits);
 
     search_result_t think(const std::atomic_bool &aborted);
     void enable_timer();
@@ -169,11 +171,12 @@ private:
     bool is_aborted(const std::atomic_bool &aborted);
     bool is_root_move(move_t move);
 
-    void print_stats(int score, int depth, tt::Bound bound);
+    void print_stats(board_t &board, int score, int depth, tt::Bound bound, const std::atomic_bool &aborted);
 
     // Shared structures
     tt::hash_t *tt;
     unsigned int threads;
+    size_t syzygy_resolve;
     search_limits_t limits;
 
     // Timing
@@ -192,13 +195,17 @@ private:
     // Main search context
     context_t main_context;
 
+    // Endgame tablebases
+    int use_tb;
+
     // Global stats
     U64 nodes = 0;
+    U64 tbhits = 0;
     U64 fhf = 0;
     U64 fh = 0;
     U64 nulltries = 0;
     U64 nullcuts = 0;
-    int sel_depth;
+    size_t sel_depth;
 };
 
 #endif //TOPPLE_SEARCH_H

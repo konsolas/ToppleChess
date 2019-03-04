@@ -20,6 +20,100 @@ namespace zobrist {
     void init_hashes();
 }
 
+union material_data_t {
+    struct {
+        uint32_t w_pawns : 4,
+                 w_knights : 4,
+                 w_bishops : 4,
+                 w_rooks : 4,
+                 w_queens : 4;
+        uint32_t b_pawns : 4,
+                b_knights : 4,
+                b_bishops : 4,
+                b_rooks : 4,
+                b_queens : 4;
+        
+        inline unsigned count(Team team, Piece piece) {
+            switch (team) {
+                case WHITE:
+                    switch (piece) {
+                        case PAWN: return w_pawns;
+                        case KNIGHT: return w_knights;
+                        case BISHOP: return w_bishops;
+                        case ROOK: return w_rooks;
+                        case QUEEN: return w_queens;
+                        case KING: return 1;
+                    }
+                    break;
+                case BLACK:
+                    switch (piece) {
+                        case PAWN: return b_pawns;
+                        case KNIGHT: return b_knights;
+                        case BISHOP: return b_bishops;
+                        case ROOK: return b_rooks;
+                        case QUEEN: return b_queens;
+                        case KING: return 1;
+                    }
+                    break;
+            }
+
+            return 0;
+        }
+
+        inline void inc(Team team, Piece piece) {
+            switch (team) {
+                case WHITE:
+                    switch (piece) {
+                        case PAWN: w_pawns++; break;
+                        case KNIGHT: w_knights++; break;
+                        case BISHOP: w_bishops++; break;
+                        case ROOK: w_rooks++; break;
+                        case QUEEN: w_queens++; break;
+                        case KING: break;
+                    }
+                    break;
+                case BLACK:
+                    switch (piece) {
+                        case PAWN: b_pawns++; break;
+                        case KNIGHT: b_knights++; break;
+                        case BISHOP: b_bishops++; break;
+                        case ROOK: b_rooks++; break;
+                        case QUEEN: b_queens++; break;
+                        case KING: break;
+                    }
+                    break;
+            }
+        }
+        
+        inline void dec(Team team, Piece piece) {
+            switch (team) {
+                case WHITE:
+                    switch (piece) {
+                        case PAWN: w_pawns--; break;
+                        case KNIGHT: w_knights--; break;
+                        case BISHOP: w_bishops--; break;
+                        case ROOK: w_rooks--; break;
+                        case QUEEN: w_queens--; break;
+                        case KING: break;
+                    }
+                    break;
+                case BLACK:
+                    switch (piece) {
+                        case PAWN: b_pawns--; break;
+                        case KNIGHT: b_knights--; break;
+                        case BISHOP: b_bishops--; break;
+                        case ROOK: b_rooks--; break;
+                        case QUEEN: b_queens--; break;
+                        case KING: break;
+                    }
+                    break;
+            }
+        }
+    } info;
+
+    uint64_t hash;
+};
+
 namespace tt {
     enum Bound : uint8_t {
         NONE=0, UPPER, LOWER, EXACT

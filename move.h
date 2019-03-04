@@ -31,7 +31,7 @@ union move_t {
                 : 1; // 16 bits
     } info;
 
-    uint32_t move_bytes;
+    uint32_t hash;
 };
 
 struct packed_move_t {
@@ -44,11 +44,11 @@ struct packed_move_t {
 static const move_t EMPTY_MOVE = {};
 
 inline bool operator==(const move_t &lhs, const move_t &rhs) {
-    return lhs.move_bytes == rhs.move_bytes;
+    return lhs.hash == rhs.hash;
 }
 
 inline bool operator!=(const move_t &lhs, const move_t &rhs) {
-    return lhs.move_bytes != rhs.move_bytes;
+    return lhs.hash != rhs.hash;
 }
 
 inline std::ostream &operator<<(std::ostream &stream, const move_t &move) {

@@ -10,7 +10,9 @@
 #include "eval.h"
 #include "endgame.h"
 
-#define TOPPLE_VER "0.3.6"
+#include "syzygy/tbprobe.h"
+
+#define TOPPLE_VER "0.4.0"
 
 U64 perft(board_t &, int);
 
@@ -33,12 +35,14 @@ int main(int argc, char *argv[]) {
     std::unique_ptr<search_t> search = nullptr;
     std::atomic_bool search_abort;
     std::future<void> future;
+    size_t syzygy_resolve = 512;
 
     // Threads
     unsigned int threads = 1;
 
     // Startup
     std::cout << "Topple v" << TOPPLE_VER << " (c) Vincent Tang 2019" << std::endl;
+    std::cout << "v0.4.0_dev2 -march broadwell (TCEC)" << std::endl;
 
     while (true) {
         std::string input;
@@ -58,7 +62,8 @@ int main(int argc, char *argv[]) {
                 // Print options
                 std::cout << "option name Hash type spin default 128 min 1 max 1048576" << std::endl;
                 std::cout << "option name Threads type spin default 1 min 1 max 128" << std::endl;
-                std::cout << "option name Clear Hash type button" << std::endl;
+                std::cout << "option name SyzygyPath type string default <empty>" << std::endl;
+                std::cout << "option name SyzygyResolve type spin default 512 min 1 max 1024" << std::endl;
                 std::cout << "option name Ponder type check default false" << std::endl;
 
                 std::cout << "uciok" << std::endl;
@@ -81,15 +86,22 @@ int main(int argc, char *argv[]) {
                     std::string value;
                     iss >> value; // Skip value
                     iss >> threads;
-                } else if (name == "Clear") {
-                    iss >> name;
-                    if (name == "Hash") {
-                        // Recreate hash
-                        delete tt;
-                        tt = new tt::hash_t(hash_size * MB);
-                    } else {
-                        std::cout << "info string unrecognised option " << name << std::endl;
-                    }
+                } else if (name == "SyzygyPath") {
+                    std::string value;
+                    iss >> value; // Skip value
+
+                    std::string path;
+                    std::getline(iss, path);
+
+                    path = path.substr(1, path.size() - 1);
+
+                    std::cout << "Looking for tablebases in: " << path << std::endl;
+
+                    init_tablebases(path.c_str());
+                } else if (name == "SyzygyResolve") {
+                    std::string value;
+                    iss >> value; // Skip value
+                    iss >> syzygy_resolve;
                 } else if(name == "Ponder") {
                     // Do nothing
                 } else {
@@ -220,7 +232,7 @@ int main(int argc, char *argv[]) {
                                                              max_depth,
                                                              max_nodes,
                                                              root_moves);
-                    search = std::make_unique<search_t>(*board, tt, threads, limits);
+                    search = std::make_unique<search_t>(*board, tt, threads, syzygy_resolve, limits);
 
                     if (!ponder) search->enable_timer();
 
@@ -279,6 +291,44 @@ int main(int argc, char *argv[]) {
                     std::cout << evaluator_t(eval_params_t(), MB).evaluate(*board) << std::endl;
                 } else {
                     std::cout << "info string eval command received, but no position specified" << std::endl;
+                }
+            } else if (cmd == "tbprobe") {
+                std::string type;
+                iss >> type;
+
+                if(board) {
+                    const std::string cases[5] = {"loss", "blessed_loss", "draw", "cursed_win", "win"};
+
+                    if (type == "dtz") {
+                        int success;
+                        int dtz = probe_dtz(*board, &success);
+
+                        if(success) {
+                            int cnt50 = board->record[board->now].halfmove_clock;
+                            int wdl = 0;
+                            if (dtz > 0)
+                                wdl = (dtz + cnt50 <= 100) ? 2 : 1;
+                            else if (dtz < 0)
+                                wdl = (-dtz + cnt50 <= 100) ? -2 : -1;
+
+                            std::cout << "syzygy " << cases[wdl + 2] << " dtz " << dtz << std::endl;
+                        } else {
+                            std::cout << "syzygy failed" << std::endl;
+                        }
+                    } else if (type == "wdl") {
+                        int success;
+                        int wdl = probe_wdl(*board, &success);
+
+                        if(success) {
+                            std::cout << "syzygy " << cases[wdl + 2] << std::endl;
+                        } else {
+                            std::cout << "syzygy failed" << std::endl;
+                        }
+                    } else {
+                        std::cout << "info string unrecognised table type: dtz or wdl?" << std::endl;
+                    }
+                } else {
+                    std::cout << "info string tbprobe command received, but no position specified" << std::endl;
                 }
             } else if (cmd == "print") {
                 if (board) {
