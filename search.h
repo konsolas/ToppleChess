@@ -134,7 +134,7 @@ struct search_result_t {
 class search_t {
     friend class movesort_t;
 
-    struct context_t {
+    struct alignas(64) context_t {
         // Board representation
         board_t board;
 
@@ -146,6 +146,8 @@ class search_t {
 
         // SMP
         int tid = 0;
+        int sel_depth = 0;
+        U64 nodes = 0;
     };
 public:
     explicit search_t(board_t board, tt::hash_t *tt, unsigned int threads, size_t syzygy_resolve, search_limits_t limits);
@@ -194,18 +196,15 @@ private:
 
     // Main search context
     context_t main_context;
+    std::vector<context_t> helper_contexts;
 
     // Endgame tablebases
     int use_tb;
 
     // Global stats
-    U64 nodes = 0;
+    U64 count_nodes();
+    size_t find_sel_depth();
     U64 tbhits = 0;
-    U64 fhf = 0;
-    U64 fh = 0;
-    U64 nulltries = 0;
-    U64 nullcuts = 0;
-    size_t sel_depth;
 };
 
 #endif //TOPPLE_SEARCH_H

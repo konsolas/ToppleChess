@@ -137,6 +137,7 @@ public:
     evaluator_t(eval_params_t params, size_t pawn_hash_size);
     evaluator_t(const evaluator_t&) = delete;
     evaluator_t& operator=(const evaluator_t &) = delete;
+    evaluator_t(evaluator_t&&) = default;
     ~evaluator_t();
 
     int evaluate(const board_t &board);

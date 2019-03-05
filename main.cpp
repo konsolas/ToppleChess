@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
 
     // Startup
     std::cout << "Topple v" << TOPPLE_VER << " (c) Vincent Tang 2019" << std::endl;
-    std::cout << "v0.4.0_dev2 -march broadwell (TCEC)" << std::endl;
+    std::cout << "v0.4.0_dev3 -march broadwell (TCEC)" << std::endl;
 
     while (true) {
         std::string input;
