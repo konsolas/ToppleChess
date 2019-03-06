@@ -3,6 +3,7 @@
 //
 
 #include "movegen.h"
+#include "move.h"
 
 movegen_t::movegen_t(const board_t &board) : board(board) {
     record = board.record[board.now];
@@ -126,6 +127,8 @@ int movegen_t::gen_ep(move_t *buf) {
             move.info.piece = PAWN;
             move.info.to = record.ep_square;
             move.info.is_ep = 1;
+            move.info.is_capture = 1;
+            move.info.captured_type = PAWN;
             buf[buf_size++] = move;
         }
     }

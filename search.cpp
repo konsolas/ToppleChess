@@ -11,23 +11,43 @@
 #include "movesort.h"
 #include "move.h"
 
+#include "syzygy/tbprobe.h"
+#include "syzygy/tbresolve.h"
+
 const int TIMEOUT = -INF * 2;
 
-search_t::search_t(board_t board, tt::hash_t *tt, unsigned int threads, search_limits_t limits)
-        : tt(tt), threads(threads), limits(std::move(limits)) {
+search_t::search_t(board_t board, tt::hash_t *tt, unsigned int threads, size_t syzygy_resolve, search_limits_t limits)
+        : tt(tt), threads(threads), syzygy_resolve(syzygy_resolve), limits(std::move(limits)) {
     main_context.board = board;
 }
 
 search_result_t search_t::think(const std::atomic_bool &aborted) {
-    nodes = 0;
     start = engine_clock::now();
 
     int prev_score, score = 0, depth;
 
     if (threads > 0) {
+        // Probe tablebases at root if no root moves specified
+        use_tb = TBlargest;
+        int tb_wdl = 0;
+        bool tb_position = false;
+        if(limits.root_moves.empty() && pop_count(main_context.board.bb_all) <= TBlargest) {
+            limits.root_moves = root_probe(main_context.board, tb_wdl);
+            if((tb_position = !limits.root_moves.empty())) {
+                use_tb = 0;
+                tbhits++;
+            } else {
+                limits.root_moves = root_probe_wdl(main_context.board, tb_wdl);
+
+                if(tb_wdl <= 0) {
+                    use_tb = 0;
+                }
+            }
+        }
+
         // Helper threads
         std::vector<std::future<int>> helper_threads(threads - 1);
-        std::vector<context_t> helper_contexts(threads - 1);
+        helper_contexts.resize(threads - 1);
         for (unsigned int i = 0; i < threads - 1; i++) {
             helper_contexts[i].board = main_context.board;
             helper_contexts[i].tid = i + 1;
@@ -36,7 +56,6 @@ search_result_t search_t::think(const std::atomic_bool &aborted) {
 
         prev_score = 0;
         for (depth = 1; keep_searching(depth); depth++) {
-            sel_depth = 0;
             helper_thread_aborted = false;
 
             // Start helper threads (lazy SMP)
@@ -134,10 +153,10 @@ int search_t::search_aspiration(int prev_score, int depth, const std::atomic_boo
 
         researches++;
         if (score >= beta) {
-            print_stats(score, depth, tt::LOWER);
+            print_stats(main_context.board, score, depth, tt::LOWER, aborted);
             beta = std::min(INF, beta + delta);
         } else if (score <= alpha) {
-            print_stats(score, depth, tt::UPPER);
+            print_stats(main_context.board, score, depth, tt::UPPER, aborted);
             beta = (alpha + beta) / 2;
             alpha = std::max(-INF, alpha - delta);
         } else {
@@ -148,14 +167,14 @@ int search_t::search_aspiration(int prev_score, int depth, const std::atomic_boo
     }
 
     save_pv();
-    print_stats(score, depth, tt::EXACT);
+    print_stats(main_context.board, score, depth, tt::EXACT, aborted);
 
     return score;
 }
 
 int search_t::search_root(context_t &context, int alpha, int beta, int depth, const std::atomic_bool &aborted,
                           int &n_legal) {
-    nodes++;
+    context.nodes++;
     pv_table_len[0] = 0;
 
     // Check extension
@@ -213,11 +232,6 @@ int search_t::search_root(context_t &context, int alpha, int beta, int depth, co
                 best_move = move;
                 if (score > alpha) {
                     if (score >= beta) {
-                        if (n_legal == 1) {
-                            fhf++;
-                        }
-                        fh++;
-
                         tt->save(tt::LOWER, context.board.record[context.board.now].hash, depth, 0, eval, score,
                                  best_move);
 
@@ -234,7 +248,7 @@ int search_t::search_root(context_t &context, int alpha, int beta, int depth, co
 
                     if (depth > 1 && CHRONO_DIFF(start, engine_clock::now()) > 1000) {
                         save_pv();
-                        print_stats(score, depth, tt::EXACT);
+                        print_stats(main_context.board, score, depth, tt::EXACT, aborted);
                     }
                 }
             }
@@ -262,7 +276,7 @@ int search_t::search_root(context_t &context, int alpha, int beta, int depth, co
 template<bool PV, bool H>
 int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int depth, bool can_null, move_t excluded,
                         const std::atomic_bool &aborted) {
-    nodes++;
+    context.nodes++;
     if (!H) pv_table_len[ply] = ply;
 
     if (is_aborted(aborted)) {
@@ -317,6 +331,34 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
         eval = context.evaluator.evaluate(context.board);
     }
 
+    // Probe endgame tablebases
+    if(ply && pop_count(context.board.bb_all) <= use_tb) {
+        int success;
+        int value = probe_wdl(context.board, &success);
+        if(success) {
+            tbhits++;
+            tt::Bound bound;
+            if(value < 0) {
+                bound = tt::UPPER;
+                value = -TO_MATE_SCORE(MAX_TB_PLY + ply + 1);
+            }
+            else if(value > 0) {
+                bound = tt::LOWER;
+                value = TO_MATE_SCORE(MAX_TB_PLY + ply + 1);
+            } else {
+                bound = tt::EXACT;
+            }
+
+            if(!PV || bound == tt::EXACT
+                || (bound == tt::LOWER && value >= beta)
+                || (bound == tt::UPPER && value <= alpha)) {
+                tt->save(bound, context.board.record[context.board.now].hash, depth + 6, ply, eval, value,
+                         EMPTY_MOVE);
+                return value;
+            }
+        }
+    }
+
     // Null move pruning
     int null_score = 0;
     if (can_null && !in_check && !PV && excluded == EMPTY_MOVE && eval >= beta + 128) {
@@ -329,10 +371,8 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
             context.board.unmove();
 
             if (is_aborted(aborted)) return TIMEOUT;
-            nulltries++;
 
             if (null_score >= beta) {
-                nullcuts++;
                 return beta;
             }
         }
@@ -453,15 +493,15 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
             if (score > best_score) {
                 best_score = score;
                 best_move = move;
+
+                if (!H && PV) {
+                    update_pv(ply, move);
+                }
+
                 if (score > alpha) {
                     alpha = score;
 
                     if (score >= beta) {
-                        if (n_legal == 1) {
-                            fhf++;
-                        }
-                        fh++;
-
                         tt->save(tt::LOWER, context.board.record[context.board.now].hash, depth, ply, eval, score,
                                  best_move);
 
@@ -477,10 +517,6 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
                         }
 
                         return beta; // Fail hard
-                    }
-
-                    if (!H && PV) {
-                        update_pv(ply, move);
                     }
                 }
             }
@@ -507,11 +543,11 @@ int search_t::search_ab(context_t &context, int alpha, int beta, int ply, int de
 
 template<bool PV, bool H>
 int search_t::search_qs(context_t &context, int alpha, int beta, int ply, const std::atomic_bool &aborted) {
-    nodes++;
+    context.nodes++;
 
     if (!H) pv_table_len[ply] = ply;
 
-    sel_depth = std::max(sel_depth, ply);
+    context.sel_depth = std::max(context.sel_depth, ply);
 
     if (is_aborted(aborted)) {
         return TIMEOUT;
@@ -529,7 +565,6 @@ int search_t::search_qs(context_t &context, int alpha, int beta, int ply, const 
     int move_score;
     movesort_t gen(QUIESCENCE, context, EMPTY_MOVE, 0);
     while ((move = gen.next(stage, move_score)) != EMPTY_MOVE) {
-        if (move.info.captured_type == KING) return INF; // Ignore this position in case of a king capture
         if (stand_pat + move_score < alpha - 128) break; // Delta pruning
 
         context.board.move(move);
@@ -580,7 +615,7 @@ bool search_t::has_pv() {
 
 bool search_t::keep_searching(int depth) {
     return !has_pv()
-           || (nodes <= limits.node_limit
+           || ((limits.node_limit == UINT64_MAX || count_nodes() <= limits.node_limit)
                && depth <= limits.depth_limit
                && (!timer_started || CHRONO_DIFF(timer_start, engine_clock::now()) <= limits.hard_time_limit));
 }
@@ -594,9 +629,20 @@ bool search_t::is_root_move(move_t move) {
            (std::find(limits.root_moves.begin(), limits.root_moves.end(), move) != limits.root_moves.end());
 }
 
-void search_t::print_stats(int score, int depth, tt::Bound bound) {
+void search_t::print_stats(board_t &board, int score, int depth, tt::Bound bound, const std::atomic_bool &aborted) {
+    U64 nodes = count_nodes();
     auto current = engine_clock::now();
     auto time = CHRONO_DIFF(start, current);
+    auto game_time = timer_started ? CHRONO_DIFF(timer_start, engine_clock::now()) : 0;
+
+    // Only try pv resolution if we have plenty of time left
+    std::vector<move_t> pv(last_pv, last_pv + last_pv_len);
+    auto sel_depth = size_t(main_context.sel_depth);
+    if(syzygy_resolve > 0 && game_time < limits.suggested_time_limit && game_time < limits.hard_time_limit - 1000) {
+        resolve_pv(board, main_context.evaluator, pv, score, syzygy_resolve, aborted);
+        sel_depth = std::max(pv.size(), sel_depth);
+    }
+
     std::cout << "info depth " << depth << " seldepth " << sel_depth;
 
     if (score > MINCHECKMATE) {
@@ -616,15 +662,23 @@ void search_t::print_stats(int score, int depth, tt::Bound bound) {
     std::cout << " time " << time
               << " nodes " << nodes
               << " nps " << (nodes / (time + 1)) * 1000;
-    if (time > 2000) {
+    if (time > 1000) {
         std::cout << " hashfull " << tt->hash_full()
-                  << " beta " << ((double) fhf / fh)
-                  << " null " << ((double) nullcuts / nulltries);
+                  << " tbhits " << tbhits;
     }
     std::cout << " pv ";
-    for (int i = 0; i < last_pv_len; i++) {
-        std::cout << last_pv[i] << " ";
+    for (const auto &move : pv) {
+        std::cout << move << " ";
     }
 
     std::cout << std::endl;
+}
+
+U64 search_t::count_nodes() {
+    U64 nodes = main_context.nodes;
+    for(const auto &context : helper_contexts) {
+        nodes += context.nodes;
+    }
+
+    return nodes;
 }

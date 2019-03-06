@@ -11,8 +11,9 @@
 #define INF 32767
 #define TO_MATE_SCORE(ply) (INF - (ply))
 #define TO_MATE_PLY(score) (INF - (score))
-#define MINCHECKMATE (TO_MATE_SCORE(MAX_PLY))
+#define MINCHECKMATE (TO_MATE_SCORE(MAX_TB_PLY))
 
+#define MAX_TB_PLY 1024
 #define MAX_PLY 128
 
 constexpr unsigned int MB = 1048576;
