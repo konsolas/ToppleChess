@@ -12,7 +12,7 @@
 
 #include "syzygy/tbprobe.h"
 
-#define TOPPLE_VER "0.4.0"
+#define TOPPLE_VER "0.4.1"
 
 U64 perft(board_t &, int);
 
