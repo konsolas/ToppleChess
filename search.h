@@ -129,7 +129,7 @@ struct search_limits_t {
 
     // Resource limits
     size_t threads;
-    size_t split_depth;
+    int split_depth;
     size_t syzygy_resolve;
 };
 

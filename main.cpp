@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
 
     // Parameters
     size_t threads = 1;
-    size_t smp_split_depth = 10;
+    int smp_split_depth = 10;
     size_t syzygy_resolve = 512;
     std::string tb_path;
 

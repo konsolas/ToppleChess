@@ -37,9 +37,9 @@ struct game_record_t {
  * square is occupied - the occupied field is true.
  */
 struct sq_data_t {
-    bool occupied;
-    Team team;
-    Piece piece;
+    bool occupied : 1;
+    Team team : 1;
+    Piece piece : 6;
 };
 
 /**
