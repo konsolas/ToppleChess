@@ -50,8 +50,8 @@ private:
 
     int capt_idx = 0;
     int capt_buf_size = 0;
-    move_t capt_buf[128];
-    int capt_scores[128];
+    move_t capt_buf[64];
+    int capt_scores[64];
 };
 
 

@@ -136,10 +136,10 @@ public:
     evaluator_t(eval_params_t params, size_t pawn_hash_size);
     evaluator_t(const evaluator_t&) = delete;
     evaluator_t& operator=(const evaluator_t &) = delete;
-    evaluator_t(evaluator_t&&) = default;
     ~evaluator_t();
 
     int evaluate(const board_t &board);
+    void prefetch(U64 pawn_hash);
 
     /// Initialise generic evaluation tables
     static void eval_init();
@@ -148,11 +148,11 @@ public:
 private:
     void eval_pst(const board_t &board, int &mg, int &eg);
 
-    pawn_entry_t *eval_pawns(const board_t &board);
+    pawn_entry_t eval_pawns(const board_t &board);
 
-    void eval_king_safety(const board_t &board, int &mg, int &eg, const pawn_entry_t *entry);
+    void eval_king_safety(const board_t &board, int &mg, int &eg, const pawn_entry_t &entry);
 
-    void eval_positional(const board_t &board, int &mg, int &eg, const pawn_entry_t *entry);
+    void eval_positional(const board_t &board, int &mg, int &eg, const pawn_entry_t &entry);
 };
 
 #endif //TOPPLE_EVAL_H

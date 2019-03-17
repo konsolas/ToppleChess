@@ -37,7 +37,6 @@ namespace bb_magics {
 }
 
 namespace bb_util {
-    extern U64 single_bit[64];
     extern uint8_t sq_index[8][8];
     extern uint8_t file_index[64];
     extern uint8_t rank_index[64];
@@ -196,7 +195,7 @@ inline U64 pawn_caps(Team side, uint8_t square) {
  * @return bitboard with the bit at {@code square} set
  */
 inline U64 single_bit(uint8_t square) {
-    return bb_util::single_bit[square];
+    return 0x1ull << square;
 }
 
 /**

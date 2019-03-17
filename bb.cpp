@@ -351,7 +351,6 @@ namespace bb_magics {
  * =====================================================================================================================
  */
 namespace bb_util {
-    U64 single_bit[64];
     uint8_t sq_index[8][8];
     uint8_t file_index[64];
     uint8_t rank_index[64];
@@ -362,11 +361,6 @@ namespace bb_util {
     U64 file[8];
 
     void init_util() {
-        single_bit[0] = 0x1;
-        for (unsigned int i = 1; i < 64; i++) {
-            single_bit[i] = single_bit[i - 1] << 1u;
-        }
-
         for (uint8_t rank = 0; rank < 8; rank++) {
             for (uint8_t file = 0; file < 8; file++) {
                 uint8_t square = (rank) * uint8_t(8) + file;
@@ -379,17 +373,17 @@ namespace bb_util {
         for (uint8_t a = 0; a < 64; a++) {
             // File
             {
-                file[file_index[a]] |= single_bit[a];
+                file[file_index[a]] |= single_bit(a);
             }
 
             for (uint8_t b = 0; b < 64; b++) {
                 // Between
                 {
-                    U64 occupied = single_bit[a] | single_bit[b];
-                    if (bb_magics::bishop_moves(a, 0) & single_bit[b]) {
+                    U64 occupied = single_bit(a) | single_bit(b);
+                    if (bb_magics::bishop_moves(a, 0) & single_bit(b)) {
                         between[a][b] = bb_magics::bishop_moves(a, occupied) &
                                         bb_magics::bishop_moves(b, occupied);
-                    } else if (bb_magics::rook_moves(a, 0) & single_bit[b]) {
+                    } else if (bb_magics::rook_moves(a, 0) & single_bit(b)) {
                         between[a][b] = bb_magics::rook_moves(a, occupied) &
                                         bb_magics::rook_moves(b, occupied);
                     }
@@ -397,10 +391,10 @@ namespace bb_util {
 
                 // Line
                 {
-                    if (bb_magics::bishop_moves(a, 0) & single_bit[b]) {
+                    if (bb_magics::bishop_moves(a, 0) & single_bit(b)) {
                         line[a][b] = bb_magics::bishop_moves(a, 0) &
                                      bb_magics::bishop_moves(b, 0);
-                    } else if (bb_magics::rook_moves(a, 0) & single_bit[b]) {
+                    } else if (bb_magics::rook_moves(a, 0) & single_bit(b)) {
                         line[a][b] = bb_magics::rook_moves(a, 0) &
                                      bb_magics::rook_moves(b, 0);
                     }
@@ -408,11 +402,11 @@ namespace bb_util {
 
                 // Ray
                 {
-                    U64 occupied = single_bit[a];
-                    if (bb_magics::bishop_moves(a, 0) & single_bit[b]) {
+                    U64 occupied = single_bit(a);
+                    if (bb_magics::bishop_moves(a, 0) & single_bit(b)) {
                         ray[a][b] = bb_magics::bishop_moves(a, occupied) &
                                      bb_magics::bishop_moves(b, occupied);
-                    } else if (bb_magics::rook_moves(a, 0) & single_bit[b]) {
+                    } else if (bb_magics::rook_moves(a, 0) & single_bit(b)) {
                         ray[a][b] = bb_magics::rook_moves(a, occupied) &
                                      bb_magics::rook_moves(b, occupied);
                     }
@@ -441,8 +435,7 @@ namespace bb_normal_moves {
     inline void update_array(U64 *arr, const uint8_t &file, const uint8_t &rank,
                              int file_offset, int rank_offset) {
         if (valid_square(file + file_offset, rank + rank_offset)) {
-            arr[bb_util::sq_index[file][rank]] |= bb_util::single_bit[bb_util::sq_index[file + file_offset][rank +
-                                                                                                            rank_offset]];
+            arr[bb_util::sq_index[file][rank]] |= single_bit(bb_util::sq_index[file + file_offset][rank + rank_offset]);
         }
     }
 

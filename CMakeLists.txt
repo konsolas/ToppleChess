@@ -14,6 +14,7 @@ set(SOURCE_FILES
         move.h
         eval.h eval.cpp
         search.h search.cpp
+        smp.h smp.cpp
         syzygy/tbcore.h
         syzygy/tbprobe.h syzygy/tbprobe.cpp syzygy/tbresolve.h syzygy/tbresolve.cpp)
 set(TEST_FILES testing/catch.hpp testing/runner.cpp testing/util.h testing/util.cpp

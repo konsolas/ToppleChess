@@ -117,13 +117,20 @@ struct search_limits_t {
         suggested_time_limit = hard_time_limit;
     }
 
+    // Time limits
     bool game_situation;
     int suggested_time_limit;
-
     int hard_time_limit;
+
+    // Other limits
     int depth_limit;
     U64 node_limit;
     std::vector<move_t> root_moves = std::vector<move_t>();
+
+    // Resource limits
+    size_t threads;
+    size_t split_depth;
+    size_t syzygy_resolve;
 };
 
 struct search_result_t {
@@ -133,16 +140,14 @@ struct search_result_t {
 
 class search_t {
     friend class movesort_t;
+    friend class parallel_move_searcher_t;
 
-    struct alignas(64) context_t {
+    struct context_t {
         // Board representation
         board_t board;
 
         // Heuristics
         search_heur::heuristic_set_t heur;
-
-        // Evaluator
-        evaluator_t evaluator = evaluator_t(eval_params_t(), 16 * MB);
 
         // SMP
         int tid = 0;
@@ -150,7 +155,7 @@ class search_t {
         U64 nodes = 0;
     };
 public:
-    explicit search_t(board_t board, tt::hash_t *tt, unsigned int threads, size_t syzygy_resolve, search_limits_t limits);
+    explicit search_t(board_t board, tt::hash_t *tt, evaluator_t &evaluator, search_limits_t limits);
 
     search_result_t think(const std::atomic_bool &aborted);
     void enable_timer();
@@ -159,10 +164,12 @@ private:
     int search_aspiration(int prev_score, int depth, const std::atomic_bool &aborted, int &n_legal);
     int search_root(context_t &context, int alpha, int beta, int depth, const std::atomic_bool &aborted, int &n_legal);
 
-    template<bool PV, bool H>
-    int search_ab(context_t &context, int alpha, int beta, int ply, int depth, bool can_null, move_t excluded,
+    int search_pv(context_t &context, int alpha, int beta, int ply, int depth, bool can_null,
                   const std::atomic_bool &aborted);
-    template<bool PV, bool H>
+    int search_zw(context_t &context, int alpha, int beta, int ply, int depth, bool can_null, move_t excluded,
+                  const std::atomic_bool &aborted);
+
+    template<bool PV>
     int search_qs(context_t &context, int alpha, int beta, int ply, const std::atomic_bool &aborted);
 
     void save_pv();
@@ -177,9 +184,9 @@ private:
 
     // Shared structures
     tt::hash_t *tt;
-    unsigned int threads;
-    size_t syzygy_resolve;
+    evaluator_t &evaluator;
     search_limits_t limits;
+    semaphore_t semaphore;
 
     // Timing
     std::mutex timer_mtx;
@@ -196,14 +203,11 @@ private:
 
     // Main search context
     context_t main_context;
-    std::vector<context_t> helper_contexts;
 
     // Endgame tablebases
     int use_tb;
 
     // Global stats
-    U64 count_nodes();
-    size_t find_sel_depth();
     U64 tbhits = 0;
 };
 

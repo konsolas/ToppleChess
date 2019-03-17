@@ -66,7 +66,7 @@ struct board_t {
     bool is_legal(move_t move) const;
     bool gives_check(move_t move) const;
 
-    bool is_repetition_draw(int ply, int reps) const;
+    bool is_repetition_draw(int search_ply) const;
 
     int see(move_t move) const;
     U64 non_pawn_material(Team side) const;
@@ -82,11 +82,7 @@ struct board_t {
 
     /* Game history */
     int now = 0; // Index for record array
-#ifdef TOPPLE_TUNE
-    game_record_t record[4] = {{}}; // Shortened record to save memory while tuning
-#else
     game_record_t record[4096] = {{}}; // Record (supporting games of up to 4096 moves)
-#endif
 
     /* Internal methods */
     template<bool HASH>

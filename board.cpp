@@ -548,16 +548,15 @@ bool board_t::gives_check(move_t move) const {
     }
 }
 
-bool board_t::is_repetition_draw(int ply, int reps) const {
+bool board_t::is_repetition_draw(int search_ply) const {
     int rep = 1;
 
-    int last = std::max(now - ply, 0);
+    int max = std::max(record[now].halfmove_clock, search_ply);
 
-    for (int i = now - 2; i > last; i -= 2) {
-        if (record[i].hash == record[now].hash) rep++;
-        if (rep >= reps) {
-            return true;
-        }
+    for (int i = 2; i <= max; i += 2) {
+        if (record[now - i].hash == record[now].hash) rep++;
+        if (rep >= 3) return true;
+        if (rep >= 2 && i < search_ply) return true;
     }
 
     return false;
