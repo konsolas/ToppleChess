@@ -88,9 +88,9 @@ void tt::hash_t::save(Bound bound, U64 hash, int depth, int ply, int static_eval
     if (score <= -MINCHECKMATE) score -= ply;
 
     if(bucket->hash == hash) {
-        //if(bound == EXACT || depth >= bucket->depth() - 2) {
+        if(bound == EXACT || depth >= bucket->depth() - 2) {
             bucket->update(bound, depth, generation, move, static_eval, score);
-        //}
+        }
         return;
     }
 
@@ -98,9 +98,9 @@ void tt::hash_t::save(Bound bound, U64 hash, int depth, int ply, int static_eval
     for(size_t i = 1; i < bucket_size; i++) {
         // Always replace if same position
         if((bucket + i)->hash == hash) {
-            //if(bound == EXACT || depth >= bucket->depth() - 2) {
+            if(bound == EXACT || depth >= bucket->depth() - 2) {
                 (bucket + i)->update(bound, depth, generation, move, static_eval, score);
-            //}
+            }
             return;
         } else if((bucket + i)->about < replace->about) {
             replace = (bucket + i);

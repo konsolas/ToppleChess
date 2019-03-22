@@ -57,7 +57,7 @@ namespace search_heur {
     class killer_heur_t {
     public:
         void update(move_t killer, int ply) {
-            if (!killer.info.is_capture) {
+            if (!killer.info.is_capture && killer != killers[ply][0]) {
                 killers[ply][1] = killers[ply][0];
                 killers[ply][0] = killer;
             }
@@ -100,7 +100,7 @@ struct search_limits_t {
             }
         } else {
             // Other time controls
-            suggested_time_limit = (time / std::max(50 - now, 30));
+            suggested_time_limit = (time / std::max(60 - now, 40));
             suggested_time_limit += inc / 2;
             hard_time_limit = suggested_time_limit * 3;
         }
@@ -166,7 +166,7 @@ private:
 
     int search_pv(context_t &context, int alpha, int beta, int ply, int depth, bool can_null,
                   const std::atomic_bool &aborted);
-    int search_zw(context_t &context, int alpha, int beta, int ply, int depth, bool can_null, move_t excluded,
+    int search_zw(context_t &context, int alpha, int beta, int ply, int depth, bool can_null, move_t excluded, bool cut,
                   const std::atomic_bool &aborted);
 
     template<bool PV>

@@ -28,7 +28,7 @@ void parallel_move_searcher_t::queue_zws(smp_move_t move) {
             bool full_search = true;
             if (move.reduced_depth < move.depth) {
                 score = -search.search_zw(sub_context, -alpha - 1, -alpha, ply + 1, move.reduced_depth,
-                                          true, EMPTY_MOVE, aborted);
+                                          true, EMPTY_MOVE, true, aborted);
                 full_search = score > alpha;
             }
 
@@ -40,7 +40,7 @@ void parallel_move_searcher_t::queue_zws(smp_move_t move) {
 
             if (full_search) {
                 score = -search.search_zw(sub_context, -alpha - 1, -alpha, ply + 1, move.depth,
-                                          true, EMPTY_MOVE, aborted);
+                                          true, EMPTY_MOVE, true, aborted);
             }
             search.main_context.nodes += sub_context.nodes;
 
@@ -56,7 +56,7 @@ void parallel_move_searcher_t::queue_zws(smp_move_t move) {
         bool full_search = true;
         if (move.reduced_depth < move.depth) {
             score = -search.search_zw(search.main_context, -alpha - 1, -alpha, ply + 1, move.reduced_depth,
-                                      true, EMPTY_MOVE, aborted);
+                                      true, EMPTY_MOVE, true, aborted);
             full_search = score > alpha;
         }
 
@@ -66,7 +66,7 @@ void parallel_move_searcher_t::queue_zws(smp_move_t move) {
 
         if (full_search) {
             score = -search.search_zw(search.main_context, -alpha - 1, -alpha, ply + 1, move.depth,
-                                      true, EMPTY_MOVE, aborted);
+                                      true, EMPTY_MOVE, true, aborted);
         }
 
         if (!aborted && alpha < score) {

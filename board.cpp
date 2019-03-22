@@ -597,7 +597,7 @@ int board_t::see(move_t move) const {
 
     // Material table
     int num_capts = 0;
-    int material[32] = {0};
+    int material[32];
 
     // Eval move
     material[num_capts] = sq_data[move.info.to].occupied ? VAL[sq_data[move.info.to].piece] : 0;

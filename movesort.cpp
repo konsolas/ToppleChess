@@ -3,9 +3,10 @@
 //
 
 #include "movesort.h"
+#include "move.h"
 
-movesort_t::movesort_t(GenMode mode, const search_t::context_t &context, move_t hash_move, int ply) :
-        mode(mode), context(context), hash_move(hash_move), ply(ply), gen(movegen_t(context.board)) {
+movesort_t::movesort_t(GenMode mode, const search_t::context_t &context, move_t hash_move, move_t refutation, int ply) :
+        mode(mode), context(context), hash_move(hash_move), refutation(refutation), ply(ply), gen(movegen_t(context.board)) {
     killer_1 = context.heur.killers.primary(ply);
     killer_2 = context.heur.killers.secondary(ply);
     if(ply > 2) {
@@ -121,6 +122,9 @@ move_t movesort_t::next(GenStage &stage, int &score) {
             // Score quiets
             for (int i = 0; i < main_buf_size; i++) {
                 main_scores[i] = context.heur.history.get(main_buf[i]);
+                if(refutation.info.is_capture && main_buf[i].info.from == refutation.info.to) {
+                    main_scores[i] += 100;
+                }
             }
         case GEN_QUIETS:
             // Pick best quiet until there are none left

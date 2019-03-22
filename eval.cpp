@@ -188,10 +188,12 @@ void evaluator_t::prefetch(U64 pawn_hash) {
 
 int evaluator_t::evaluate(const board_t &board) {
     // Check endgame
+    /*
     eg_eval_t eg_eval = eval_eg(board);
     if (eg_eval.valid) {
         return board.record[board.now].next_move ? -eg_eval.eval : +eg_eval.eval;
     }
+    */
 
     // Middlegame and endgame scores
     int mg = 0;
