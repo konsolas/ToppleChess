@@ -408,11 +408,8 @@ void tuner_t::print_params() {
 
     std::cout << "  pos_r_trapped_mg " << current_params.pos_r_trapped_mg << std::endl;
 
-    std::cout << "  pos_r_behind_own_passer_mg " << current_params.pos_r_behind_own_passer_mg << std::endl;
     std::cout << "  pos_r_behind_own_passer_eg " << current_params.pos_r_behind_own_passer_eg << std::endl;
-    std::cout << "  pos_r_behind_enemy_passer_mg " << current_params.pos_r_behind_enemy_passer_mg << std::endl;
     std::cout << "  pos_r_behind_enemy_passer_eg " << current_params.pos_r_behind_enemy_passer_eg << std::endl;
-    std::cout << "  pos_r_xray_pawn_mg " << current_params.pos_r_xray_pawn_mg << std::endl;
     std::cout << "  pos_r_xray_pawn_eg " << current_params.pos_r_xray_pawn_eg << std::endl;
     std::cout << "  pos_r_open_file_mg " << current_params.pos_r_open_file_mg << std::endl;
     std::cout << "  pos_r_open_file_eg " << current_params.pos_r_open_file_eg << std::endl;
@@ -420,5 +417,27 @@ void tuner_t::print_params() {
     std::cout << "  pos_r_own_half_open_file_eg " << current_params.pos_r_own_half_open_file_eg << std::endl;
     std::cout << "  pos_r_other_half_open_file_mg " << current_params.pos_r_other_half_open_file_mg << std::endl;
     std::cout << "  pos_r_other_half_open_file_eg " << current_params.pos_r_other_half_open_file_eg << std::endl;
+
+    std::cout << "  pos_in_hole_mg ";
+    for (const auto &param : current_params.pos_in_hole_mg) {
+        std::cout << "{";
+        for(int val : param) {
+            std::cout << val << ", ";
+        }
+        std::cout << "}, ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  pos_mob_mg ";
+    for (int param : current_params.pos_mob_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  pos_mob_eg ";
+    for (int param : current_params.pos_mob_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
 }
 
