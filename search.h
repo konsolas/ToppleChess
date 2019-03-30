@@ -209,6 +209,8 @@ private:
 
     // Global stats
     U64 tbhits = 0;
+    U64 fhf = 0;
+    U64 fh = 0;
 };
 
 #endif //TOPPLE_SEARCH_H

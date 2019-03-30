@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
     std::future<void> future;
 
     // Evaluation
-    evaluator_t evaluator(eval_params_t(), 64 * MB);
+    std::unique_ptr<evaluator_t> evaluator = std::make_unique<evaluator_t>(eval_params_t(), 64 * MB);
 
     // Parameters
     size_t threads = 1;
@@ -249,7 +249,7 @@ int main(int argc, char *argv[]) {
 
                     limits.split_depth = smp_split_depth;
 
-                    search = std::make_unique<search_t>(*board, tt, evaluator, limits);
+                    search = std::make_unique<search_t>(*board, tt, *evaluator, limits);
 
                     if (!ponder) search->enable_timer();
 
@@ -302,12 +302,20 @@ int main(int argc, char *argv[]) {
                 } else {
                     delete tt;
                     tt = new tt::hash_t(hash_size * MB);
+
+                    evaluator = std::make_unique<evaluator_t>(eval_params_t(), 64 * MB);
                 }
             } else if (cmd == "eval") {
                 if (board) {
-                    std::cout << evaluator_t(eval_params_t(), MB).evaluate(*board) << std::endl;
+                    std::cout << evaluator->evaluate(*board) << std::endl;
                 } else {
                     std::cout << "info string eval command received, but no position specified" << std::endl;
+                }
+            } else if (cmd == "mirror") {
+                if (board) {
+                    board->mirror();
+                } else {
+                    std::cout << "info string mirror command received, but no position specified" << std::endl;
                 }
             } else if (cmd == "tbprobe") {
                 std::string type;

@@ -1,9 +1,9 @@
-#include <random>
-
 //
 // Created by Vincent Tang on 2019-01-04.
 //
 
+#include <algorithm>
+#include <random>
 #include <utility>
 #include <cmath>
 
@@ -180,6 +180,36 @@ void tuner_t::random_optimise(int *parameter, size_t count, int max_iter) {
     }
 }
 
+void tuner_t::anneal(int *parameter, size_t count, double base_temp, double hc_frac, int max_iter) {
+    std::random_device rd;
+    std::mt19937 rng(rd());
+    std::uniform_int_distribution<size_t> dist(0, count - 1);
+    std::bernoulli_distribution choice;
+
+    for(int i = 0; i < max_iter; i++) {
+        double temp = std::max(0.0, (max_iter - (int) (i * (1 + hc_frac))) * base_temp / max_iter);
+
+        int *param = parameter + dist(rng);
+        int offset = choice(rng) ? (choice(rng) ? -1 : 1) : (choice(rng) ? -10 : 10);
+
+        *param += offset;
+
+        double new_error = mean_evaluation_error();
+
+        std::bernoulli_distribution accept(new_error < current_error ? 1.0 : exp(-(new_error - current_error) / temp));
+        if(!accept(rng)) {
+            *param -= offset;
+        } else {
+            current_error = new_error;
+        }
+
+        if(i % 100 == 0) std::cout << "error at epoch " << i << ": " << current_error << std::endl;
+    }
+
+    std::cout << "finished: final error: " << current_error << std::endl;
+    print_params();
+}
+
 void tuner_t::print_params() {
     std::cout << "  mat_mg ";
     for (int param : current_params.mat_mg) {
@@ -316,16 +346,10 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
-    std::cout << "  blocked_mg ";
-    for (int param : current_params.blocked_mg) {
-        std::cout << param << ", ";
-    }
+    std::cout << "  blocked_mg " << current_params.blocked_mg;
     std::cout << std::endl;
 
-    std::cout << "  blocked_eg ";
-    for (int param : current_params.blocked_eg) {
-        std::cout << param << ", ";
-    }
+    std::cout << "  blocked_eg " << current_params.blocked_eg;
     std::cout << std::endl;
 
     std::cout << "  chain_mg ";
@@ -359,6 +383,8 @@ void tuner_t::print_params() {
     std::cout << std::endl;
 
     std::cout << "  kat_open_file " << current_params.kat_open_file << std::endl;
+    std::cout << "  kat_own_half_open_file " << current_params.kat_own_half_open_file << std::endl;
+    std::cout << "  kat_other_half_open_file " << current_params.kat_other_half_open_file << std::endl;
 
     std::cout << "  kat_attack_weight ";
     for (int param : current_params.kat_attack_weight) {
@@ -382,12 +408,17 @@ void tuner_t::print_params() {
 
     std::cout << "  pos_r_trapped_mg " << current_params.pos_r_trapped_mg << std::endl;
 
-    std::cout << "  pos_r_open_file_mg " << current_params.pos_r_open_file_mg << std::endl;
-    std::cout << "  pos_r_open_file_eg " << current_params.pos_r_open_file_eg << std::endl;
     std::cout << "  pos_r_behind_own_passer_mg " << current_params.pos_r_behind_own_passer_mg << std::endl;
     std::cout << "  pos_r_behind_own_passer_eg " << current_params.pos_r_behind_own_passer_eg << std::endl;
     std::cout << "  pos_r_behind_enemy_passer_mg " << current_params.pos_r_behind_enemy_passer_mg << std::endl;
     std::cout << "  pos_r_behind_enemy_passer_eg " << current_params.pos_r_behind_enemy_passer_eg << std::endl;
     std::cout << "  pos_r_xray_pawn_mg " << current_params.pos_r_xray_pawn_mg << std::endl;
     std::cout << "  pos_r_xray_pawn_eg " << current_params.pos_r_xray_pawn_eg << std::endl;
+    std::cout << "  pos_r_open_file_mg " << current_params.pos_r_open_file_mg << std::endl;
+    std::cout << "  pos_r_open_file_eg " << current_params.pos_r_open_file_eg << std::endl;
+    std::cout << "  pos_r_own_half_open_file_mg " << current_params.pos_r_own_half_open_file_mg << std::endl;
+    std::cout << "  pos_r_own_half_open_file_eg " << current_params.pos_r_own_half_open_file_eg << std::endl;
+    std::cout << "  pos_r_other_half_open_file_mg " << current_params.pos_r_other_half_open_file_mg << std::endl;
+    std::cout << "  pos_r_other_half_open_file_eg " << current_params.pos_r_other_half_open_file_eg << std::endl;
 }
+

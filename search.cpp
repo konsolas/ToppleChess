@@ -175,9 +175,22 @@ int search_t::search_root(context_t &context, int alpha, int beta, int depth, co
     n_legal = 0;
     movesort_t gen(NORMAL, context, context.board.to_move(h.move), EMPTY_MOVE, 0);
     for (move_t move = gen.next(stage, move_score); move != EMPTY_MOVE; move = gen.next(stage, move_score)) {
-        if (context.board.is_legal(move)) {
+        if (is_root_move(move) && context.board.is_legal(move)) {
             n_legal++;
-            move_list.emplace_back(move, n_legal, depth - 1, depth - 1);
+
+            bool move_is_check = context.board.gives_check(move);
+            int ex = move_is_check;
+
+            int reduction = 0;
+            // Late move reductions
+            if (n_legal > 1 && !move_is_check && stage == GEN_QUIETS) {
+                if (depth >= 3) {
+                    // LMR
+                    reduction = depth / 8 + n_legal / 8;
+                }
+            }
+
+            move_list.emplace_back(move, n_legal, depth - reduction - 1 + ex, depth - 1 + ex);
         }
     }
 
@@ -543,6 +556,11 @@ int search_t::search_zw(search_t::context_t &context, int alpha, int beta, int p
 
     bool in_check = context.board.is_incheck();
 
+    // Razoring
+    if(!in_check && depth <= 1 && eval + 500 < alpha) {
+        return search_qs<false>(context, alpha, beta, ply, aborted);
+    }
+
     // Null move pruning
     int null_score = 0;
     bool non_pawn_material = multiple_bits(context.board.non_pawn_material(
@@ -602,7 +620,7 @@ int search_t::search_zw(search_t::context_t &context, int alpha, int beta, int p
             }
 
             // History leaf pruning
-            if(depth <= 2 && stage == GEN_QUIETS) {
+            if(depth <= 2 && stage == GEN_QUIETS && n_legal > 8) {
                 if(move_score < 0) {
                     continue;
                 }
@@ -610,9 +628,9 @@ int search_t::search_zw(search_t::context_t &context, int alpha, int beta, int p
 
             // SEE pruning
             int see_score = (stage == GEN_GOOD_CAPT || stage == GEN_BAD_CAPT) ? move_score : context.board.see(move);
-            if(stage == GEN_QUIETS && see_score < -16 * depth * depth) {
+            if(stage == GEN_BAD_CAPT && see_score < -16 * depth * depth) {
                 continue;
-            } else if(stage == GEN_BAD_CAPT && see_score < -100 * depth) {
+            } else if(stage == GEN_QUIETS && see_score < -100 * depth) {
                 continue;
             }
         }
@@ -684,6 +702,8 @@ int search_t::search_zw(search_t::context_t &context, int alpha, int beta, int p
                     if (score >= beta) {
                         tt->save(tt::LOWER, context.board.record[context.board.now].hash, depth, ply, eval, score,
                                  best_move);
+                        fh++;
+                        if(n_legal == 1) fhf++;
 
                         if (!move.info.is_capture) {
                             int n_prev_quiets;
@@ -845,7 +865,8 @@ void search_t::print_stats(board_t &board, int score, int depth, tt::Bound bound
               << " nps " << (nodes / (time + 1)) * 1000;
     if (time > 1000) {
         std::cout << " hashfull " << tt->hash_full()
-                  << " tbhits " << tbhits;
+                  << " tbhits " << tbhits
+                  << " beta " << ((double) fhf/fh);
     }
     std::cout << " pv ";
     for (const auto &move : pv) {

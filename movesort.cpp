@@ -48,6 +48,9 @@ move_t movesort_t::next(GenStage &stage, int &score) {
                                   (context.board.record[context.board.now].next_move ?
                                    rank_index(capt_buf[i].info.to) + 1 : 8 - rank_index(capt_buf[i].info.to)))
                                  : see_score;
+                if(refutation.info.is_capture && main_buf[i].info.from == refutation.info.to) {
+                    capt_scores[i] += 1;
+                }
             }
 
             stage = GEN_GOOD_CAPT;
