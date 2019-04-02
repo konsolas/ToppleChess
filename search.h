@@ -208,9 +208,7 @@ private:
     int use_tb;
 
     // Global stats
-    U64 tbhits = 0;
-    U64 fhf = 0;
-    U64 fh = 0;
+    std::atomic_ulong tbhits = 0;
 };
 
 #endif //TOPPLE_SEARCH_H

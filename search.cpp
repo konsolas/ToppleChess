@@ -320,11 +320,11 @@ int search_t::search_pv(context_t &context, int alpha, int beta, int ply, int de
     }
 
     // Probe endgame tablebases
-    if (ply && pop_count(context.board.bb_all) <= use_tb) {
+    if (ply && context.board.record[context.board.now].halfmove_clock == 0 && pop_count(context.board.bb_all) <= use_tb) {
         int success;
         int value = probe_wdl(context.board, &success);
         if (success) {
-            tbhits++;
+            tbhits.fetch_add(1, std::memory_order::memory_order_relaxed);
             tt::Bound bound;
             if (value < 0) {
                 bound = tt::UPPER;
@@ -336,13 +336,8 @@ int search_t::search_pv(context_t &context, int alpha, int beta, int ply, int de
                 bound = tt::EXACT;
             }
 
-            if (bound == tt::EXACT
-                || (bound == tt::LOWER && value >= beta)
-                || (bound == tt::UPPER && value <= alpha)) {
-                tt->save(bound, context.board.record[context.board.now].hash, depth + 6, ply, eval, value,
-                         EMPTY_MOVE);
-                return value;
-            }
+            tt->save(tt::EXACT, context.board.record[context.board.now].hash, MAX_PLY - 1, ply, eval, value, EMPTY_MOVE);
+            return value;
         }
     }
 
@@ -528,11 +523,11 @@ int search_t::search_zw(search_t::context_t &context, int alpha, int beta, int p
     }
 
     // Probe endgame tablebases
-    if (ply && pop_count(context.board.bb_all) <= use_tb) {
+    if (ply && context.board.record[context.board.now].halfmove_clock == 0 && pop_count(context.board.bb_all) <= use_tb) {
         int success;
         int value = probe_wdl(context.board, &success);
         if (success) {
-            tbhits++;
+            tbhits.fetch_add(1, std::memory_order::memory_order_relaxed);
             tt::Bound bound;
             if (value < 0) {
                 bound = tt::UPPER;
@@ -544,13 +539,8 @@ int search_t::search_zw(search_t::context_t &context, int alpha, int beta, int p
                 bound = tt::EXACT;
             }
 
-            if (bound == tt::EXACT
-                || (bound == tt::LOWER && value >= beta)
-                || (bound == tt::UPPER && value <= alpha)) {
-                tt->save(bound, context.board.record[context.board.now].hash, depth + 6, ply, eval, value,
-                         EMPTY_MOVE);
-                return value;
-            }
+            tt->save(tt::EXACT, context.board.record[context.board.now].hash, MAX_PLY - 1, ply, eval, value, EMPTY_MOVE);
+            return value;
         }
     }
 
@@ -702,8 +692,6 @@ int search_t::search_zw(search_t::context_t &context, int alpha, int beta, int p
                     if (score >= beta) {
                         tt->save(tt::LOWER, context.board.record[context.board.now].hash, depth, ply, eval, score,
                                  best_move);
-                        fh++;
-                        if(n_legal == 1) fhf++;
 
                         if (!move.info.is_capture) {
                             int n_prev_quiets;
@@ -756,6 +744,28 @@ int search_t::search_qs(context_t &context, int alpha, int beta, int ply, const 
     }
 
     int stand_pat = evaluator.evaluate(context.board);
+
+    // Probe endgame tablebases
+    if (ply && context.board.record[context.board.now].halfmove_clock == 0 && pop_count(context.board.bb_all) <= use_tb) {
+        int success;
+        int value = probe_wdl(context.board, &success);
+        if (success) {
+            tbhits.fetch_add(1, std::memory_order::memory_order_relaxed);
+            tt::Bound bound;
+            if (value < 0) {
+                bound = tt::UPPER;
+                value = -TO_MATE_SCORE(MAX_TB_PLY + ply + 1);
+            } else if (value > 0) {
+                bound = tt::LOWER;
+                value = TO_MATE_SCORE(MAX_TB_PLY + ply + 1);
+            } else {
+                bound = tt::EXACT;
+            }
+
+            tt->save(tt::EXACT, context.board.record[context.board.now].hash, MAX_PLY - 1, ply, stand_pat, value, EMPTY_MOVE);
+            return value;
+        }
+    }
 
     if (stand_pat >= beta) return beta;
     if (alpha < stand_pat) alpha = stand_pat;
@@ -865,8 +875,7 @@ void search_t::print_stats(board_t &board, int score, int depth, tt::Bound bound
               << " nps " << (nodes / (time + 1)) * 1000;
     if (time > 1000) {
         std::cout << " hashfull " << tt->hash_full()
-                  << " tbhits " << tbhits
-                  << " beta " << ((double) fhf/fh);
+                  << " tbhits " << tbhits;
     }
     std::cout << " pv ";
     for (const auto &move : pv) {

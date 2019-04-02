@@ -282,8 +282,6 @@ void evaluator_t::eval_pst(const board_t &board, int &mg, int &eg, const pawn_en
             uint8_t sq = pop_bit(pieces);
             mg += pst[WHITE][type][sq][MG];
             eg += pst[WHITE][type][sq][EG];
-            mg += params.pos_in_hole_mg[type][std::clamp(rel_rank(WHITE, rank_index(sq)) - 1, 0, 5)]
-                    * ((entry.attackable[BLACK] & single_bit(sq)) == 0);
         }
 
         pieces = board.bb_pieces[BLACK][type];
@@ -291,8 +289,6 @@ void evaluator_t::eval_pst(const board_t &board, int &mg, int &eg, const pawn_en
             uint8_t sq = pop_bit(pieces);
             mg -= pst[BLACK][type][sq][MG];
             eg -= pst[BLACK][type][sq][EG];
-            mg += params.pos_in_hole_mg[type][std::clamp(rel_rank(BLACK, rank_index(sq)) - 1, 0, 5)]
-                  * ((entry.attackable[WHITE] & single_bit(sq)) == 0);
         }
     }
 

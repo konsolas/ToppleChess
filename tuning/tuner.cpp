@@ -418,16 +418,6 @@ void tuner_t::print_params() {
     std::cout << "  pos_r_other_half_open_file_mg " << current_params.pos_r_other_half_open_file_mg << std::endl;
     std::cout << "  pos_r_other_half_open_file_eg " << current_params.pos_r_other_half_open_file_eg << std::endl;
 
-    std::cout << "  pos_in_hole_mg ";
-    for (const auto &param : current_params.pos_in_hole_mg) {
-        std::cout << "{";
-        for(int val : param) {
-            std::cout << val << ", ";
-        }
-        std::cout << "}, ";
-    }
-    std::cout << std::endl;
-
     std::cout << "  pos_mob_mg ";
     for (int param : current_params.pos_mob_mg) {
         std::cout << param << ", ";
