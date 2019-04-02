@@ -548,16 +548,15 @@ bool board_t::gives_check(move_t move) const {
     }
 }
 
-bool board_t::is_repetition_draw(int ply, int reps) const {
+bool board_t::is_repetition_draw(int search_ply) const {
     int rep = 1;
 
-    int last = std::max(now - ply, 0);
+    int max = std::max(record[now].halfmove_clock, search_ply);
 
-    for (int i = now - 2; i > last; i -= 2) {
-        if (record[i].hash == record[now].hash) rep++;
-        if (rep >= reps) {
-            return true;
-        }
+    for (int i = 2; i <= max; i += 2) {
+        if (record[now - i].hash == record[now].hash) rep++;
+        if (rep >= 3) return true;
+        if (rep >= 2 && i < search_ply) return true;
     }
 
     return false;
@@ -575,13 +574,26 @@ void board_t::mirror() {
         record[now].hash ^= zobrist::ep[record[now].ep_square];
     }
 
-    // Mirror pieces
-    for (uint8_t sq = 0; sq < 64; sq++) {
-        Team team = sq_data[sq].team;
-        Piece piece = sq_data[sq].piece;
+    // Mirror castling rights
+    if(record[now].castle[0][0] != record[now].castle[1][0]) {
+        record[now].hash ^= zobrist::castle[0][0];
+        record[now].hash ^= zobrist::castle[1][0];
+        std::swap(record[now].castle[0][0], record[now].castle[1][0]);
+    }
+    if(record[now].castle[0][1] != record[now].castle[1][1]) {
+        record[now].hash ^= zobrist::castle[0][1];
+        record[now].hash ^= zobrist::castle[1][1];
+        std::swap(record[now].castle[0][1], record[now].castle[1][1]);
+    }
 
-        switch_piece<false>(team, piece, sq);
-        switch_piece<false>(Team(!team), piece, MIRROR_TABLE[sq]);
+    // Mirror pieces
+    sq_data_t old_data[64];
+    memcpy(old_data, sq_data, 64 * sizeof(sq_data_t));
+    for (uint8_t sq = 0; sq < 64; sq++) {
+        if(old_data[sq].occupied) switch_piece<true>(old_data[sq].team, old_data[sq].piece, sq);
+    };
+    for (uint8_t sq = 0; sq < 64; sq++) {
+        if(old_data[sq].occupied) switch_piece<true>(Team(!old_data[sq].team), old_data[sq].piece, MIRROR_TABLE[sq]);
     }
 }
 
@@ -598,7 +610,7 @@ int board_t::see(move_t move) const {
 
     // Material table
     int num_capts = 0;
-    int material[32] = {0};
+    int material[32];
 
     // Eval move
     material[num_capts] = sq_data[move.info.to].occupied ? VAL[sq_data[move.info.to].piece] : 0;

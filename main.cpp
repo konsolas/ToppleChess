@@ -12,7 +12,7 @@
 
 #include "syzygy/tbprobe.h"
 
-#define TOPPLE_VER "0.4.0"
+#define TOPPLE_VER "0.5.0"
 
 U64 perft(board_t &, int);
 
@@ -35,10 +35,15 @@ int main(int argc, char *argv[]) {
     std::unique_ptr<search_t> search = nullptr;
     std::atomic_bool search_abort;
     std::future<void> future;
-    size_t syzygy_resolve = 512;
 
-    // Threads
-    unsigned int threads = 1;
+    // Evaluation
+    std::unique_ptr<evaluator_t> evaluator = std::make_unique<evaluator_t>(eval_params_t(), 64 * MB);
+
+    // Parameters
+    size_t threads = 1;
+    int smp_split_depth = 10;
+    size_t syzygy_resolve = 512;
+    std::string tb_path;
 
     // Startup
     std::cout << "Topple " << TOPPLE_VER << " (c) Vincent Tang 2019" << std::endl;
@@ -61,6 +66,7 @@ int main(int argc, char *argv[]) {
                 // Print options
                 std::cout << "option name Hash type spin default 128 min 1 max 1048576" << std::endl;
                 std::cout << "option name Threads type spin default 1 min 1 max 128" << std::endl;
+                std::cout << "option name SMPSplitDepth type spin default 10 min 1 max 128" << std::endl;
                 std::cout << "option name SyzygyPath type string default <empty>" << std::endl;
                 std::cout << "option name SyzygyResolve type spin default 512 min 1 max 1024" << std::endl;
                 std::cout << "option name Ponder type check default false" << std::endl;
@@ -81,6 +87,10 @@ int main(int argc, char *argv[]) {
                     // Resize hash
                     delete tt;
                     tt = new tt::hash_t(hash_size * MB);
+                } else if (name == "SMPSplitDepth") {
+                    std::string value;
+                    iss >> value; // Skip value
+                    iss >> smp_split_depth;
                 } else if (name == "Threads") {
                     std::string value;
                     iss >> value; // Skip value
@@ -89,14 +99,13 @@ int main(int argc, char *argv[]) {
                     std::string value;
                     iss >> value; // Skip value
 
-                    std::string path;
-                    std::getline(iss, path);
+                    std::getline(iss, tb_path);
 
-                    path = path.substr(1, path.size() - 1);
+                    tb_path = tb_path.substr(1, tb_path.size() - 1);
 
-                    std::cout << "Looking for tablebases in: " << path << std::endl;
+                    std::cout << "Looking for tablebases in: " << tb_path << std::endl;
 
-                    init_tablebases(path.c_str());
+                    init_tablebases(tb_path.c_str());
                 } else if (name == "SyzygyResolve") {
                     std::string value;
                     iss >> value; // Skip value
@@ -113,6 +122,9 @@ int main(int argc, char *argv[]) {
                     // Cancel waiting for ponderhit by enabling the search timer, and then hard-aborting.
                     search->enable_timer();
                     search_abort = true;
+
+                    // Wait for the search to finish before accepting any other commands.
+                    future.wait();
                 } else {
                     std::cout << "info string stop command received, but no search was in progress" << std::endl;
                 }
@@ -231,7 +243,13 @@ int main(int argc, char *argv[]) {
                                                              max_depth,
                                                              max_nodes,
                                                              root_moves);
-                    search = std::make_unique<search_t>(*board, tt, threads, syzygy_resolve, limits);
+
+                    limits.threads = threads;
+                    limits.syzygy_resolve = syzygy_resolve;
+
+                    limits.split_depth = smp_split_depth;
+
+                    search = std::make_unique<search_t>(*board, tt, *evaluator, limits);
 
                     if (!ponder) search->enable_timer();
 
@@ -284,12 +302,20 @@ int main(int argc, char *argv[]) {
                 } else {
                     delete tt;
                     tt = new tt::hash_t(hash_size * MB);
+
+                    evaluator = std::make_unique<evaluator_t>(eval_params_t(), 64 * MB);
                 }
             } else if (cmd == "eval") {
                 if (board) {
-                    std::cout << evaluator_t(eval_params_t(), MB).evaluate(*board) << std::endl;
+                    std::cout << evaluator->evaluate(*board) << std::endl;
                 } else {
                     std::cout << "info string eval command received, but no position specified" << std::endl;
+                }
+            } else if (cmd == "mirror") {
+                if (board) {
+                    board->mirror();
+                } else {
+                    std::cout << "info string mirror command received, but no position specified" << std::endl;
                 }
             } else if (cmd == "tbprobe") {
                 std::string type;

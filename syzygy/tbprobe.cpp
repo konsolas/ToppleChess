@@ -694,7 +694,7 @@ std::vector<move_t> root_probe(board_t& pos, int &wdl)
         int max = best;
         // If the current phase has not seen repetitions, then try all moves
         // that stay safely within the 50-move budget, if there are any.
-        if (!pos.is_repetition_draw(100, 2) && best + cnt50 <= 99)
+        if (!pos.is_repetition_draw(100) && best + cnt50 <= 99)
             max = 99 - cnt50;
         for (size_t i = 0; i < root_moves.size(); i++) {
             int v = root_scores[i];

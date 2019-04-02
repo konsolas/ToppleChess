@@ -132,8 +132,18 @@ int main(int argc, char *argv[]) {
                 tuner.print_params();
             } else if(cmd == "print") {
                 tuner.print_params();
-            } else if(cmd == "optimise_pos") {
-                tuner.optimise(tuner.get_current_params()->mat_opp_bishop_only_eg, 6, 10);
+            } else if(cmd == "anneal") {
+                int n_iter;
+                iss >> n_iter;
+                
+                double temp;
+                iss >> temp;
+                
+                double hc_frac;
+                iss >> hc_frac;
+
+                tuner.anneal(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int), 
+                        temp, hc_frac, n_iter);
             }
         }
     }

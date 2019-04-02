@@ -37,9 +37,9 @@ struct game_record_t {
  * square is occupied - the occupied field is true.
  */
 struct sq_data_t {
-    bool occupied;
-    Team team;
-    Piece piece;
+    bool occupied : 1;
+    Team team : 1;
+    Piece piece : 6;
 };
 
 /**
@@ -66,7 +66,7 @@ struct board_t {
     bool is_legal(move_t move) const;
     bool gives_check(move_t move) const;
 
-    bool is_repetition_draw(int ply, int reps) const;
+    bool is_repetition_draw(int search_ply) const;
 
     int see(move_t move) const;
     U64 non_pawn_material(Team side) const;

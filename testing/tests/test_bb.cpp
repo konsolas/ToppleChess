@@ -129,6 +129,32 @@ TEST_CASE("Bitboard engine") {
         Square square;
         U64 expected;
 
+        SECTION("Pawn tables") {
+            square = A2;
+            expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
+                              0, 0, 0, 0, 0, 0, 0, 0,
+                              0, 0, 0, 0, 0, 0, 0, 0,
+                              0, 0, 0, 0, 0, 0, 0, 0,
+                              0, 0, 0, 0, 0, 0, 0, 0,
+                              1, 0, 0, 0, 0, 0, 0, 0,
+                              0, 0, 0, 0, 0, 0, 0, 0,
+                              0, 0, 0, 0, 0, 0, 0, 0});
+
+            REQUIRE(bb_normal_moves::pawn_moves_x1[WHITE][square] == expected);
+
+            square = A7;
+            expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
+                              0, 0, 0, 0, 0, 0, 0, 0,
+                              1, 0, 0, 0, 0, 0, 0, 0,
+                              0, 0, 0, 0, 0, 0, 0, 0,
+                              0, 0, 0, 0, 0, 0, 0, 0,
+                              0, 0, 0, 0, 0, 0, 0, 0,
+                              0, 0, 0, 0, 0, 0, 0, 0,
+                              0, 0, 0, 0, 0, 0, 0, 0});
+
+            REQUIRE(bb_normal_moves::pawn_moves_x1[BLACK][square] == expected);
+        }
+
         SECTION("King") {
             square = E5;
             expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,

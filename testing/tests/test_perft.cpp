@@ -25,17 +25,19 @@ const bool operator!=(const board_t& lhs, const board_t& rhs) {
     return !(lhs == rhs);
 }
 
-/*
+evaluator_t evaluator(eval_params_t(), 64 * MB);
+
 const void consistency_check(board_t &board) {
-    int score = eval(board);
+    int score = evaluator.evaluate(board);
     board.mirror();
-    int mirrorscore = eval(board);
+    int mirrorscore = evaluator.evaluate(board);
     board.mirror();
 
-    INFO("position: " << board);
-    REQUIRE(score == -mirrorscore);
+    if(score != mirrorscore) {
+        INFO("original: " << board);
+        REQUIRE(score == mirrorscore);
+    }
 }
-*/
 
 const void hash_check(const board_t &board) {
     // Generate hash of board
@@ -58,12 +60,12 @@ const void hash_check(const board_t &board) {
         hash ^= zobrist::ep[board.record[board.now].ep_square];
     }
 
-    INFO("position: " << board << " lastmove: " << board.record[board.now].prev_move);
+    //INFO("position: " << board << " lastmove: " << board.record[board.now].prev_move);
     REQUIRE(hash == board.record[board.now].hash);
 }
 
 U64 perft(board_t &board, int depth) {
-    //consistency_check(board);
+    consistency_check(board);
     hash_check(board);
 
     if (depth == 0) {
@@ -78,7 +80,7 @@ U64 perft(board_t &board, int depth) {
     int idx = 0;
 
     while ((next = buf[idx++]) != EMPTY_MOVE) {
-        INFO(next);
+        //INFO(next);
         REQUIRE(board.is_pseudo_legal(next));
 
         bool is_legal = board.is_legal(next);
@@ -88,7 +90,7 @@ U64 perft(board_t &board, int depth) {
 
         bool actually_legal = !board.is_illegal();
         bool actually_gives_check = board.is_incheck();
-        INFO("position: " << board << " lastmove: " << board.record[board.now].prev_move);
+        //INFO("position: " << board << " lastmove: " << board.record[board.now].prev_move);
         REQUIRE(is_legal == actually_legal);
         REQUIRE(gives_check == actually_gives_check);
 

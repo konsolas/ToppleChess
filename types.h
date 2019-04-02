@@ -8,6 +8,10 @@
 #include <cstdint>
 #include <chrono>
 
+#include <mutex>
+#include <condition_variable>
+#include <future>
+
 #define INF 32767
 #define TO_MATE_SCORE(ply) (INF - (ply))
 #define TO_MATE_PLY(score) (INF - (score))
@@ -15,6 +19,8 @@
 
 #define MAX_TB_PLY 1024
 #define MAX_PLY 128
+
+const int TIMEOUT = -INF * 2;
 
 constexpr unsigned int MB = 1048576;
 
@@ -28,15 +34,15 @@ const U64 ONES = ~U64(0);
 
 #define CHRONO_DIFF(start, finish) std::chrono::duration_cast<std::chrono::milliseconds>((finish) - (start)).count()
 
-enum Piece : uint8_t {
+enum Piece {
     PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING
 };
 
-enum Team : uint8_t {
+enum Team {
     WHITE, BLACK
 };
 
-enum Square : uint8_t {
+enum Square {
     A1, B1, C1, D1, E1, F1, G1, H1,
     A2, B2, C2, D2, E2, F2, G2, H2,
     A3, B3, C3, D3, E3, F3, G3, H3,
@@ -73,5 +79,46 @@ constexpr uint8_t rel_sq(Team side, uint8_t square) {
 constexpr uint8_t rel_rank(Team side, uint8_t rank) {
     return side ? uint8_t(7 - rank) : rank;
 }
+
+/**
+ * Semaphore
+ */
+
+class semaphore_t {
+public:
+    explicit semaphore_t(size_t max_size) : max_size(max_size) {
+        count = max_size;
+    }
+
+    void release() {
+        std::lock_guard<decltype(mutex)> lock(mutex);
+        count++;
+        condition_variable.notify_one();
+    }
+
+    void wait() {
+        std::unique_lock<decltype(mutex)> lock(mutex);
+        while(!count) condition_variable.wait(lock);
+        --count;
+    }
+
+    bool try_wait() {
+        std::lock_guard<decltype(mutex)> lock(mutex);
+        if(count) {
+            count--;
+            return true;
+        }
+        return false;
+    }
+
+    std::size_t get_max_size() {
+        return max_size;
+    }
+private:
+    std::mutex mutex;
+    std::condition_variable condition_variable;
+    std::size_t max_size;
+    std::size_t count;
+};
 
 #endif //TOPPLE_TYPES_H

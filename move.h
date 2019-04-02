@@ -41,7 +41,7 @@ struct packed_move_t {
 };
 #pragma pack(pop)
 
-static const move_t EMPTY_MOVE = {};
+constexpr move_t EMPTY_MOVE = {};
 
 inline bool operator==(const move_t &lhs, const move_t &rhs) {
     return lhs.hash == rhs.hash;
@@ -96,7 +96,9 @@ inline packed_move_t compress(move_t move) {
     packed_move_t packed_move{};
     packed_move.from = move.info.from;
     packed_move.to = move.info.to;
-    packed_move.type = move.info.promotion_type;
+    if(move.info.is_promotion) {
+        packed_move.type = move.info.promotion_type;
+    }
 
     return packed_move;
 }

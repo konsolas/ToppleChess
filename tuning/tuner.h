@@ -29,6 +29,7 @@ public:
 
     void optimise(int *parameter, size_t count, int max_iter);
     void random_optimise(int *parameter, size_t count, int max_iter);
+    void anneal(int *parameter, size_t count, double base_temp, double hc_frac, int max_iter);
 private:
     double momentum_optimise(int *parameter, double current_mea, int max_iter, int step);
     int quiesce(board_t &board, int alpha, int beta, evaluator_t &evaluator);
