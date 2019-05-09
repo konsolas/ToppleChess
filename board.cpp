@@ -6,6 +6,7 @@
 #include <vector>
 #include <iterator>
 #include <iostream>
+#include <cstring>
 
 #include "board.h"
 #include "testing/catch.hpp"
@@ -158,7 +159,7 @@ void board_t::unmove() {
     }
 }
 
-board_t::board_t(std::string fen) {
+board_t::board_t(const std::string &fen) {
     std::istringstream iss(fen);
     std::vector<std::string> split((std::istream_iterator<std::string>(iss)), std::istream_iterator<std::string>());
 
@@ -591,7 +592,7 @@ void board_t::mirror() {
     memcpy(old_data, sq_data, 64 * sizeof(sq_data_t));
     for (uint8_t sq = 0; sq < 64; sq++) {
         if(old_data[sq].occupied) switch_piece<true>(old_data[sq].team, old_data[sq].piece, sq);
-    };
+    }
     for (uint8_t sq = 0; sq < 64; sq++) {
         if(old_data[sq].occupied) switch_piece<true>(Team(!old_data[sq].team), old_data[sq].piece, MIRROR_TABLE[sq]);
     }

@@ -48,7 +48,7 @@ struct sq_data_t {
  */
 struct board_t {
     board_t() = default;
-    explicit board_t(std::string fen);
+    explicit board_t(const std::string &fen);
 
     void move(move_t move);
     void unmove();
@@ -130,6 +130,8 @@ inline std::ostream &operator<<(std::ostream &stream, const board_t &board) {
                     case KING:
                         stream << (board.sq_data[square_index(file, rank)].team ? "k" : "K");
                         break;
+                    default:
+                        assert(false);
                 }
             } else {
                 stream << ".";

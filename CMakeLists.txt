@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.8)
 project(Topple)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "-march=skylake -static -Ofast -pedantic -Wall")
+set(CMAKE_CXX_FLAGS "-march=native -Ofast -pedantic -Wall")
 
 set(SOURCE_FILES
         board.h board.cpp
@@ -29,3 +29,9 @@ add_executable(ToppleTest ${SOURCE_FILES} ${TEST_FILES})
 add_executable(ToppleTune ${SOURCE_FILES} ${TUNE_FILES})
 
 set_target_properties(ToppleTune PROPERTIES COMPILE_FLAGS "-DTOPPLE_TUNE")
+
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+target_link_libraries(Topple Threads::Threads)
+target_link_libraries(ToppleTest Threads::Threads)
+target_link_libraries(ToppleTune Threads::Threads)

@@ -3,6 +3,7 @@
 #include <sstream>
 #include <iomanip>
 #include <future>
+#include <climits>
 
 #include "board.h"
 #include "movegen.h"
