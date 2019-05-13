@@ -42,7 +42,6 @@ int main(int argc, char *argv[]) {
 
     // Parameters
     size_t threads = 1;
-    int smp_split_depth = 10;
     size_t syzygy_resolve = 512;
     std::string tb_path;
 
@@ -67,7 +66,6 @@ int main(int argc, char *argv[]) {
                 // Print options
                 std::cout << "option name Hash type spin default 128 min 1 max 1048576" << std::endl;
                 std::cout << "option name Threads type spin default 1 min 1 max 128" << std::endl;
-                std::cout << "option name SMPSplitDepth type spin default 10 min 1 max 128" << std::endl;
                 std::cout << "option name SyzygyPath type string default <empty>" << std::endl;
                 std::cout << "option name SyzygyResolve type spin default 512 min 1 max 1024" << std::endl;
                 std::cout << "option name Ponder type check default false" << std::endl;
@@ -88,10 +86,6 @@ int main(int argc, char *argv[]) {
                     // Resize hash
                     delete tt;
                     tt = new tt::hash_t(hash_size * MB);
-                } else if (name == "SMPSplitDepth") {
-                    std::string value;
-                    iss >> value; // Skip value
-                    iss >> smp_split_depth;
                 } else if (name == "Threads") {
                     std::string value;
                     iss >> value; // Skip value
@@ -247,8 +241,6 @@ int main(int argc, char *argv[]) {
 
                     limits.threads = threads;
                     limits.syzygy_resolve = syzygy_resolve;
-
-                    limits.split_depth = smp_split_depth;
 
                     search = std::make_unique<search_t>(*board, tt, *evaluator, limits);
 

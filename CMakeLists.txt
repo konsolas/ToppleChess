@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.8)
 project(Topple)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "-march=native -Ofast -pedantic -Wall")
 
 set(SOURCE_FILES
         board.h board.cpp
@@ -14,7 +13,7 @@ set(SOURCE_FILES
         move.h
         eval.h eval.cpp
         search.h search.cpp
-        smp.h smp.cpp
+        pvs.h pvs.cpp
         syzygy/tbcore.h
         syzygy/tbprobe.h syzygy/tbprobe.cpp syzygy/tbresolve.h syzygy/tbresolve.cpp)
 set(TEST_FILES testing/catch.hpp testing/runner.cpp testing/util.h testing/util.cpp
@@ -35,3 +34,15 @@ find_package(Threads REQUIRED)
 target_link_libraries(Topple Threads::Threads)
 target_link_libraries(ToppleTest Threads::Threads)
 target_link_libraries(ToppleTune Threads::Threads)
+
+if(MINGW)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static")
+endif()
+
+add_custom_target(Release)
+add_executable(Topple-legacy ${SOURCE_FILES} main.cpp)
+add_executable(Topple-popcnt ${SOURCE_FILES} main.cpp)
+add_executable(Topple-bmi2 ${SOURCE_FILES} main.cpp)
+target_compile_options(Topple-popcnt PUBLIC -mpopcnt)
+target_compile_options(Topple-bmi2 PUBLIC -mpopcnt -mavx -mbmi2)
+add_dependencies(Release Topple-legacy Topple-popcnt Topple-bmi2)

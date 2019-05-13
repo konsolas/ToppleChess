@@ -1,3 +1,5 @@
+#include <utility>
+
 //
 // Created by Vincent on 30/09/2017.
 //
@@ -12,74 +14,14 @@
 #include <utility>
 #include <vector>
 #include <cmath>
+#include <mutex>
+#include <condition_variable>
 
 #include "board.h"
 #include "move.h"
 #include "eval.h"
-
-namespace search_heur {
-    // History heuristic
-    class history_heur_t {
-    public:
-        void good_history(move_t good_move, int depth) {
-            int bonus = depth * depth;
-            tableHist(good_move, bonus);
-        }
-
-        void bad_history(move_t bad_move, int depth) {
-            int penalty = -depth * depth;
-            tableHist(bad_move, penalty);
-        }
-
-        int get(move_t move) const {
-            return historyTable[move.info.team][move.info.from][move.info.to];
-        }
-    private:
-        // Indexed by [TEAM][FROM][TO]
-        int historyTable[2][64][64] = {};
-
-        // Intenal update routine
-        void tableHist(move_t move, int delta) {
-            historyTable[move.info.team][move.info.from][move.info.to] += delta;
-            if (historyTable[move.info.team][move.info.from][move.info.to] > 1000000000) {
-                for (auto &h : historyTable) {
-                    for (auto &i : h) {
-                        for (int &j : i) {
-                            j /= 16;
-                        }
-                    }
-                }
-            }
-        }
-    };
-
-    // Killer heuristic
-    class killer_heur_t {
-    public:
-        void update(move_t killer, int ply) {
-            if (!killer.info.is_capture && killer != killers[ply][0]) {
-                killers[ply][1] = killers[ply][0];
-                killers[ply][0] = killer;
-            }
-        }
-
-        move_t primary(int ply) const {
-            return killers[ply][0];
-        }
-
-        move_t secondary(int ply) const {
-            return killers[ply][1];
-        }
-
-    private:
-        move_t killers[MAX_PLY][2] = {{}};
-    };
-
-    struct heuristic_set_t {
-        killer_heur_t killers;
-        history_heur_t history;
-    };
-}
+#include "movesort.h"
+#include "pvs.h"
 
 struct search_limits_t {
     // Game situation
@@ -89,6 +31,7 @@ struct search_limits_t {
         // Set other limits
         depth_limit = MAX_PLY;
         node_limit = UINT64_MAX;
+        root_moves = std::vector<move_t>();
 
         if(moves_to_go > 0) {
             // Repeating time controls
@@ -125,68 +68,49 @@ struct search_limits_t {
     // Other limits
     int depth_limit;
     U64 node_limit;
-    std::vector<move_t> root_moves = std::vector<move_t>();
+    std::vector<move_t> root_moves;
 
     // Resource limits
-    size_t threads;
-    int split_depth;
-    size_t syzygy_resolve;
+    size_t threads = 1;
+    size_t syzygy_resolve = 512;
 };
 
 struct search_result_t {
     move_t best_move{};
     move_t ponder{};
+    int root_depth = 0;
 };
 
 class search_t {
-    friend class movesort_t;
-    friend class parallel_move_searcher_t;
-
-    struct context_t {
-        // Board representation
-        board_t board;
-
-        // Heuristics
-        search_heur::heuristic_set_t heur;
-
-        // SMP
-        int tid = 0;
-        int sel_depth = 0;
-        U64 nodes = 0;
-    };
 public:
-    explicit search_t(board_t board, tt::hash_t *tt, evaluator_t &evaluator, search_limits_t limits);
+    explicit search_t(board_t board, tt::hash_t *tt, evaluator_t &evaluator, const search_limits_t &limits);
 
-    search_result_t think(const std::atomic_bool &aborted);
+    search_result_t think(std::atomic_bool &aborted);
     void enable_timer();
     void wait_for_timer();
 private:
-    int search_aspiration(int prev_score, int depth, const std::atomic_bool &aborted, int &n_legal);
-    int search_root(context_t &context, int alpha, int beta, int depth, const std::atomic_bool &aborted, int &n_legal);
-
-    int search_pv(context_t &context, int alpha, int beta, int ply, int depth, bool can_null,
-                  const std::atomic_bool &aborted);
-    int search_zw(context_t &context, int alpha, int beta, int ply, int depth, bool can_null, move_t excluded, bool cut,
-                  const std::atomic_bool &aborted);
-
-    template<bool PV>
-    int search_qs(context_t &context, int alpha, int beta, int ply, const std::atomic_bool &aborted);
-
-    void save_pv();
-    bool has_pv();
-    void update_pv(int ply, move_t move);
+    void thread_start(pvs::context_t &context, const std::atomic_bool &aborted, int tid);
+    int search_aspiration(pvs::context_t &context, int prev_score, int depth, const std::atomic_bool &aborted, int tid);
 
     bool keep_searching(int depth);
-    bool is_aborted(const std::atomic_bool &aborted);
-    bool is_root_move(move_t move);
 
+    U64 count_nodes();
+    U64 count_tb_hits();
     void print_stats(board_t &board, int score, int depth, tt::Bound bound, const std::atomic_bool &aborted);
+
+    board_t board;
 
     // Shared structures
     tt::hash_t *tt;
     evaluator_t &evaluator;
-    search_limits_t limits;
-    semaphore_t semaphore;
+    const search_limits_t &limits;
+
+    // Threads
+    std::vector<board_t> boards;
+    std::vector<pvs::context_t> contexts;
+
+    // Root moves
+    std::vector<move_t> root_moves;
 
     // Timing
     std::mutex timer_mtx;
@@ -194,21 +118,6 @@ private:
     bool timer_started = false;
     std::chrono::steady_clock::time_point timer_start;
     std::chrono::steady_clock::time_point start;
-
-    // PV table (main thread only)
-    int pv_table_len[MAX_PLY] = {};
-    move_t pv_table[MAX_PLY][MAX_PLY] = {{}};
-    int last_pv_len = 0;
-    move_t last_pv[MAX_PLY] = {};
-
-    // Main search context
-    context_t main_context;
-
-    // Endgame tablebases
-    int use_tb;
-
-    // Global stats
-    std::atomic_ulong tbhits = 0;
 };
 
 #endif //TOPPLE_SEARCH_H

@@ -7,7 +7,6 @@
 
 #include "move.h"
 #include "board.h"
-#include "search.h"
 
 struct board_t;
 

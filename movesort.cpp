@@ -5,12 +5,12 @@
 #include "movesort.h"
 #include "move.h"
 
-movesort_t::movesort_t(GenMode mode, const search_t::context_t &context, move_t hash_move, move_t refutation, int ply) :
-        mode(mode), context(context), hash_move(hash_move), refutation(refutation), ply(ply), gen(movegen_t(context.board)) {
-    killer_1 = context.heur.killers.primary(ply);
-    killer_2 = context.heur.killers.secondary(ply);
+movesort_t::movesort_t(GenMode mode,  const heuristic_set_t &heuristics, const board_t &board, move_t hash_move, move_t refutation, int ply) :
+        mode(mode), heur(heuristics), board(board), hash_move(hash_move), refutation(refutation), gen(movegen_t(board)) {
+    killer_1 = heur.killers.primary(ply);
+    killer_2 = heur.killers.secondary(ply);
     if(ply > 2) {
-        killer_3 = context.heur.killers.primary(ply - 2);
+        killer_3 = heur.killers.primary(ply - 2);
     } else {
         killer_3 = EMPTY_MOVE;
     }
@@ -33,7 +33,7 @@ move_t movesort_t::next(GenStage &stage, int &score) {
     switch (stage) {
         case GEN_NONE:
             stage = GEN_HASH;
-            if (context.board.is_pseudo_legal(hash_move)) {
+            if (board.is_pseudo_legal(hash_move)) {
                 score = INF;
                 return hash_move;
             }
@@ -43,9 +43,9 @@ move_t movesort_t::next(GenStage &stage, int &score) {
 
             // Score captures (SEE)
             for (int i = 0; i < capt_buf_size; i++) {
-                int see_score = context.board.see(capt_buf[i]);
+                int see_score = board.see(capt_buf[i]);
                 capt_scores[i] = see_score >= 0 ? (see_score +
-                                  (context.board.record[context.board.now].next_move ?
+                                  (board.record[board.now].next_move ?
                                    rank_index(capt_buf[i].info.to) + 1 : 8 - rank_index(capt_buf[i].info.to)))
                                  : see_score;
                 if(refutation.info.is_capture && main_buf[i].info.from == refutation.info.to) {
@@ -80,17 +80,17 @@ move_t movesort_t::next(GenStage &stage, int &score) {
             // Generate killers
             if(mode != QUIESCENCE) stage = GEN_KILLER_1;
             else return EMPTY_MOVE;
-            if(context.board.is_pseudo_legal(killer_1)) {
+            if(board.is_pseudo_legal(killer_1)) {
                 return killer_1;
             }
         case GEN_KILLER_1:
             stage = GEN_KILLER_2;
-            if(context.board.is_pseudo_legal(killer_2)) {
+            if(board.is_pseudo_legal(killer_2)) {
                 return killer_2;
             }
         case GEN_KILLER_2:
             stage = GEN_KILLER_3;
-            if(context.board.is_pseudo_legal(killer_3)) {
+            if(board.is_pseudo_legal(killer_3)) {
                 return killer_3;
             }
         case GEN_KILLER_3:
@@ -124,7 +124,7 @@ move_t movesort_t::next(GenStage &stage, int &score) {
 
             // Score quiets
             for (int i = 0; i < main_buf_size; i++) {
-                main_scores[i] = context.heur.history.get(main_buf[i]);
+                main_scores[i] = heur.history.get(main_buf[i]);
                 if(refutation.info.is_capture && main_buf[i].info.from == refutation.info.to) {
                     main_scores[i] += 100;
                 }
