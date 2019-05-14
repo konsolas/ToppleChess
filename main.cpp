@@ -13,8 +13,6 @@
 
 #include "syzygy/tbprobe.h"
 
-#define TOPPLE_VER "0.6.0"
-
 U64 perft(board_t &, int);
 
 int main(int argc, char *argv[]) {

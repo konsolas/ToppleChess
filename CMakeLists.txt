@@ -4,6 +4,7 @@ project(Topple)
 set(CMAKE_CXX_STANDARD 17)
 set(TOPPLE_VERSION 0.6.0)
 
+# Source files for different targets
 set(SOURCE_FILES
         board.h board.cpp
         endgame.h endgame.cpp
@@ -24,12 +25,17 @@ set(TEST_FILES testing/catch.hpp testing/runner.cpp testing/util.h testing/util.
         testing/tests/test_see.cpp)
 set(TUNE_FILES tuning/tunemain.cpp tuning/tuner.cpp tuning/tuner.h)
 
+# Add version definitions
+add_definitions(-DTOPPLE_VER="${TOPPLE_VERSION}")
+
 add_executable(Topple ${SOURCE_FILES} main.cpp)
 add_executable(ToppleTest ${SOURCE_FILES} ${TEST_FILES})
 add_executable(ToppleTune ${SOURCE_FILES} ${TUNE_FILES})
 
-set_target_properties(ToppleTune PROPERTIES COMPILE_FLAGS "-DTOPPLE_TUNE")
+# Max optimisation for tuning
+set_target_properties(ToppleTune PROPERTIES COMPILE_FLAGS "-DTOPPLE_TUNE -Ofast -march=native")
 
+# Link pthreads on linux
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 target_link_libraries(Topple Threads::Threads)
@@ -44,7 +50,7 @@ endif ()
 # Set -march for the Topple target
 target_compile_options(Topple PUBLIC -march=native)
 
-# Make the "Release" target only available on the release build type
+# Configure the "Release" target
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
     add_custom_target(Release)
     add_executable(Topple_${TOPPLE_VERSION}_legacy ${SOURCE_FILES} main.cpp)
