@@ -16,6 +16,8 @@
 #define DECOMP64
 #endif
 
+#include <vector>
+
 #include "../bb.h"
 #include "../hash.h"
 #include "../movegen.h"

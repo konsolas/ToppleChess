@@ -3,6 +3,7 @@
 #include <sstream>
 #include <iomanip>
 #include <future>
+#include <climits>
 
 #include "board.h"
 #include "movegen.h"
@@ -11,8 +12,6 @@
 #include "endgame.h"
 
 #include "syzygy/tbprobe.h"
-
-#define TOPPLE_VER "0.5.0"
 
 U64 perft(board_t &, int);
 
@@ -35,13 +34,13 @@ int main(int argc, char *argv[]) {
     std::unique_ptr<search_t> search = nullptr;
     std::atomic_bool search_abort;
     std::future<void> future;
+    search_result_t last_result;
 
     // Evaluation
     std::unique_ptr<evaluator_t> evaluator = std::make_unique<evaluator_t>(eval_params_t(), 64 * MB);
 
     // Parameters
     size_t threads = 1;
-    int smp_split_depth = 10;
     size_t syzygy_resolve = 512;
     std::string tb_path;
 
@@ -66,7 +65,6 @@ int main(int argc, char *argv[]) {
                 // Print options
                 std::cout << "option name Hash type spin default 128 min 1 max 1048576" << std::endl;
                 std::cout << "option name Threads type spin default 1 min 1 max 128" << std::endl;
-                std::cout << "option name SMPSplitDepth type spin default 10 min 1 max 128" << std::endl;
                 std::cout << "option name SyzygyPath type string default <empty>" << std::endl;
                 std::cout << "option name SyzygyResolve type spin default 512 min 1 max 1024" << std::endl;
                 std::cout << "option name Ponder type check default false" << std::endl;
@@ -87,10 +85,6 @@ int main(int argc, char *argv[]) {
                     // Resize hash
                     delete tt;
                     tt = new tt::hash_t(hash_size * MB);
-                } else if (name == "SMPSplitDepth") {
-                    std::string value;
-                    iss >> value; // Skip value
-                    iss >> smp_split_depth;
                 } else if (name == "Threads") {
                     std::string value;
                     iss >> value; // Skip value
@@ -244,10 +238,33 @@ int main(int argc, char *argv[]) {
                                                              max_nodes,
                                                              root_moves);
 
+                    if(limits.game_situation && !ponder
+                        && limits.suggested_time_limit < last_result.search_time) {
+                        tt::entry_t h = {};
+                        if (tt->probe(board->record[board->now].hash, h)) {
+                            move_t hash_move = board->to_move(h.move);
+
+                            if(h.bound() == tt::EXACT && h.depth() >= last_result.root_depth) {
+                                board->move(hash_move);
+                                tt::entry_t ponder_h = {};
+                                move_t ponder_move = EMPTY_MOVE;
+                                if (tt->probe(board->record[board->now].hash, ponder_h)) {
+                                    ponder_move = board->to_move(h.move);
+                                }
+                                board->unmove();
+
+                                std::cout << "bestmove " << hash_move;
+                                if(ponder_move != EMPTY_MOVE) {
+                                    std::cout << " ponder " << ponder_move;
+                                }
+                                std::cout << std::endl;
+                                continue;
+                            }
+                        }
+                    }
+
                     limits.threads = threads;
                     limits.syzygy_resolve = syzygy_resolve;
-
-                    limits.split_depth = smp_split_depth;
 
                     search = std::make_unique<search_t>(*board, tt, *evaluator, limits);
 
@@ -255,7 +272,7 @@ int main(int argc, char *argv[]) {
 
                     // Start search
                     future = std::async(std::launch::async,
-                                        [&tt, &search, ponder, &search_abort, limits] {
+                                        [&last_result, &tt, &search, ponder, &search_abort, limits] {
                                             std::future<search_result_t> bm = std::async(std::launch::async,
                                                                                          &search_t::think,
                                                                                          search.get(),
@@ -274,6 +291,8 @@ int main(int argc, char *argv[]) {
                                                 search_abort = true;
                                                 result = bm.get();
                                             }
+
+                                            last_result = result;
 
                                             std::cout << "bestmove " << result.best_move;
                                             if(result.ponder != EMPTY_MOVE) {

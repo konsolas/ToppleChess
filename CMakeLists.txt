@@ -2,8 +2,9 @@ cmake_minimum_required(VERSION 3.8)
 project(Topple)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "-march=skylake -static -Ofast -pedantic -Wall")
+set(TOPPLE_VERSION 0.6.0)
 
+# Source files for different targets
 set(SOURCE_FILES
         board.h board.cpp
         endgame.h endgame.cpp
@@ -14,7 +15,7 @@ set(SOURCE_FILES
         move.h
         eval.h eval.cpp
         search.h search.cpp
-        smp.h smp.cpp
+        pvs.h pvs.cpp
         syzygy/tbcore.h
         syzygy/tbprobe.h syzygy/tbprobe.cpp syzygy/tbresolve.h syzygy/tbresolve.cpp)
 set(TEST_FILES testing/catch.hpp testing/runner.cpp testing/util.h testing/util.cpp
@@ -24,8 +25,40 @@ set(TEST_FILES testing/catch.hpp testing/runner.cpp testing/util.h testing/util.
         testing/tests/test_see.cpp)
 set(TUNE_FILES tuning/tunemain.cpp tuning/tuner.cpp tuning/tuner.h)
 
+# Add version definitions
+add_definitions(-DTOPPLE_VER="${TOPPLE_VERSION}")
+
 add_executable(Topple ${SOURCE_FILES} main.cpp)
 add_executable(ToppleTest ${SOURCE_FILES} ${TEST_FILES})
 add_executable(ToppleTune ${SOURCE_FILES} ${TUNE_FILES})
 
-set_target_properties(ToppleTune PROPERTIES COMPILE_FLAGS "-DTOPPLE_TUNE")
+# Max optimisation for tuning
+set_target_properties(ToppleTune PROPERTIES COMPILE_FLAGS "-DTOPPLE_TUNE -Ofast -march=native")
+
+# Link pthreads on linux
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+target_link_libraries(Topple Threads::Threads)
+target_link_libraries(ToppleTest Threads::Threads)
+target_link_libraries(ToppleTune Threads::Threads)
+
+# Need static compile for MinGW on windows, but cannot compile statically on unix.
+if (MINGW)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static")
+endif ()
+
+# Set -march for the Topple target
+target_compile_options(Topple PUBLIC -march=native)
+
+# Configure the "Release" target
+if (CMAKE_BUILD_TYPE STREQUAL "Release")
+    add_custom_target(Release)
+    add_executable(Topple_${TOPPLE_VERSION}_legacy ${SOURCE_FILES} main.cpp)
+    target_compile_options(Topple_${TOPPLE_VERSION}_legacy PUBLIC -s)
+    add_dependencies(Release Topple_${TOPPLE_VERSION}_legacy)
+    foreach(RELEASE_ARCH core2 nehalem westmere sandybridge ivybridge haswell broadwell skylake znver1 bdver4)
+        add_executable(Topple_${TOPPLE_VERSION}_${RELEASE_ARCH} ${SOURCE_FILES} main.cpp)
+        target_compile_options(Topple_${TOPPLE_VERSION}_${RELEASE_ARCH} PUBLIC -s -march=${RELEASE_ARCH})
+        add_dependencies(Release Topple_${TOPPLE_VERSION}_${RELEASE_ARCH})
+    endforeach(RELEASE_ARCH)
+endif ()
