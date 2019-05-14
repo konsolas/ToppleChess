@@ -43,7 +43,7 @@ struct search_limits_t {
             }
         } else {
             // Other time controls
-            suggested_time_limit = (time / std::max(60 - now, 40));
+            suggested_time_limit = (time / std::max(80 - now, 60));
             suggested_time_limit += inc / 2;
             hard_time_limit = suggested_time_limit * 3;
         }
@@ -79,6 +79,7 @@ struct search_result_t {
     move_t best_move{};
     move_t ponder{};
     int root_depth = 0;
+    long long search_time = 0;
 };
 
 class search_t {
@@ -108,6 +109,7 @@ private:
     // Threads
     std::vector<board_t> boards;
     std::vector<pvs::context_t> contexts;
+    int main_root_depth = 0;
 
     // Root moves
     std::vector<move_t> root_moves;

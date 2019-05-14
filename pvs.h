@@ -7,6 +7,7 @@
 
 #include <atomic>
 #include <vector>
+#include <functional>
 
 #include "board.h"
 #include "move.h"

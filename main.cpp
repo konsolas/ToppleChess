@@ -13,7 +13,7 @@
 
 #include "syzygy/tbprobe.h"
 
-#define TOPPLE_VER "0.5.0"
+#define TOPPLE_VER "0.6.0"
 
 U64 perft(board_t &, int);
 
@@ -36,6 +36,7 @@ int main(int argc, char *argv[]) {
     std::unique_ptr<search_t> search = nullptr;
     std::atomic_bool search_abort;
     std::future<void> future;
+    search_result_t last_result;
 
     // Evaluation
     std::unique_ptr<evaluator_t> evaluator = std::make_unique<evaluator_t>(eval_params_t(), 64 * MB);
@@ -239,6 +240,31 @@ int main(int argc, char *argv[]) {
                                                              max_nodes,
                                                              root_moves);
 
+                    if(limits.game_situation && !ponder
+                        && limits.suggested_time_limit < last_result.search_time) {
+                        tt::entry_t h = {};
+                        if (tt->probe(board->record[board->now].hash, h)) {
+                            move_t hash_move = board->to_move(h.move);
+
+                            if(h.bound() == tt::EXACT && h.depth() >= last_result.root_depth) {
+                                board->move(hash_move);
+                                tt::entry_t ponder_h = {};
+                                move_t ponder_move = EMPTY_MOVE;
+                                if (tt->probe(board->record[board->now].hash, ponder_h)) {
+                                    ponder_move = board->to_move(h.move);
+                                }
+                                board->unmove();
+
+                                std::cout << "bestmove " << hash_move;
+                                if(ponder_move != EMPTY_MOVE) {
+                                    std::cout << " ponder " << ponder_move;
+                                }
+                                std::cout << std::endl;
+                                continue;
+                            }
+                        }
+                    }
+
                     limits.threads = threads;
                     limits.syzygy_resolve = syzygy_resolve;
 
@@ -248,7 +274,7 @@ int main(int argc, char *argv[]) {
 
                     // Start search
                     future = std::async(std::launch::async,
-                                        [&tt, &search, ponder, &search_abort, limits] {
+                                        [&last_result, &tt, &search, ponder, &search_abort, limits] {
                                             std::future<search_result_t> bm = std::async(std::launch::async,
                                                                                          &search_t::think,
                                                                                          search.get(),
@@ -267,6 +293,8 @@ int main(int argc, char *argv[]) {
                                                 search_abort = true;
                                                 result = bm.get();
                                             }
+
+                                            last_result = result;
 
                                             std::cout << "bestmove " << result.best_move;
                                             if(result.ponder != EMPTY_MOVE) {

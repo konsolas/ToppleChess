@@ -64,7 +64,7 @@ namespace pvs {
         int n_legal = 0;
         movesort_t gen(NORMAL, heur, *board, board->to_move(h.move), EMPTY_MOVE, 0);
         for (move_t move = gen.next(stage, move_score); move != EMPTY_MOVE; move = gen.next(stage, move_score)) {
-            if (std::find(root_moves.begin(), root_moves.end(), move) != root_moves.end()) {
+            if (std::find(root_moves.begin(), root_moves.end(), move) != root_moves.end() && board->is_legal(move)) {
                 n_legal++;
 
                 bool move_is_check = board->gives_check(move);

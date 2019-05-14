@@ -56,7 +56,7 @@ search_result_t search_t::think(std::atomic_bool &aborted) {
         }
 
         if(root_moves.empty()) {
-            return {EMPTY_MOVE, EMPTY_MOVE, 0};
+            return {EMPTY_MOVE, EMPTY_MOVE, 0, 0};
         }
 
         // Instantly exit if there is only one legal move
@@ -72,7 +72,7 @@ search_result_t search_t::think(std::atomic_bool &aborted) {
 
             board.unmove();
 
-            return {root_moves[0], ponder_move, 1};
+            return {root_moves[0], ponder_move, 1, 0};
         }
 
         // Start threads
@@ -107,7 +107,7 @@ search_result_t search_t::think(std::atomic_bool &aborted) {
 
     if(pv.empty()) {
         std::cout << "warn: insufficient time to search to depth 1" << std::endl;
-        return {EMPTY_MOVE, EMPTY_MOVE, 0};
+        return {EMPTY_MOVE, EMPTY_MOVE, 0, 0};
     }
 
     // If we don't have a ponder move (e.g. if we're currently failing high but the search was aborted), look in the tt.
@@ -125,7 +125,7 @@ search_result_t search_t::think(std::atomic_bool &aborted) {
         pv.push_back(ponder_move);
     }
 
-    return {pv[0], pv[1], (int) pv.size()};
+    return {pv[0], pv[1], main_root_depth, CHRONO_DIFF(start, engine_clock::now())};
 }
 
 void search_t::enable_timer() {
@@ -149,6 +149,10 @@ void search_t::thread_start(pvs::context_t &context, const std::atomic_bool &abo
         int score = search_aspiration(context, prev_score, depth, aborted, tid);
         if(aborted) break;
 
+        if(tid == 0) {
+            main_root_depth = depth;
+        }
+
         if(tid == 0) { // Main thread
             // If in game situation, try and manage time
             if (limits.game_situation && timer_started) {
@@ -163,7 +167,7 @@ void search_t::thread_start(pvs::context_t &context, const std::atomic_bool &abo
                 // See if we can justify ending the search early, as long as we're not doing badly
                 if (depth <= 5 || score > prev_score - 50) {
                     // If it's unlikely that we'll search deeper
-                    if (elapsed > adjusted_suggestion * 0.75) {
+                    if (elapsed > adjusted_suggestion * 0.7) {
                         break;
                     }
                 }

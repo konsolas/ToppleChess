@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.8)
 project(Topple)
 
 set(CMAKE_CXX_STANDARD 17)
+set(TOPPLE_VERSION 0.6.0)
 
 set(SOURCE_FILES
         board.h board.cpp
@@ -35,14 +36,23 @@ target_link_libraries(Topple Threads::Threads)
 target_link_libraries(ToppleTest Threads::Threads)
 target_link_libraries(ToppleTune Threads::Threads)
 
-if(MINGW)
+# Need static compile for MinGW on windows, but cannot compile statically on unix.
+if (MINGW)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static")
-endif()
+endif ()
 
-add_custom_target(Release)
-add_executable(Topple-legacy ${SOURCE_FILES} main.cpp)
-add_executable(Topple-popcnt ${SOURCE_FILES} main.cpp)
-add_executable(Topple-bmi2 ${SOURCE_FILES} main.cpp)
-target_compile_options(Topple-popcnt PUBLIC -mpopcnt)
-target_compile_options(Topple-bmi2 PUBLIC -mpopcnt -mavx -mbmi2)
-add_dependencies(Release Topple-legacy Topple-popcnt Topple-bmi2)
+# Set -march for the Topple target
+target_compile_options(Topple PUBLIC -march=native)
+
+# Make the "Release" target only available on the release build type
+if (CMAKE_BUILD_TYPE STREQUAL "Release")
+    add_custom_target(Release)
+    add_executable(Topple_${TOPPLE_VERSION}_legacy ${SOURCE_FILES} main.cpp)
+    target_compile_options(Topple_${TOPPLE_VERSION}_legacy PUBLIC -s)
+    add_dependencies(Release Topple_${TOPPLE_VERSION}_legacy)
+    foreach(RELEASE_ARCH core2 nehalem westmere sandybridge ivybridge haswell broadwell skylake znver1 bdver4)
+        add_executable(Topple_${TOPPLE_VERSION}_${RELEASE_ARCH} ${SOURCE_FILES} main.cpp)
+        target_compile_options(Topple_${TOPPLE_VERSION}_${RELEASE_ARCH} PUBLIC -s -march=${RELEASE_ARCH})
+        add_dependencies(Release Topple_${TOPPLE_VERSION}_${RELEASE_ARCH})
+    endforeach(RELEASE_ARCH)
+endif ()
