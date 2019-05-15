@@ -117,21 +117,19 @@ struct eval_params_t {
             10, 7, 8, -8
     };
 
-    // PST for king:
-    // A3, B3, C3, D3, E3, F3, G3, H3, A2, B2, C2, etc.
-    // mg: First 3 ranks only. Default to king_pst_exposed_mg for higher ranks.
-    // eg: Horizontal, vertical and diagonal symmetry, like N, B, Q
-    int k_pst_mg[24] = {
-            -6, -5, -5, -1, 3, -3, 18, -1, 
-            52, 48, 16, -35, -8, 10, 65, 88, 
-            36, 84, 57, 17, 42, 52, 114, 95
+    // PST for king
+    // Horizontal, Vertical and diagonal symmetry, like N and Q
+    int k_pst_mg[16] = {
+            -95, -28, -31, -69,
+            -47, -17, -33, -56,
+            26, 6, -46, -79,
+            33, 54, -6, -19,
     };
-    int k_pst_exposed_mg = 48;
     int k_pst_eg[16] = {
-            22, 54, 68, 70, 
-            37, 59, 71, 72, 
-            6, 36, 61, 71, 
-            -37, -7, 24, 24,
+            3, 21, 37, 45,
+            -1, 16, 31, 37,
+            -29, 0, 25, 37,
+            -74, -42, -11, -12,
     };
 
     /// Pawn structure

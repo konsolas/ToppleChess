@@ -144,6 +144,8 @@ int main(int argc, char *argv[]) {
 
                 tuner.anneal(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int), 
                         temp, hc_frac, n_iter);
+            } else if(cmd == "kat") {
+                tuner.optimise(reinterpret_cast<int*> (tuner.get_current_params()->k_pst_mg), 32, 100);
             }
         }
     }

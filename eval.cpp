@@ -123,6 +123,7 @@ evaluator_t::evaluator_t(eval_params_t params, size_t pawn_hash_size) : params(p
             pst[WHITE][KNIGHT][square_mapping[i][j]][EG] = params.n_pst_eg[i];
             pst[WHITE][QUEEN][square_mapping[i][j]][MG] = params.q_pst_mg[i];
             pst[WHITE][QUEEN][square_mapping[i][j]][EG] = params.q_pst_eg[i];
+            pst[WHITE][KING][square_mapping[i][j]][MG] = params.k_pst_mg[i];
             pst[WHITE][KING][square_mapping[i][j]][EG] = params.k_pst_eg[i];
         }
     }
@@ -139,17 +140,6 @@ evaluator_t::evaluator_t(eval_params_t params, size_t pawn_hash_size) : params(p
         pst[WHITE][BISHOP][sq][EG] = params.b_pst_eg[param_index];
         pst[WHITE][ROOK][sq][MG] = params.r_pst_mg[param_index];
         pst[WHITE][ROOK][sq][EG] = params.r_pst_eg[param_index];
-    }
-
-    // King middlegame pst
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 8; ++j) {
-            pst[WHITE][KING][(2 - i) * 8 + j][MG] = params.k_pst_mg[i * 8 + j];
-        }
-    }
-
-    for (int i = 24; i < 64; i++) {
-        pst[WHITE][KING][i][MG] = params.k_pst_exposed_mg;
     }
 
     // Mirror PST for black

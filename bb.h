@@ -284,6 +284,10 @@ inline uint8_t file_index(uint8_t sq_index) {
     return bb_util::file_index[sq_index];
 }
 
+inline uint8_t file_edge_distance(uint8_t file) {
+    return file < 4 ? file : 7 - file;
+}
+
 /**
  * Find the distance (in king moves) between two squares
  *

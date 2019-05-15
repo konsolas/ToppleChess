@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.8)
 project(Topple)
 
 set(CMAKE_CXX_STANDARD 17)
-set(TOPPLE_VERSION 0.6.0)
+set(TOPPLE_VERSION 0.6.1)
 
 # Source files for different targets
 set(SOURCE_FILES
@@ -48,7 +48,7 @@ if (MINGW)
 endif ()
 
 # Set -march for the Topple target
-target_compile_options(Topple PUBLIC -march=native)
+target_compile_options(Topple PUBLIC -march=native -O3)
 
 # Configure the "Release" target
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
