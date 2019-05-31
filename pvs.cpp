@@ -89,7 +89,7 @@ namespace pvs {
                 if (n_legal > 1 && !move_is_check && stage == GEN_QUIETS) {
                     if (depth >= 3) {
                         // LMR
-                        reduction = depth / 8 + n_legal / 8;
+                        reduction = depth / 8 + n_legal / 8 - 1;
                         if (reduction >= 1 && board->see(reverse(move)) < 0) reduction -= 2;
                     }
                 }
@@ -303,7 +303,7 @@ namespace pvs {
                 if (n_legal > 1 && !move_is_check && stage == GEN_QUIETS) {
                     if (depth >= 3) {
                         // LMR
-                        reduction = depth / 8 + n_legal / 8;
+                        reduction = depth / 8 + n_legal / 8 - 1;
                         if (reduction >= 1 && board->see(reverse(move)) < 0) reduction -= 2;
                     }
                 }

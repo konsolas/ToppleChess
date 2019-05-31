@@ -359,8 +359,8 @@ evaluator_t::pawn_entry_t evaluator_t::eval_pawns(const board_t &board) {
 
         U64 not_isolated = BB_ISOLATED[WHITE][sq] & board.bb_pieces[WHITE][PAWN]; // Friendly pawns
         if (!not_isolated) {
-            new_entry.eval_mg += params.isolated_mg[rel_rank(WHITE, rank_index(sq)) - 1][open_file];
-            new_entry.eval_eg += params.isolated_eg[rel_rank(WHITE, rank_index(sq)) - 1][open_file];
+            new_entry.eval_mg += params.isolated_mg[open_file];
+            new_entry.eval_eg += params.isolated_eg[open_file];
         }
 
         if(BB_IN_FRONT[WHITE][sq] & board.bb_pieces[WHITE][PAWN]) {
@@ -408,8 +408,8 @@ evaluator_t::pawn_entry_t evaluator_t::eval_pawns(const board_t &board) {
 
         U64 not_isolated = BB_ISOLATED[BLACK][sq] & board.bb_pieces[BLACK][PAWN]; // Friendly pawns
         if (!not_isolated) {
-            new_entry.eval_mg -= params.isolated_mg[rel_rank(BLACK, rank_index(sq)) - 1][open_file];
-            new_entry.eval_eg -= params.isolated_eg[rel_rank(BLACK, rank_index(sq)) - 1][open_file];
+            new_entry.eval_mg -= params.isolated_mg[open_file];
+            new_entry.eval_eg -= params.isolated_eg[open_file];
         }
 
         if(BB_IN_FRONT[BLACK][sq] & board.bb_pieces[BLACK][PAWN]) {

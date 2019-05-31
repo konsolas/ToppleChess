@@ -315,14 +315,14 @@ void tuner_t::print_params() {
     std::cout << std::endl;
 
     std::cout << "  isolated_mg ";
-    for (int *param : current_params.isolated_mg) {
-        std::cout << "{" << param[0] << ", " << param[1] << "}, ";
+    for (int param : current_params.isolated_mg) {
+        std::cout << param << ", ";
     }
     std::cout << std::endl;
 
     std::cout << "  isolated_eg ";
-    for (int *param : current_params.isolated_eg) {
-        std::cout << "{" << param[0] << ", " << param[1] << "}, ";
+    for (int param : current_params.isolated_eg) {
+        std::cout << param << ", ";
     }
     std::cout << std::endl;
 
