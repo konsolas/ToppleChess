@@ -89,7 +89,7 @@ namespace pvs {
                 if (n_legal > 1 && !move_is_check && stage == GEN_QUIETS) {
                     if (depth >= 3) {
                         // LMR
-                        reduction = depth / 8 + n_legal / 8;
+                        reduction = depth / 8 + n_legal / 8 - 1;
                         if (reduction >= 1 && board->see(reverse(move)) < 0) reduction -= 2;
                     }
                 }
@@ -255,6 +255,9 @@ namespace pvs {
                     tt->save(bound, board->record[board->now].hash, MAX_PLY - 1, ply, eval, value, EMPTY_MOVE);
                     return value;
                 }
+
+                if(bound == tt::LOWER) alpha = std::max(alpha, value);
+                if(bound == tt::UPPER) beta = std::min(beta, value);
             }
         }
 
@@ -303,7 +306,7 @@ namespace pvs {
                 if (n_legal > 1 && !move_is_check && stage == GEN_QUIETS) {
                     if (depth >= 3) {
                         // LMR
-                        reduction = depth / 8 + n_legal / 8;
+                        reduction = depth / 8 + n_legal / 8 - 1;
                         if (reduction >= 1 && board->see(reverse(move)) < 0) reduction -= 2;
                     }
                 }

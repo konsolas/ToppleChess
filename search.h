@@ -31,7 +31,7 @@ struct search_limits_t {
         // Set other limits
         depth_limit = MAX_PLY;
         node_limit = UINT64_MAX;
-        root_moves = std::vector<move_t>();
+        search_moves = std::vector<move_t>();
 
         if(moves_to_go > 0) {
             // Repeating time controls
@@ -54,8 +54,8 @@ struct search_limits_t {
     }
 
     // Custom search
-    explicit search_limits_t(int move_time, int depth, U64 max_nodes, std::vector<move_t> root_moves) :
-            hard_time_limit(move_time), depth_limit(depth), node_limit(max_nodes), root_moves(std::move(root_moves)) {
+    explicit search_limits_t(int move_time, int depth, U64 max_nodes, std::vector<move_t> search_moves) :
+            hard_time_limit(move_time), depth_limit(depth), node_limit(max_nodes), search_moves(std::move(search_moves)) {
         game_situation = false;
         suggested_time_limit = hard_time_limit;
     }
@@ -68,7 +68,7 @@ struct search_limits_t {
     // Other limits
     int depth_limit;
     U64 node_limit;
-    std::vector<move_t> root_moves;
+    std::vector<move_t> search_moves;
 
     // Resource limits
     size_t threads = 1;

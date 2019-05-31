@@ -123,6 +123,7 @@ evaluator_t::evaluator_t(eval_params_t params, size_t pawn_hash_size) : params(p
             pst[WHITE][KNIGHT][square_mapping[i][j]][EG] = params.n_pst_eg[i];
             pst[WHITE][QUEEN][square_mapping[i][j]][MG] = params.q_pst_mg[i];
             pst[WHITE][QUEEN][square_mapping[i][j]][EG] = params.q_pst_eg[i];
+            pst[WHITE][KING][square_mapping[i][j]][MG] = params.k_pst_mg[i];
             pst[WHITE][KING][square_mapping[i][j]][EG] = params.k_pst_eg[i];
         }
     }
@@ -139,17 +140,6 @@ evaluator_t::evaluator_t(eval_params_t params, size_t pawn_hash_size) : params(p
         pst[WHITE][BISHOP][sq][EG] = params.b_pst_eg[param_index];
         pst[WHITE][ROOK][sq][MG] = params.r_pst_mg[param_index];
         pst[WHITE][ROOK][sq][EG] = params.r_pst_eg[param_index];
-    }
-
-    // King middlegame pst
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 8; ++j) {
-            pst[WHITE][KING][(2 - i) * 8 + j][MG] = params.k_pst_mg[i * 8 + j];
-        }
-    }
-
-    for (int i = 24; i < 64; i++) {
-        pst[WHITE][KING][i][MG] = params.k_pst_exposed_mg;
     }
 
     // Mirror PST for black
@@ -369,8 +359,8 @@ evaluator_t::pawn_entry_t evaluator_t::eval_pawns(const board_t &board) {
 
         U64 not_isolated = BB_ISOLATED[WHITE][sq] & board.bb_pieces[WHITE][PAWN]; // Friendly pawns
         if (!not_isolated) {
-            new_entry.eval_mg += params.isolated_mg[rel_rank(WHITE, rank_index(sq)) - 1][open_file];
-            new_entry.eval_eg += params.isolated_eg[rel_rank(WHITE, rank_index(sq)) - 1][open_file];
+            new_entry.eval_mg += params.isolated_mg[open_file];
+            new_entry.eval_eg += params.isolated_eg[open_file];
         }
 
         if(BB_IN_FRONT[WHITE][sq] & board.bb_pieces[WHITE][PAWN]) {
@@ -418,8 +408,8 @@ evaluator_t::pawn_entry_t evaluator_t::eval_pawns(const board_t &board) {
 
         U64 not_isolated = BB_ISOLATED[BLACK][sq] & board.bb_pieces[BLACK][PAWN]; // Friendly pawns
         if (!not_isolated) {
-            new_entry.eval_mg -= params.isolated_mg[rel_rank(BLACK, rank_index(sq)) - 1][open_file];
-            new_entry.eval_eg -= params.isolated_eg[rel_rank(BLACK, rank_index(sq)) - 1][open_file];
+            new_entry.eval_mg -= params.isolated_mg[open_file];
+            new_entry.eval_eg -= params.isolated_eg[open_file];
         }
 
         if(BB_IN_FRONT[BLACK][sq] & board.bb_pieces[BLACK][PAWN]) {

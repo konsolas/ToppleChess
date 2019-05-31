@@ -6,6 +6,7 @@
 #include <random>
 #include <utility>
 #include <cmath>
+#include <future>
 
 #include "tuner.h"
 #include "../movegen.h"
@@ -186,6 +187,8 @@ void tuner_t::anneal(int *parameter, size_t count, double base_temp, double hc_f
     std::uniform_int_distribution<size_t> dist(0, count - 1);
     std::bernoulli_distribution choice;
 
+    auto start = engine_clock::now();
+
     for(int i = 0; i < max_iter; i++) {
         double temp = std::max(0.0, (max_iter - (int) (i * (1 + hc_frac))) * base_temp / max_iter);
 
@@ -203,7 +206,10 @@ void tuner_t::anneal(int *parameter, size_t count, double base_temp, double hc_f
             current_error = new_error;
         }
 
-        if(i % 100 == 0) std::cout << "error at epoch " << i << ": " << current_error << std::endl;
+        if(i % 1000 == 0) {
+            std::cout << "time: " << CHRONO_DIFF(start, engine_clock::now()) / 1000 << "s" << " ";
+            std::cout << "epoch: " << i << " error: " << current_error << std::endl;
+        }
     }
 
     std::cout << "finished: final error: " << current_error << std::endl;
@@ -302,8 +308,6 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
-    std::cout << "  k_exposed_mg " << current_params.k_pst_exposed_mg << std::endl;
-
     std::cout << "  k_pst_eg ";
     for (int param : current_params.k_pst_eg) {
         std::cout << param << ", ";
@@ -311,14 +315,14 @@ void tuner_t::print_params() {
     std::cout << std::endl;
 
     std::cout << "  isolated_mg ";
-    for (int *param : current_params.isolated_mg) {
-        std::cout << "{" << param[0] << ", " << param[1] << "}, ";
+    for (int param : current_params.isolated_mg) {
+        std::cout << param << ", ";
     }
     std::cout << std::endl;
 
     std::cout << "  isolated_eg ";
-    for (int *param : current_params.isolated_eg) {
-        std::cout << "{" << param[0] << ", " << param[1] << "}, ";
+    for (int param : current_params.isolated_eg) {
+        std::cout << param << ", ";
     }
     std::cout << std::endl;
 
