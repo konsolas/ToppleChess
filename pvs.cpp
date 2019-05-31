@@ -255,6 +255,9 @@ namespace pvs {
                     tt->save(bound, board->record[board->now].hash, MAX_PLY - 1, ply, eval, value, EMPTY_MOVE);
                     return value;
                 }
+
+                if(bound == tt::LOWER) alpha = std::max(alpha, value);
+                if(bound == tt::UPPER) beta = std::min(beta, value);
             }
         }
 
