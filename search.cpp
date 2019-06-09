@@ -14,14 +14,20 @@
 #include "syzygy/tbprobe.h"
 #include "syzygy/tbresolve.h"
 
-search_t::search_t(board_t board, tt::hash_t *tt, evaluator_t &evaluator, const search_limits_t &limits)
-        : board(board), tt(tt), evaluator(evaluator), limits(limits), boards(limits.threads, board), contexts() {
+search_t::search_t(board_t board, tt::hash_t *tt, const processed_params_t &params, const search_limits_t &limits)
+        : board(board), tt(tt), params(params), limits(limits), boards(limits.threads, board), contexts() {
     move_t buf[192];
     movegen_t gen(board);
     int pseudo_legal = gen.gen_normal(buf);
 
+    // Copy legal moves to root_moves
     std::copy_if(buf, buf + pseudo_legal, std::back_inserter(root_moves),
             [board](move_t move) { return board.is_legal(move); });
+
+    // Create an evaluator for each thread
+    for(int i = 0; i < limits.threads; i++) {
+        evaluators.emplace_back(params, 1 * MB);
+    }
 
     // Find intersection of root moves with UCI searchmoves
     if (!limits.search_moves.empty()) {
@@ -47,7 +53,7 @@ search_result_t search_t::think(std::atomic_bool &aborted) {
 
             if (!tb_root_moves.empty()) {
                 // DTZ tablebases available: set root moves and don't use tablebases during search.
-               root_moves = std::move(tb_root_moves);
+                root_moves = std::move(tb_root_moves);
                 use_tb = 0;
             } else {
                 tb_root_moves = root_probe_wdl(board, tb_wdl);
@@ -63,7 +69,7 @@ search_result_t search_t::think(std::atomic_bool &aborted) {
         }
 
         if(root_moves.empty()) {
-            std::cout << "warn: no legal moves found at the root position" << std::endl;
+            std::cerr << "warn: no legal moves found at the root position" << std::endl;
             return {EMPTY_MOVE, EMPTY_MOVE, 0, 0};
         }
 
@@ -85,7 +91,7 @@ search_result_t search_t::think(std::atomic_bool &aborted) {
 
         // Start threads
         for(int tid = 0; tid < limits.threads; tid++) {
-            contexts.emplace_back(&boards[tid], &evaluator, tt, use_tb);
+            contexts.emplace_back(&boards[tid], &evaluators[tid], tt, use_tb);
         }
 
         // Start all the threads
@@ -114,7 +120,7 @@ search_result_t search_t::think(std::atomic_bool &aborted) {
     std::vector<move_t> pv = contexts[0].get_saved_pv();
 
     if (pv.empty()) {
-        std::cout << "warn: insufficient time to search to depth 1" << std::endl;
+        std::cerr << "warn: insufficient time to search to depth 1" << std::endl;
         return {EMPTY_MOVE, EMPTY_MOVE, 0, 0};
     }
 
@@ -168,7 +174,7 @@ void search_t::thread_start(pvs::context_t &context, const std::atomic_bool &abo
 
                 // Scale the search time based on the complexity of the position
                 int junk;
-                double tapering_factor = evaluator.eval_material(*context.get_board(), junk, junk);
+                double tapering_factor = evaluators[0].eval_material(*context.get_board(), junk, junk);
                 double complexity = std::clamp(root_moves.size() / 30.0, 0.5, 3.0) * tapering_factor + (1 - tapering_factor);
                 int adjusted_suggestion = static_cast<int>(complexity * limits.suggested_time_limit);
 
@@ -278,7 +284,7 @@ void search_t::print_stats(board_t &pos, int score, int depth, tt::Bound bound, 
     // Try syzygy resolution
     auto sel_depth = size_t(contexts[0].get_sel_depth());
     if (limits.syzygy_resolve > 0) {
-        resolve_pv(pos, evaluator, pv, score, limits.syzygy_resolve, aborted);
+        resolve_pv(pos, evaluators[0], pv, score, limits.syzygy_resolve, aborted);
         sel_depth = std::max(pv.size(), sel_depth);
     }
 

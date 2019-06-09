@@ -64,8 +64,8 @@ enum Direction {
     D_SW = -9, D_S = -8, D_SE = -7, D_W = -1, D_X = 0, D_E = 1, D_NW = 7, D_N = 8, D_NE = 9
 };
 
-constexpr int rel_offset(Team side, Direction dir) {
-    return side ? -dir : dir;
+constexpr Direction rel_offset(Team side, Direction dir) {
+    return side ? Direction(-dir) : dir;
 }
 
 constexpr uint8_t rel_sq(Team side, uint8_t square) {

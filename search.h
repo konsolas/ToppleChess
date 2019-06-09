@@ -84,7 +84,7 @@ struct search_result_t {
 
 class search_t {
 public:
-    explicit search_t(board_t board, tt::hash_t *tt, evaluator_t &evaluator, const search_limits_t &limits);
+    explicit search_t(board_t board, tt::hash_t *tt, const processed_params_t &params, const search_limits_t &limits);
 
     search_result_t think(std::atomic_bool &aborted);
     void enable_timer();
@@ -103,10 +103,11 @@ private:
 
     // Shared structures
     tt::hash_t *tt;
-    evaluator_t &evaluator;
+    const processed_params_t &params;
     const search_limits_t &limits;
 
     // Threads
+    std::vector<evaluator_t> evaluators;
     std::vector<board_t> boards;
     std::vector<pvs::context_t> contexts;
     int main_root_depth = 0;

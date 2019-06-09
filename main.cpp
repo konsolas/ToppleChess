@@ -36,13 +36,13 @@ int main(int argc, char *argv[]) {
     std::future<void> future;
     search_result_t last_result;
 
-    // Evaluation
-    std::unique_ptr<evaluator_t> evaluator = std::make_unique<evaluator_t>(eval_params_t(), 64 * MB);
-
     // Parameters
     size_t threads = 1;
     size_t syzygy_resolve = 512;
     std::string tb_path;
+
+    // Evaluation
+    processed_params_t params = processed_params_t(eval_params_t());
 
     // Startup
     std::cout << "Topple " << TOPPLE_VER << " (c) Vincent Tang 2019" << std::endl;
@@ -104,15 +104,15 @@ int main(int argc, char *argv[]) {
                     std::string value;
                     iss >> value; // Skip value
                     iss >> syzygy_resolve;
-                } else if(name == "Ponder") {
+                } else if (name == "Ponder") {
                     // Do nothing
                 } else {
-                    std::cout << "info string unrecognised option " << name << std::endl;
+                    std::cerr << "warn: unrecognised option " << name << std::endl;
                 }
             } else if (cmd == "isready") {
                 std::cout << "readyok" << std::endl;
             } else if (cmd == "stop") {
-                if(search) {
+                if (search) {
                     // Cancel waiting for ponderhit by enabling the search timer, and then hard-aborting.
                     search->enable_timer();
                     search_abort = true;
@@ -120,7 +120,7 @@ int main(int argc, char *argv[]) {
                     // Wait for the search to finish before accepting any other commands.
                     future.wait();
                 } else {
-                    std::cout << "info string stop command received, but no search was in progress" << std::endl;
+                    std::cerr << "warn: stop command received, but no search was in progress" << std::endl;
                 }
             } else if (cmd == "position") {
                 std::string type;
@@ -145,21 +145,21 @@ int main(int argc, char *argv[]) {
                                 if (board->is_pseudo_legal(move)) {
                                     board->move(move);
                                     if (board->is_illegal()) {
-                                        std::cout << "info string illegal move " << move_str << std::endl;
+                                        std::cerr << "warn: illegal move " << move_str << std::endl;
                                         board->unmove();
                                     }
                                 } else {
-                                    std::cout << "info string invalid move " << move_str << std::endl;
+                                    std::cerr << "warn: invalid move " << move_str << std::endl;
                                 }
                             }
                         } else {
-                            std::cout << "info string no start position specified" << std::endl;
+                            std::cerr << "warn: no start position specified" << std::endl;
                         }
                     }
                 }
             } else if (cmd == "go") {
-                if(search) {
-                    std::cout << "info string go command received, but search already in progress" << std::endl;
+                if (search) {
+                    std::cerr << "warn: go command received, but search already in progress" << std::endl;
                 } else if (board) {
                     // Parse parameters
                     int max_time = INT_MAX;
@@ -238,27 +238,41 @@ int main(int argc, char *argv[]) {
                                                              max_nodes,
                                                              root_moves);
 
-                    if(limits.game_situation && !ponder
+                    if (limits.game_situation && !ponder
                         && limits.suggested_time_limit < last_result.search_time) {
                         tt::entry_t h = {};
-                        if (tt->probe(board->record[board->now].hash, h)) {
+
+                        // Probe for an EXACT entry of sufficient depth
+                        if (tt->probe(board->record[board->now].hash, h)
+                            && h.bound() == tt::EXACT && h.depth() >= last_result.root_depth) {
                             move_t hash_move = board->to_move(h.move);
 
-                            if(h.bound() == tt::EXACT && h.depth() >= last_result.root_depth) {
+                            // Check that the entry contains a legal move
+                            if (board->is_pseudo_legal(hash_move) && board->is_legal(hash_move)) {
                                 board->move(hash_move);
-                                tt::entry_t ponder_h = {};
-                                move_t ponder_move = EMPTY_MOVE;
-                                if (tt->probe(board->record[board->now].hash, ponder_h)) {
-                                    ponder_move = board->to_move(h.move);
-                                }
-                                board->unmove();
 
-                                std::cout << "bestmove " << hash_move;
-                                if(ponder_move != EMPTY_MOVE) {
-                                    std::cout << " ponder " << ponder_move;
+                                // Check that the suggested move does not lead to an immediate draw by repetition
+                                if(!board->is_repetition_draw(0)) {
+                                    tt::entry_t ponder_h = {};
+                                    move_t ponder_move = EMPTY_MOVE;
+                                    if (tt->probe(board->record[board->now].hash, ponder_h)) {
+                                        ponder_move = board->to_move(h.move);
+
+                                        if(!board->is_pseudo_legal(ponder_move) || !board->is_legal(ponder_move)) {
+                                            ponder_move = EMPTY_MOVE;
+                                        }
+                                    }
+                                    board->unmove();
+
+                                    std::cout << "bestmove " << hash_move;
+                                    if (ponder_move != EMPTY_MOVE) {
+                                        std::cout << " ponder " << ponder_move;
+                                    }
+                                    std::cout << std::endl;
+                                    continue;
                                 }
-                                std::cout << std::endl;
-                                continue;
+
+                                board->unmove();
                             }
                         }
                     }
@@ -266,7 +280,7 @@ int main(int argc, char *argv[]) {
                     limits.threads = threads;
                     limits.syzygy_resolve = syzygy_resolve;
 
-                    search = std::make_unique<search_t>(*board, tt, *evaluator, limits);
+                    search = std::make_unique<search_t>(*board, tt, params, limits);
 
                     if (!ponder) search->enable_timer();
 
@@ -293,61 +307,52 @@ int main(int argc, char *argv[]) {
                                             }
 
                                             last_result = result;
+                                            search = nullptr;
 
                                             std::cout << "bestmove " << result.best_move;
-                                            if(result.ponder != EMPTY_MOVE) {
+                                            if (result.ponder != EMPTY_MOVE) {
                                                 std::cout << " ponder " << result.ponder;
                                             }
                                             std::cout << std::endl;
-
-                                            search = nullptr;
 
                                             // Age the transposition table
                                             tt->age();
                                         }
                     );
                 } else {
-                    std::cout << "info string search command received, but no position specified" << std::endl;
+                    std::cerr << "warn: search command received, but no position specified" << std::endl;
                 }
             } else if (cmd == "ponderhit") {
                 if (search) {
                     search->enable_timer();
                 } else {
-                    std::cout << "info string ponderhit command received, but no search in progress" << std::endl;
+                    std::cerr << "warn: ponderhit command received, but no search in progress" << std::endl;
                 }
             } else if (cmd == "ucinewgame") {
-                if(search) {
-                    std::cout << "info string ucinewgame command received, but search is in progress" << std::endl;
+                if (search) {
+                    std::cerr << "warn: ucinewgame command received, but search is in progress" << std::endl;
                 } else {
                     delete tt;
                     tt = new tt::hash_t(hash_size * MB);
-
-                    evaluator = std::make_unique<evaluator_t>(eval_params_t(), 64 * MB);
-                }
-            } else if (cmd == "eval") {
-                if (board) {
-                    std::cout << evaluator->evaluate(*board) << std::endl;
-                } else {
-                    std::cout << "info string eval command received, but no position specified" << std::endl;
                 }
             } else if (cmd == "mirror") {
                 if (board) {
                     board->mirror();
                 } else {
-                    std::cout << "info string mirror command received, but no position specified" << std::endl;
+                    std::cerr << "warn: mirror command received, but no position specified" << std::endl;
                 }
             } else if (cmd == "tbprobe") {
                 std::string type;
                 iss >> type;
 
-                if(board) {
+                if (board) {
                     const std::string cases[5] = {"loss", "blessed_loss", "draw", "cursed_win", "win"};
 
                     if (type == "dtz") {
                         int success;
                         int dtz = probe_dtz(*board, &success);
 
-                        if(success) {
+                        if (success) {
                             int cnt50 = board->record[board->now].halfmove_clock;
                             int wdl = 0;
                             if (dtz > 0)
@@ -363,16 +368,16 @@ int main(int argc, char *argv[]) {
                         int success;
                         int wdl = probe_wdl(*board, &success);
 
-                        if(success) {
+                        if (success) {
                             std::cout << "syzygy " << cases[wdl + 2] << std::endl;
                         } else {
                             std::cout << "syzygy failed" << std::endl;
                         }
                     } else {
-                        std::cout << "info string unrecognised table type: dtz or wdl?" << std::endl;
+                        std::cerr << "warn: unrecognised table type: dtz or wdl?" << std::endl;
                     }
                 } else {
-                    std::cout << "info string tbprobe command received, but no position specified" << std::endl;
+                    std::cerr << "warn: tbprobe command received, but no position specified" << std::endl;
                 }
             } else if (cmd == "print") {
                 if (board) {
@@ -380,12 +385,11 @@ int main(int argc, char *argv[]) {
                 } else {
                     std::cout << "nullptr" << std::endl;
                 }
-            } else if (cmd == "quit") {
+            } else if (cmd == "quit" || cmd == "exit") {
                 search_abort = true;
-                std::cout << "info string exiting" << std::endl;
                 break;
             } else if (!cmd.empty()) {
-                std::cout << "info string unrecognised command " << cmd << std::endl;
+                std::cerr << "warn: unrecognised command " << cmd << std::endl;
             }
         }
     }

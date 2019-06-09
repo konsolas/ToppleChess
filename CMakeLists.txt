@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.8)
 project(Topple)
 
 set(CMAKE_CXX_STANDARD 17)
-set(TOPPLE_VERSION 0.6.1)
+set(TOPPLE_VERSION 0.7.0)
 
 # Source files for different targets
 set(SOURCE_FILES
@@ -14,6 +14,7 @@ set(SOURCE_FILES
         movesort.h movesort.cpp
         move.h
         eval.h eval.cpp
+        pawns.cpp pawns.h
         search.h search.cpp
         pvs.h pvs.cpp
         syzygy/tbcore.h
