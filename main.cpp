@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
                     std::string value;
                     iss >> value; // Skip value
                     iss >> syzygy_resolve;
-                } else if(name == "Ponder") {
+                } else if (name == "Ponder") {
                     // Do nothing
                 } else {
                     std::cerr << "warn: unrecognised option " << name << std::endl;
@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
             } else if (cmd == "isready") {
                 std::cout << "readyok" << std::endl;
             } else if (cmd == "stop") {
-                if(search) {
+                if (search) {
                     // Cancel waiting for ponderhit by enabling the search timer, and then hard-aborting.
                     search->enable_timer();
                     search_abort = true;
@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
                     }
                 }
             } else if (cmd == "go") {
-                if(search) {
+                if (search) {
                     std::cerr << "warn: go command received, but search already in progress" << std::endl;
                 } else if (board) {
                     // Parse parameters
@@ -238,27 +238,41 @@ int main(int argc, char *argv[]) {
                                                              max_nodes,
                                                              root_moves);
 
-                    if(limits.game_situation && !ponder
+                    if (limits.game_situation && !ponder
                         && limits.suggested_time_limit < last_result.search_time) {
                         tt::entry_t h = {};
-                        if (tt->probe(board->record[board->now].hash, h)) {
+
+                        // Probe for an EXACT entry of sufficient depth
+                        if (tt->probe(board->record[board->now].hash, h)
+                            && h.bound() == tt::EXACT && h.depth() >= last_result.root_depth) {
                             move_t hash_move = board->to_move(h.move);
 
-                            if(h.bound() == tt::EXACT && h.depth() >= last_result.root_depth) {
+                            // Check that the entry contains a legal move
+                            if (board->is_pseudo_legal(hash_move) && board->is_legal(hash_move)) {
                                 board->move(hash_move);
-                                tt::entry_t ponder_h = {};
-                                move_t ponder_move = EMPTY_MOVE;
-                                if (tt->probe(board->record[board->now].hash, ponder_h)) {
-                                    ponder_move = board->to_move(h.move);
-                                }
-                                board->unmove();
 
-                                std::cout << "bestmove " << hash_move;
-                                if(ponder_move != EMPTY_MOVE) {
-                                    std::cout << " ponder " << ponder_move;
+                                // Check that the suggested move does not lead to an immediate draw by repetition
+                                if(!board->is_repetition_draw(0)) {
+                                    tt::entry_t ponder_h = {};
+                                    move_t ponder_move = EMPTY_MOVE;
+                                    if (tt->probe(board->record[board->now].hash, ponder_h)) {
+                                        ponder_move = board->to_move(h.move);
+
+                                        if(!board->is_pseudo_legal(ponder_move) || !board->is_legal(ponder_move)) {
+                                            ponder_move = EMPTY_MOVE;
+                                        }
+                                    }
+                                    board->unmove();
+
+                                    std::cout << "bestmove " << hash_move;
+                                    if (ponder_move != EMPTY_MOVE) {
+                                        std::cout << " ponder " << ponder_move;
+                                    }
+                                    std::cout << std::endl;
+                                    continue;
                                 }
-                                std::cout << std::endl;
-                                continue;
+
+                                board->unmove();
                             }
                         }
                     }
@@ -296,7 +310,7 @@ int main(int argc, char *argv[]) {
                                             search = nullptr;
 
                                             std::cout << "bestmove " << result.best_move;
-                                            if(result.ponder != EMPTY_MOVE) {
+                                            if (result.ponder != EMPTY_MOVE) {
                                                 std::cout << " ponder " << result.ponder;
                                             }
                                             std::cout << std::endl;
@@ -315,7 +329,7 @@ int main(int argc, char *argv[]) {
                     std::cerr << "warn: ponderhit command received, but no search in progress" << std::endl;
                 }
             } else if (cmd == "ucinewgame") {
-                if(search) {
+                if (search) {
                     std::cerr << "warn: ucinewgame command received, but search is in progress" << std::endl;
                 } else {
                     delete tt;
@@ -331,14 +345,14 @@ int main(int argc, char *argv[]) {
                 std::string type;
                 iss >> type;
 
-                if(board) {
+                if (board) {
                     const std::string cases[5] = {"loss", "blessed_loss", "draw", "cursed_win", "win"};
 
                     if (type == "dtz") {
                         int success;
                         int dtz = probe_dtz(*board, &success);
 
-                        if(success) {
+                        if (success) {
                             int cnt50 = board->record[board->now].halfmove_clock;
                             int wdl = 0;
                             if (dtz > 0)
@@ -354,7 +368,7 @@ int main(int argc, char *argv[]) {
                         int success;
                         int wdl = probe_wdl(*board, &success);
 
-                        if(success) {
+                        if (success) {
                             std::cout << "syzygy " << cases[wdl + 2] << std::endl;
                         } else {
                             std::cout << "syzygy failed" << std::endl;

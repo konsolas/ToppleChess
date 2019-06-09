@@ -552,7 +552,7 @@ bool board_t::gives_check(move_t move) const {
 bool board_t::is_repetition_draw(int search_ply) const {
     int rep = 1;
 
-    int max = std::max(record[now].halfmove_clock, search_ply);
+    int max = record[now].halfmove_clock;
 
     for (int i = 2; i <= max; i += 2) {
         if (record[now - i].hash == record[now].hash) rep++;
