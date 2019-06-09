@@ -194,7 +194,6 @@ namespace pvs {
     }
 
     int context_t::search_pv(int alpha, int beta, int ply, int depth, const std::atomic_bool &aborted) {
-        nodes++;
         pv_table_len[ply] = ply;
 
         if (aborted) {
@@ -205,6 +204,9 @@ namespace pvs {
 
         // Quiescence search
         if (depth < 1) return search_qs<true>(alpha, beta, ply, aborted);
+
+        // Count node if we didn't go into quiescence search
+        nodes++;
 
         // Search variables
         int score, best_score = -INF;
@@ -398,7 +400,6 @@ namespace pvs {
 
     template<bool PV>
     int context_t::search_qs(int alpha, int beta, int ply, const std::atomic_bool &aborted) {
-
         nodes++;
 
         if (PV) pv_table_len[ply] = ply;
@@ -477,8 +478,6 @@ namespace pvs {
 
     int context_t::search_zw(int alpha, int beta, int ply, int depth, bool can_null,
                              move_t excluded, bool cut, const std::atomic_bool &aborted) {
-        nodes++;
-
         if (aborted) {
             return TIMEOUT;
         } else if (ply >= MAX_PLY - 1) {
@@ -487,6 +486,9 @@ namespace pvs {
 
         // Quiescence search
         if (depth < 1) return search_qs<false>(alpha, beta, ply, aborted);
+
+        // Count node if we didn't go into quiescence search
+        nodes++;
 
         // Search variables
         int score, best_score = -INF;

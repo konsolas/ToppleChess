@@ -25,7 +25,7 @@ const bool operator!=(const board_t& lhs, const board_t& rhs) {
     return !(lhs == rhs);
 }
 
-evaluator_t evaluator(eval_params_t(), 64 * MB);
+evaluator_t evaluator(processed_params_t(eval_params_t()), 1 * MB);
 
 const void consistency_check(board_t &board) {
     int score = evaluator.evaluate(board);
