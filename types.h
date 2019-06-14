@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <chrono>
+#include <new>
 
 #define INF 32767
 #define TO_MATE_SCORE(ply) (INF - (ply))

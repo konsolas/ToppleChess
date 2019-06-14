@@ -28,7 +28,7 @@ movesort_t::movesort_t(GenMode mode,  const heuristic_set_t &heuristics, const b
     }
 }
 
-move_t movesort_t::next(GenStage &stage, int &score) {
+move_t movesort_t::next(GenStage &stage, int &score, bool skip_quiets) {
     retry:
     switch (stage) {
         case GEN_NONE:
@@ -39,27 +39,15 @@ move_t movesort_t::next(GenStage &stage, int &score) {
             }
         case GEN_HASH:
             // Generate captures
-            capt_buf_size = gen.gen_caps(capt_buf);
+            capt_buf_size = gen.gen_noisy(capt_buf);
 
-            // Score captures (SEE)
-            for (int i = 0; i < capt_buf_size; i++) {
-                int see_score = board.see(capt_buf[i]);
-                capt_scores[i] = see_score >= 0 ? (see_score +
-                                  (board.record[board.now].next_move ?
-                                   rank_index(capt_buf[i].info.to) + 1 : 8 - rank_index(capt_buf[i].info.to)))
-                                 : see_score;
-                if(refutation.info.is_capture && main_buf[i].info.from == refutation.info.to) {
-                    capt_scores[i] += 1;
-                }
-            }
-
-            stage = GEN_GOOD_CAPT;
-        case GEN_GOOD_CAPT:
+            stage = GEN_GOOD_NOISY;
+        case GEN_GOOD_NOISY:
             // Pick best capture if there are any left.
             if (capt_idx < capt_buf_size) {
                 int best_idx = capt_idx;
                 for (int i = capt_idx; i < capt_buf_size; i++) {
-                    if (capt_scores[i] > capt_scores[best_idx]) {
+                    if (VAL[capt_buf[i].info.captured_type] > VAL[capt_buf[best_idx].info.captured_type]) {
                         best_idx = i;
                     }
                 }
@@ -71,67 +59,39 @@ move_t movesort_t::next(GenStage &stage, int &score) {
                     goto retry;
                 }
 
-                if (capt_scores[capt_idx] >= 0) {
-                    score = capt_scores[capt_idx];
+                if ((score = board.see(capt_buf[capt_idx])) >= 0) {
                     return capt_buf[capt_idx++];
-                }
-            }
-
-            // Generate killers
-            if(mode != QUIESCENCE) stage = GEN_KILLER_1;
-            else return EMPTY_MOVE;
-            if(board.is_pseudo_legal(killer_1)) {
-                return killer_1;
-            }
-        case GEN_KILLER_1:
-            stage = GEN_KILLER_2;
-            if(board.is_pseudo_legal(killer_2)) {
-                return killer_2;
-            }
-        case GEN_KILLER_2:
-            stage = GEN_KILLER_3;
-            if(board.is_pseudo_legal(killer_3)) {
-                return killer_3;
-            }
-        case GEN_KILLER_3:
-            stage = GEN_BAD_CAPT;
-        case GEN_BAD_CAPT:
-            // Pick best capture if there are any left.
-            if (capt_idx < capt_buf_size) {
-                int best_capt_idx = capt_idx;
-                for (int i = capt_idx; i < capt_buf_size; i++) {
-                    if (capt_scores[i] > capt_scores[best_capt_idx]) {
-                        best_capt_idx = i;
-                    }
-                }
-                buf_swap_capt(best_capt_idx, capt_idx);
-
-                if (capt_buf[capt_idx] == hash_move) {
-                    capt_idx++;
+                } else {
+                    capt_buf[bad_capt_buf_size++] = capt_buf[capt_idx++];
                     goto retry;
                 }
-
-                score = capt_scores[capt_idx];
-                return capt_buf[capt_idx++];
             }
-            stage = GEN_QUIETS;
 
-            // Out of captures, move on to quiets.
-            if (mode == QUIESCENCE) return EMPTY_MOVE;
+            // Generate quiets if we're not in quiescence
+            if(mode != QUIESCENCE) stage = GEN_QUIETS;
+            else return EMPTY_MOVE;
 
             // Generate quiets in main buffer
             main_buf_size = gen.gen_quiets(main_buf);
 
             // Score quiets
             for (int i = 0; i < main_buf_size; i++) {
-                main_scores[i] = heur.history.get(main_buf[i]);
-                if(refutation.info.is_capture && main_buf[i].info.from == refutation.info.to) {
-                    main_scores[i] += 100;
+                if(main_buf[i] == killer_1) {
+                    main_scores[i] = 1000000003;
+                } else if(main_buf[i] == killer_2) {
+                    main_scores[i] = 1000000002;
+                } else if(main_buf[i] == killer_3) {
+                    main_scores[i] = 1000000001;
+                } else {
+                    main_scores[i] = heur.history.get(main_buf[i]);
+                    if (refutation.info.is_capture && main_buf[i].info.from == refutation.info.to) {
+                        main_scores[i] += 100;
+                    }
                 }
             }
         case GEN_QUIETS:
             // Pick best quiet until there are none left
-            if (main_idx < main_buf_size) {
+            if (!skip_quiets && main_idx < main_buf_size) {
                 int best_main_idx = main_idx;
                 for (int i = main_idx; i < main_buf_size; i++) {
                     if (main_scores[i] > main_scores[best_main_idx]) {
@@ -140,10 +100,7 @@ move_t movesort_t::next(GenStage &stage, int &score) {
                 }
                 buf_swap_main(best_main_idx, main_idx);
 
-                if (main_buf[main_idx] == hash_move
-                    || main_buf[main_idx] == killer_1
-                    || main_buf[main_idx] == killer_2
-                    || main_buf[main_idx] == killer_3) {
+                if (main_buf[main_idx] == hash_move) {
                     main_idx++;
                     goto retry;
                 }
@@ -151,6 +108,18 @@ move_t movesort_t::next(GenStage &stage, int &score) {
                 else stage = GEN_QUIETS;
                 score = main_scores[main_idx];
                 return main_buf[main_idx++];
+            }
+            stage = GEN_BAD_NOISY;
+        case GEN_BAD_NOISY:
+            // Bad captures are already sorted by MVV
+            if (bad_capt_idx < bad_capt_buf_size) {
+                if (capt_buf[bad_capt_idx] == hash_move) {
+                    bad_capt_idx++;
+                    goto retry;
+                }
+
+                score = 0;
+                return capt_buf[bad_capt_idx++];
             }
 
             return EMPTY_MOVE;
@@ -173,13 +142,9 @@ void movesort_t::buf_swap_capt(int a, int b) {
     move_t temp = capt_buf[a];
     capt_buf[a] = capt_buf[b];
     capt_buf[b] = temp;
-
-    int score = capt_scores[a];
-    capt_scores[a] = capt_scores[b];
-    capt_scores[b] = score;
 }
 
-move_t *movesort_t::generated_quiets(int &count) {
+move_t *movesort_t::generated_quiets(size_t &count) {
     count = main_idx;
     return main_buf;
 }

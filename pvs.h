@@ -9,13 +9,18 @@
 #include <vector>
 #include <functional>
 
+#include "types.h"
 #include "board.h"
 #include "move.h"
 #include "eval.h"
 #include "movesort.h"
 
 namespace pvs {
-    class context_t {
+    class alignas(64) context_t {
+        struct stack_entry_t {
+            // Initialised upon entering a node
+            int eval;
+        };
     public:
         // Constructor
         context_t(board_t *board, evaluator_t *evaluator, tt::hash_t *tt, int use_tb)
@@ -82,10 +87,14 @@ namespace pvs {
         int pv_table_len[MAX_PLY] = {};
         move_t pv_table[MAX_PLY][MAX_PLY] = {{}};
 
+        // Last saved PV
         std::vector<move_t> saved_pv;
 
         // Search heuristics
         heuristic_set_t heur;
+
+        // Search stack
+        stack_entry_t stack[MAX_PLY] = {};
 
         // Statistics
         U64 nodes = 0;
