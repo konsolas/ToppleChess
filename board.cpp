@@ -328,7 +328,7 @@ move_t board_t::to_move(packed_move_t packed_move) const {
     move.info.captured_type = sq_data[move.info.to].occupied ? sq_data[move.info.to].piece : 0;
 
     // Promotion
-    move.info.is_promotion = static_cast<uint16_t>(packed_move.type != 0);
+    move.info.is_promotion = static_cast<uint16_t>(packed_move.type != 0 && (move.info.to <= H1 || move.info.to >= A8));
     if (move.info.is_promotion) {
         move.info.promotion_type = packed_move.type;
     }
@@ -347,7 +347,7 @@ move_t board_t::to_move(packed_move_t packed_move) const {
     }
 
     // EP
-    move.info.is_ep = static_cast<uint16_t>(record[now].ep_square != 0
+    move.info.is_capture |= move.info.is_ep = static_cast<uint16_t>(record[now].ep_square != 0
                                             && move.info.piece == PAWN
                                             && move.info.to == record[now].ep_square);
 
@@ -460,6 +460,12 @@ bool board_t::is_pseudo_legal(move_t move) const {
         if ((find_moves(Piece(move.info.piece), team, move.info.from, bb_all) & single_bit(move.info.to)) == 0) {
             return false;
         }
+    }
+
+    if(move.info.piece == PAWN) {
+        if ((move.info.to <= H1 || move.info.to >= A8) == !move.info.is_promotion) return false;
+    } else {
+        if (move.info.is_promotion) return false;
     }
 
     return (bb_pieces[team][move.info.piece] & single_bit(move.info.from)) &&

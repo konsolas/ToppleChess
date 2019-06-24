@@ -12,7 +12,7 @@
 #include "bb.h"
 
 struct processed_params_t;
-class board_t;
+struct board_t;
 
 namespace pawns {
     constexpr U64 not_A = 0xfefefefefefefefe; // ~0x0101010101010101

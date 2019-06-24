@@ -71,21 +71,23 @@ move_t movesort_t::next(GenStage &stage, int &score, bool skip_quiets) {
             if(mode != QUIESCENCE) stage = GEN_QUIETS;
             else return EMPTY_MOVE;
 
-            // Generate quiets in main buffer
-            main_buf_size = gen.gen_quiets(main_buf);
+            if(!skip_quiets) {
+                // Generate quiets in main buffer
+                main_buf_size = gen.gen_quiets(main_buf);
 
-            // Score quiets
-            for (int i = 0; i < main_buf_size; i++) {
-                if(main_buf[i] == killer_1) {
-                    main_scores[i] = 1000000003;
-                } else if(main_buf[i] == killer_2) {
-                    main_scores[i] = 1000000002;
-                } else if(main_buf[i] == killer_3) {
-                    main_scores[i] = 1000000001;
-                } else {
-                    main_scores[i] = heur.history.get(main_buf[i]);
-                    if (refutation.info.is_capture && main_buf[i].info.from == refutation.info.to) {
-                        main_scores[i] += 100;
+                // Score quiets
+                for (int i = 0; i < main_buf_size; i++) {
+                    if (main_buf[i] == killer_1) {
+                        main_scores[i] = 1000000003;
+                    } else if (main_buf[i] == killer_2) {
+                        main_scores[i] = 1000000002;
+                    } else if (main_buf[i] == killer_3) {
+                        main_scores[i] = 1000000001;
+                    } else {
+                        main_scores[i] = heur.history.get(main_buf[i]);
+                        if (refutation.info.is_capture && main_buf[i].info.from == refutation.info.to) {
+                            main_scores[i] += 100;
+                        }
                     }
                 }
             }

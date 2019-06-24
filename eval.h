@@ -198,8 +198,6 @@ struct processed_params_t : public eval_params_t {
 };
 
 class alignas(64) evaluator_t {
-    friend class pawns::structure_t;
-
     size_t pawn_hash_entries;
     std::vector<pawns::structure_t> pawn_hash_table;
 

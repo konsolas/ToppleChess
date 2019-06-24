@@ -37,9 +37,9 @@ namespace pvs {
         tt::Bound h_bound = tt::NONE;
         move_t tt_move = EMPTY_MOVE;
         if (tt->probe(board->record[board->now].hash, h)) {
-            stack[0].eval = h.static_eval;
+            stack[0].eval = h.info.static_eval;
             h_bound = h.bound();
-            tt_move = board->to_move(h.move);
+            tt_move = board->to_move(h.info.move);
         } else {
             stack[0].eval = evaluator->evaluate(*board);
         }
@@ -49,9 +49,9 @@ namespace pvs {
             search_pv(alpha, beta, 0, depth - 6, aborted);
             if (aborted) return TIMEOUT;
             if (tt->probe(board->record[board->now].hash, h)) {
-                stack[0].eval = h.static_eval;
+                stack[0].eval = h.info.static_eval;
                 h_bound = h.bound();
-                tt_move = board->to_move(h.move);
+                tt_move = board->to_move(h.info.move);
             }
         }
 
@@ -62,7 +62,7 @@ namespace pvs {
 
         // Generate, sort, and determine search parameters
         int n_legal = 0;
-        movesort_t gen(NORMAL, heur, *board, board->to_move(h.move), EMPTY_MOVE, 0);
+        movesort_t gen(NORMAL, heur, *board, tt_move, EMPTY_MOVE, 0);
         for (move_t move = gen.next(stage, move_score, false);
              move != EMPTY_MOVE; move = gen.next(stage, move_score, false)) {
             if (std::find(root_moves.begin(), root_moves.end(), move) != root_moves.end() && board->is_legal(move)) {
@@ -199,7 +199,7 @@ namespace pvs {
 
         if (aborted) {
             return TIMEOUT;
-        } else if (ply >= MAX_PLY - 1) {
+        } else if (ply > MAX_PLY) {
             return evaluator->evaluate(*board);
         }
 
@@ -225,9 +225,9 @@ namespace pvs {
         tt::Bound h_bound = tt::NONE;
         move_t tt_move = EMPTY_MOVE;
         if (tt->probe(board->record[board->now].hash, h)) {
-            stack[ply].eval = h.static_eval;
+            stack[ply].eval = h.info.static_eval;
             h_bound = h.bound();
-            tt_move = board->to_move(h.move);
+            tt_move = board->to_move(h.info.move);
         } else {
             stack[ply].eval = evaluator->evaluate(*board);
         }
@@ -255,7 +255,7 @@ namespace pvs {
                 if (bound == tt::EXACT
                     || (bound == tt::LOWER && value >= beta)
                     || (bound == tt::UPPER && value <= alpha)) {
-                    tt->save(bound, board->record[board->now].hash, MAX_PLY - 1, ply, stack[ply].eval, value, EMPTY_MOVE);
+                    tt->save(bound, board->record[board->now].hash, MAX_PLY, ply, stack[ply].eval, value, EMPTY_MOVE);
                     return value;
                 }
 
@@ -269,9 +269,9 @@ namespace pvs {
             search_pv(alpha, beta, ply, depth - 6, aborted);
             if (aborted) return TIMEOUT;
             if (tt->probe(board->record[board->now].hash, h)) {
-                stack[ply].eval = h.static_eval;
+                stack[ply].eval = h.info.static_eval;
                 h_bound = h.bound();
-                tt_move = board->to_move(h.move);
+                tt_move = board->to_move(h.info.move);
             }
         }
 
@@ -282,7 +282,7 @@ namespace pvs {
 
         // Generate, sort, and determine search parameters
         int n_legal = 0;
-        movesort_t gen(NORMAL, heur, *board, board->to_move(h.move), EMPTY_MOVE, ply);
+        movesort_t gen(NORMAL, heur, *board, tt_move, EMPTY_MOVE, ply);
         for (move_t move = gen.next(stage, move_score, false);
              move != EMPTY_MOVE; move = gen.next(stage, move_score, false)) {
             if (board->is_legal(move)) {
@@ -410,7 +410,7 @@ namespace pvs {
 
         if (aborted) {
             return TIMEOUT;
-        } else if (ply >= MAX_PLY - 1) {
+        } else if (ply > MAX_PLY) {
             return evaluator->evaluate(*board);
         }
 
@@ -482,7 +482,7 @@ namespace pvs {
                              move_t excluded, bool cut, const std::atomic_bool &aborted) {
         if (aborted) {
             return TIMEOUT;
-        } else if (ply >= MAX_PLY - 1) {
+        } else if (ply > MAX_PLY) {
             return evaluator->evaluate(*board);
         }
 
@@ -516,7 +516,7 @@ namespace pvs {
         move_t tt_move = EMPTY_MOVE;
         if (excluded == EMPTY_MOVE && tt->probe(board->record[board->now].hash, h)) {
             score = h.value(ply);
-            stack[ply].eval = h.static_eval;
+            stack[ply].eval = h.info.static_eval;
             h_bound = h.bound();
 
             if (h.depth() >= depth) {
@@ -525,7 +525,7 @@ namespace pvs {
                 if (h_bound == tt::EXACT) return score;
             }
 
-            tt_move = board->to_move(h.move);
+            tt_move = board->to_move(h.info.move);
         } else {
             score = -INF;
             stack[ply].eval = evaluator->evaluate(*board);
@@ -587,7 +587,7 @@ namespace pvs {
 
                 tt::entry_t null_entry = {};
                 if (tt->probe(board->record[board->now].hash, null_entry)) {
-                    refutation = board->to_move(null_entry.move);
+                    refutation = board->to_move(null_entry.info.move);
                 }
 
                 board->unmove();
@@ -606,9 +606,9 @@ namespace pvs {
             if (aborted) return TIMEOUT;
             if (tt->probe(board->record[board->now].hash, h)) {
                 score = h.value(ply);
-                stack[ply].eval = h.static_eval;
+                stack[ply].eval = h.info.static_eval;
                 h_bound = h.bound();
-                tt_move = board->to_move(h.move);
+                tt_move = board->to_move(h.info.move);
             }
         }
 
@@ -636,6 +636,13 @@ namespace pvs {
                     if (futility_pruning || (depth <= 1 && move_score < 0)) {
                         skip_quiets = true;
                         continue;
+                    }
+
+                    // Late move pruning
+                    if(improving) {
+                        skip_quiets = n_legal > 4 + depth * depth;
+                    } else {
+                        skip_quiets = n_legal > 2 + depth * depth / 2;
                     }
                 }
             }
@@ -710,7 +717,7 @@ namespace pvs {
                                 size_t n_prev_quiets;
                                 move_t *prev_quiets = gen.generated_quiets(n_prev_quiets);
                                 int bonus = depth * depth;
-                                for (int i = 0; i < n_prev_quiets; i++) {
+                                for (size_t i = 0; i < n_prev_quiets; i++) {
                                     heur.history.update(prev_quiets[i], -bonus);
                                 }
 
