@@ -34,7 +34,7 @@ int tuner_t::quiesce(board_t &board, int alpha, int beta, evaluator_t &evaluator
     movegen_t gen(board);
     move_t next{};
     move_t buf[128] = {};
-    gen.gen_caps(buf);
+    gen.gen_noisy(buf);
     int idx = 0;
 
     while ((next = buf[idx++]) != EMPTY_MOVE) {
@@ -68,13 +68,14 @@ double tuner_t::sigmoid(double score) {
 }
 
 double tuner_t::mean_evaluation_error() {
-    evaluator_t evaluator(current_params, 4096);
+    auto processed = processed_params_t(current_params);
+    evaluator_t evaluator(processed, 4096);
     const size_t section_size = entries / threads;
 
     std::vector<std::future<double>> futures(threads);
     for(unsigned int thread = 0; thread < threads; thread++) {
-        futures[thread] = std::async(std::launch::async, [this, section_size, thread] () -> double {
-            evaluator_t local_evaluator(current_params, 8 * MB);
+        futures[thread] = std::async(std::launch::async, [this, processed, section_size, thread] () -> double {
+            evaluator_t local_evaluator(processed, 8 * MB);
             size_t start = section_size * thread;
             size_t end = section_size * (thread + 1);
 

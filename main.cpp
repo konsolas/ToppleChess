@@ -28,13 +28,13 @@ int main(int argc, char *argv[]) {
     // Hash
     uint64_t hash_size = 128;
     tt::hash_t *tt;
+    std::mutex tt_memory_mtx;
     tt = new tt::hash_t(hash_size * MB);
 
     // Search
     std::unique_ptr<search_t> search = nullptr;
     std::atomic_bool search_abort;
     std::future<void> future;
-    search_result_t last_result;
 
     // Parameters
     size_t threads = 1;
@@ -71,43 +71,50 @@ int main(int argc, char *argv[]) {
 
                 std::cout << "uciok" << std::endl;
             } else if (cmd == "setoption") {
-                std::string name;
-
-                // Read "name <name>", or just "<name>"
-                iss >> name;
-                if (name == "name") iss >> name;
-
-                if (name == "Hash") {
-                    std::string value;
-                    iss >> value; // Skip value
-                    iss >> hash_size;
-
-                    // Resize hash
-                    delete tt;
-                    tt = new tt::hash_t(hash_size * MB);
-                } else if (name == "Threads") {
-                    std::string value;
-                    iss >> value; // Skip value
-                    iss >> threads;
-                } else if (name == "SyzygyPath") {
-                    std::string value;
-                    iss >> value; // Skip value
-
-                    std::getline(iss, tb_path);
-
-                    tb_path = tb_path.substr(1, tb_path.size() - 1);
-
-                    std::cout << "Looking for tablebases in: " << tb_path << std::endl;
-
-                    init_tablebases(tb_path.c_str());
-                } else if (name == "SyzygyResolve") {
-                    std::string value;
-                    iss >> value; // Skip value
-                    iss >> syzygy_resolve;
-                } else if (name == "Ponder") {
-                    // Do nothing
+                if(search) {
+                    std::cerr << "warn: setoption command rejected as search is in progress" << std::endl;
                 } else {
-                    std::cerr << "warn: unrecognised option " << name << std::endl;
+                    std::string name;
+
+                    // Read "name <name>", or just "<name>"
+                    iss >> name;
+                    if (name == "name") iss >> name;
+
+                    if (name == "Hash") {
+                        std::string value;
+                        iss >> value; // Skip value
+                        iss >> hash_size;
+
+                        // Resize hash
+                        {
+                            std::lock_guard<std::mutex> lock(tt_memory_mtx);
+                            delete tt;
+                            tt = new tt::hash_t(hash_size * MB);
+                        }
+                    } else if (name == "Threads") {
+                        std::string value;
+                        iss >> value; // Skip value
+                        iss >> threads;
+                    } else if (name == "SyzygyPath") {
+                        std::string value;
+                        iss >> value; // Skip value
+
+                        std::getline(iss, tb_path);
+
+                        tb_path = tb_path.substr(1, tb_path.size() - 1);
+
+                        std::cout << "Looking for tablebases in: " << tb_path << std::endl;
+
+                        init_tablebases(tb_path.c_str());
+                    } else if (name == "SyzygyResolve") {
+                        std::string value;
+                        iss >> value; // Skip value
+                        iss >> syzygy_resolve;
+                    } else if (name == "Ponder") {
+                        // Do nothing
+                    } else {
+                        std::cerr << "warn: unrecognised option " << name << std::endl;
+                    }
                 }
             } else if (cmd == "isready") {
                 std::cout << "readyok" << std::endl;
@@ -238,45 +245,6 @@ int main(int argc, char *argv[]) {
                                                              max_nodes,
                                                              root_moves);
 
-                    if (limits.game_situation && !ponder
-                        && limits.suggested_time_limit < last_result.search_time) {
-                        tt::entry_t h = {};
-
-                        // Probe for an EXACT entry of sufficient depth
-                        if (tt->probe(board->record[board->now].hash, h)
-                            && h.bound() == tt::EXACT && h.depth() >= last_result.root_depth) {
-                            move_t hash_move = board->to_move(h.move);
-
-                            // Check that the entry contains a legal move
-                            if (board->is_pseudo_legal(hash_move) && board->is_legal(hash_move)) {
-                                board->move(hash_move);
-
-                                // Check that the suggested move does not lead to an immediate draw by repetition
-                                if(!board->is_repetition_draw(0)) {
-                                    tt::entry_t ponder_h = {};
-                                    move_t ponder_move = EMPTY_MOVE;
-                                    if (tt->probe(board->record[board->now].hash, ponder_h)) {
-                                        ponder_move = board->to_move(h.move);
-
-                                        if(!board->is_pseudo_legal(ponder_move) || !board->is_legal(ponder_move)) {
-                                            ponder_move = EMPTY_MOVE;
-                                        }
-                                    }
-                                    board->unmove();
-
-                                    std::cout << "bestmove " << hash_move;
-                                    if (ponder_move != EMPTY_MOVE) {
-                                        std::cout << " ponder " << ponder_move;
-                                    }
-                                    std::cout << std::endl;
-                                    continue;
-                                }
-
-                                board->unmove();
-                            }
-                        }
-                    }
-
                     limits.threads = threads;
                     limits.syzygy_resolve = syzygy_resolve;
 
@@ -286,7 +254,7 @@ int main(int argc, char *argv[]) {
 
                     // Start search
                     future = std::async(std::launch::async,
-                                        [&last_result, &tt, &search, ponder, &search_abort, limits] {
+                                        [&tt, &search, ponder, &search_abort, &tt_memory_mtx, limits] {
                                             std::future<search_result_t> bm = std::async(std::launch::async,
                                                                                          &search_t::think,
                                                                                          search.get(),
@@ -306,7 +274,6 @@ int main(int argc, char *argv[]) {
                                                 result = bm.get();
                                             }
 
-                                            last_result = result;
                                             search = nullptr;
 
                                             std::cout << "bestmove " << result.best_move;
@@ -316,7 +283,10 @@ int main(int argc, char *argv[]) {
                                             std::cout << std::endl;
 
                                             // Age the transposition table
-                                            tt->age();
+                                            {
+                                                std::lock_guard<std::mutex> lock(tt_memory_mtx);
+                                                tt->age();
+                                            }
                                         }
                     );
                 } else {
@@ -332,8 +302,11 @@ int main(int argc, char *argv[]) {
                 if (search) {
                     std::cerr << "warn: ucinewgame command received, but search is in progress" << std::endl;
                 } else {
-                    delete tt;
-                    tt = new tt::hash_t(hash_size * MB);
+                    {
+                        std::lock_guard<std::mutex> lock(tt_memory_mtx);
+                        delete tt;
+                        tt = new tt::hash_t(hash_size * MB);
+                    }
                 }
             } else if (cmd == "mirror") {
                 if (board) {
@@ -392,6 +365,11 @@ int main(int argc, char *argv[]) {
                 std::cerr << "warn: unrecognised command " << cmd << std::endl;
             }
         }
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(tt_memory_mtx);
+        delete tt;
     }
 
     return 0;

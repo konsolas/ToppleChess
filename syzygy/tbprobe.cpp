@@ -347,7 +347,7 @@ static int probe_ab(board_t& pos, int alpha, int beta, int *success)
     // Generate (at least) all legal captures including (under)promotions.
     // It is OK to generate more, as long as they are filtered out below.
     movegen_t gen(pos);
-    end = stack + gen.gen_caps(stack);
+    end = stack + gen.gen_noisy(stack);
 
     for (moves = stack; moves < end; moves++) {
         move_t capture = *moves;
@@ -394,7 +394,7 @@ int probe_wdl(board_t& pos, int *success)
 
     // Generate (at least) all legal captures including (under)promotions.
     movegen_t gen(pos);
-    end = stack + gen.gen_caps(stack);
+    end = stack + gen.gen_noisy(stack);
 
     int best_cap = -3, best_ep = -3;
 

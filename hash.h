@@ -5,6 +5,8 @@
 #ifndef TOPPLE_HASH_H
 #define TOPPLE_HASH_H
 
+#include <mutex>
+
 #include "types.h"
 #include "move.h"
 
@@ -133,43 +135,44 @@ namespace tt {
     }
 
     struct entry_t { // 16 bytes
-        U64 hash; // 8 bytes
-        packed_move_t move; // 2 bytes
-        int16_t static_eval; // 2 bytes
-        int16_t internal_value; // 2 bytes
-        uint16_t about; // 2 bytes [GGGGGGGDDDDDDDBB] // 7 bits generation, 7 bits depth, 2 bits bound
+        U64 coded_hash; // 8 bytes
+        union {
+            struct {
+                packed_move_t move;
+                int16_t static_eval;
+                int16_t internal_value;
+                uint16_t about; // 6G 8D 2B
+            } info;
 
-        int value(int ply) {
-            if (internal_value >= MINCHECKMATE) {
-                return internal_value - ply;
-            } else if (internal_value <= -MINCHECKMATE) {
-                return internal_value + ply;
+            U64 data;
+        };
+
+        int value(int ply) const {
+            if (info.internal_value >= MINCHECKMATE) {
+                return info.internal_value - ply;
+            } else if (info.internal_value <= -MINCHECKMATE) {
+                return info.internal_value + ply;
             } else {
-                return internal_value;
+                return info.internal_value;
             }
         }
 
         inline Bound bound() {
-            return Bound(about & EXACT);
+            return Bound(info.about & 3u);
         }
 
         inline int depth() {
-            return (about >> 2) & 127;
+            return (info.about >> 2u) & 255u;
         }
 
-        inline int generation() {
-            return about >> 9;
+        inline unsigned generation() {
+            return info.about >> 10u;
         }
 
-        void update(Bound bound, int depth, int generation, move_t best_move, int eval, int score) {
-            about = bound | (depth << 2) | (generation << 9);
-            move = compress(best_move);
-            static_eval = static_cast<int16_t>(eval);
-            internal_value = static_cast<int16_t>(score);
-        }
-
-        void refresh(int gen) {
-            about = uint16_t((about & 511) | (gen << 9));
+        void refresh(unsigned gen) {
+            U64 original = coded_hash ^ data;
+            info.about = uint16_t((info.about & 1023u) | (gen << 10u));
+            coded_hash = original ^ data;
         }
     };
 
@@ -186,8 +189,8 @@ namespace tt {
         size_t hash_full();
     private:
         size_t num_entries;
+        unsigned generation = 1;
         entry_t *table;
-        uint8_t generation = 1;
     };
 }
 

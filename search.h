@@ -90,8 +90,8 @@ public:
     void enable_timer();
     void wait_for_timer();
 private:
-    void thread_start(pvs::context_t &context, const std::atomic_bool &aborted, int tid);
-    int search_aspiration(pvs::context_t &context, int prev_score, int depth, const std::atomic_bool &aborted, int tid);
+    void thread_start(pvs::context_t &context, const std::atomic_bool &aborted, size_t tid);
+    int search_aspiration(pvs::context_t &context, int prev_score, int depth, const std::atomic_bool &aborted, size_t tid);
 
     bool keep_searching(int depth);
 

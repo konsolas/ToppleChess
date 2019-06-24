@@ -82,6 +82,7 @@ U64 perft(board_t &board, int depth) {
     while ((next = buf[idx++]) != EMPTY_MOVE) {
         //INFO(next);
         REQUIRE(board.is_pseudo_legal(next));
+        REQUIRE(board.to_move(compress(next)) == next);
 
         bool is_legal = board.is_legal(next);
         bool gives_check = board.gives_check(next);

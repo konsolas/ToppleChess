@@ -46,7 +46,7 @@ struct sq_data_t {
  * Internal board representation used in the Topple engine.
  * Uses bitboard representation only
  */
-struct board_t {
+struct alignas(64) board_t {
     board_t() = default;
     explicit board_t(const std::string &fen);
 

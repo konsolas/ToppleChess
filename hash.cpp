@@ -3,6 +3,7 @@
 //
 
 #include <random>
+#include <memory>
 #include <cstring>
 #include "hash.h"
 
@@ -53,14 +54,14 @@ bool tt::hash_t::probe(U64 hash, tt::entry_t &entry) {
     const size_t index = (hash & num_entries) * bucket_size;
     tt::entry_t *bucket = table + index;
 
-    if(bucket->hash == hash) {
+    if((bucket->coded_hash ^ bucket->data) == hash) {
         bucket->refresh(generation);
         entry = *bucket;
         return true;
     }
 
     for(size_t i = 1; i < bucket_size; i++) {
-        if((bucket + i)->hash == hash) {
+        if(((bucket + i)->coded_hash ^ (bucket + i)->data) == hash) {
             (bucket + i)->refresh(generation);
             entry = *(bucket + i);
             return true;
@@ -87,9 +88,16 @@ void tt::hash_t::save(Bound bound, U64 hash, int depth, int ply, int static_eval
     if (score >= MINCHECKMATE) score += ply;
     if (score <= -MINCHECKMATE) score -= ply;
 
-    if(bucket->hash == hash) {
+    tt::entry_t updated = {};
+    updated.info.move = compress(move);
+    updated.info.static_eval = static_cast<int16_t>(static_eval);
+    updated.info.internal_value = static_cast<int16_t>(score);
+    updated.info.about = uint16_t(bound) | (uint16_t(depth) << 2u) | (generation << 10u);
+    updated.coded_hash = hash ^ updated.data;
+
+    if((bucket->coded_hash ^ bucket->data) == hash) {
         if(bound == EXACT || depth >= bucket->depth() - 2) {
-            bucket->update(bound, depth, generation, move, static_eval, score);
+            *bucket = updated;
         }
         return;
     }
@@ -97,24 +105,23 @@ void tt::hash_t::save(Bound bound, U64 hash, int depth, int ply, int static_eval
     tt::entry_t *replace = bucket;
     for(size_t i = 1; i < bucket_size; i++) {
         // Always replace if same position
-        if((bucket + i)->hash == hash) {
+        if(((bucket + i)->coded_hash ^ (bucket + i)->data) == hash) {
             if(bound == EXACT || depth >= bucket->depth() - 2) {
-                (bucket + i)->update(bound, depth, generation, move, static_eval, score);
+                *(bucket + i) = updated;
             }
             return;
-        } else if((bucket + i)->about < replace->about) {
+        } else if((bucket + i)->info.about < replace->info.about) {
             replace = (bucket + i);
         }
     }
 
     // Replace best candidate
-    replace->hash = hash;
-    replace->update(bound, depth, generation, move, static_eval, score);
+    *replace = updated;
 }
 
 void tt::hash_t::age() {
     generation++;
-    if(generation >= 127) {
+    if(generation >= 63) {
         generation = 1;
 
         // Clear up hash
@@ -125,12 +132,17 @@ void tt::hash_t::age() {
 }
 
 size_t tt::hash_t::hash_full() {
+    constexpr size_t sample_size = 4000;
+    constexpr size_t divisor = sample_size / 1000;
+
+    assert(num_entries * bucket_size > sample_size);
+
     size_t cnt = 0;
-    for (size_t i = 0; i < num_entries * bucket_size; i++) {
+    for (size_t i = 0; i < sample_size; i++) {
         if (table[i].generation() == generation) {
             cnt++;
         }
     }
 
-    return (cnt * 1000) / (num_entries * bucket_size);
+    return cnt / divisor;
 }

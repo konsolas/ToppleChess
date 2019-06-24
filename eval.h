@@ -197,9 +197,7 @@ struct processed_params_t : public eval_params_t {
     int kat_table[128] = {};
 };
 
-class evaluator_t {
-    friend class pawns::structure_t;
-
+class alignas(64) evaluator_t {
     size_t pawn_hash_entries;
     std::vector<pawns::structure_t> pawn_hash_table;
 

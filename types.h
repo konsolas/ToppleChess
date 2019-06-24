@@ -7,6 +7,8 @@
 
 #include <cstdint>
 #include <chrono>
+#include <new>
+#include <algorithm>
 
 #define INF 32767
 #define TO_MATE_SCORE(ply) (INF - (ply))
@@ -14,7 +16,7 @@
 #define MINCHECKMATE (TO_MATE_SCORE(MAX_TB_PLY))
 
 #define MAX_TB_PLY 1024
-#define MAX_PLY 128
+#define MAX_PLY 255
 
 const int TIMEOUT = -INF * 2;
 

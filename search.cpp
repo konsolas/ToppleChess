@@ -25,7 +25,7 @@ search_t::search_t(board_t board, tt::hash_t *tt, const processed_params_t &para
             [board](move_t move) { return board.is_legal(move); });
 
     // Create an evaluator for each thread
-    for(int i = 0; i < limits.threads; i++) {
+    for(size_t i = 0; i < limits.threads; i++) {
         evaluators.emplace_back(params, 1 * MB);
     }
 
@@ -81,7 +81,7 @@ search_result_t search_t::think(std::atomic_bool &aborted) {
             tt::entry_t h = {};
             move_t ponder_move = EMPTY_MOVE;
             if (tt->probe(board.record[board.now].hash, h)) {
-                ponder_move = board.to_move(h.move);
+                ponder_move = board.to_move(h.info.move);
             }
 
             board.unmove();
@@ -90,14 +90,14 @@ search_result_t search_t::think(std::atomic_bool &aborted) {
         }
 
         // Start threads
-        for(int tid = 0; tid < limits.threads; tid++) {
+        for(size_t tid = 0; tid < limits.threads; tid++) {
             contexts.emplace_back(&boards[tid], &evaluators[tid], tt, use_tb);
         }
 
         // Start all the threads
         std::vector<std::future<void>> futures;
         futures.reserve(limits.threads);
-        for(int tid = 0; tid < limits.threads; tid++) {
+        for(size_t tid = 0; tid < limits.threads; tid++) {
             futures.push_back(std::async(std::launch::async, &search_t::thread_start,
                                          this, std::ref(contexts[tid]), std::ref(aborted), tid));
         }
@@ -108,7 +108,7 @@ search_result_t search_t::think(std::atomic_bool &aborted) {
         // Then abort and wait for all the helper threads
         aborted = true;
 
-        for(int tid = 1; tid < limits.threads; tid++) {
+        for(size_t tid = 1; tid < limits.threads; tid++) {
             futures[tid].wait();
         }
     } else {
@@ -131,7 +131,7 @@ search_result_t search_t::think(std::atomic_bool &aborted) {
         tt::entry_t h = {};
         move_t ponder_move = EMPTY_MOVE;
         if (tt->probe(board.record[board.now].hash, h)) {
-            ponder_move = board.to_move(h.move);
+            ponder_move = board.to_move(h.info.move);
         }
 
         board.unmove();
@@ -156,10 +156,10 @@ void search_t::wait_for_timer() {
     while (!timer_started) timer_cnd.wait(lock);
 }
 
-void search_t::thread_start(pvs::context_t &context, const std::atomic_bool &aborted, int tid) {
+void search_t::thread_start(pvs::context_t &context, const std::atomic_bool &aborted, size_t tid) {
     int prev_score = 0;
 
-    for(int depth = 1; tid != 0 || keep_searching(depth); depth++) {
+    for(int depth = 1; depth <= MAX_PLY && (tid != 0 || keep_searching(depth)); depth++) {
         int score = search_aspiration(context, prev_score, depth, aborted, tid);
         if(aborted) break;
 
@@ -192,7 +192,7 @@ void search_t::thread_start(pvs::context_t &context, const std::atomic_bool &abo
     }
 }
 
-int search_t::search_aspiration(pvs::context_t &context, int prev_score, int depth, const std::atomic_bool &aborted, int tid) {
+int search_t::search_aspiration(pvs::context_t &context, int prev_score, int depth, const std::atomic_bool &aborted, size_t tid) {
     const int ASPIRATION_DELTA = 15;
 
     int alpha, beta, delta = ASPIRATION_DELTA;
@@ -258,7 +258,7 @@ bool search_t::keep_searching(int depth) {
 
 U64 search_t::count_nodes() {
     U64 total_nodes = 0;
-    for(int tid = 0; tid < limits.threads; tid++) {
+    for(size_t tid = 0; tid < limits.threads; tid++) {
         total_nodes += contexts[tid].get_nodes();
     }
 
@@ -267,7 +267,7 @@ U64 search_t::count_nodes() {
 
 U64 search_t::count_tb_hits() {
     U64 total_tb_hits = 0;
-    for(int tid = 0; tid < limits.threads; tid++) {
+    for(size_t tid = 0; tid < limits.threads; tid++) {
         total_tb_hits += contexts[tid].get_tb_hits();
     }
 

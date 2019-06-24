@@ -31,7 +31,7 @@ public:
      *
      * @return the number of moves in {@code buf}
      */
-    int gen_caps(move_t *buf);
+    int gen_noisy(move_t *buf);
 
     /**
      * Generate non-captures only, unordered.
@@ -44,8 +44,8 @@ private:
 
     Team team;
     Team x_team;
-    game_record_t record;
 
+    int gen_prom(move_t *buf);
     int gen_castling(move_t *buf);
     int gen_ep(move_t *buf);
 

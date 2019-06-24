@@ -14,47 +14,25 @@ enum GenMode {
 enum GenStage {
     GEN_NONE,
     GEN_HASH,
-    GEN_GOOD_CAPT,
-    GEN_KILLER_1,
-    GEN_KILLER_2,
-    GEN_KILLER_3,
-    GEN_BAD_CAPT,
+    GEN_GOOD_NOISY,
     GEN_QUIETS,
+    GEN_BAD_NOISY,
 };
 
 // History heuristic
 class history_heur_t {
 public:
-    void good_history(move_t good_move, int depth) {
-        int bonus = depth * depth;
-        tableHist(good_move, bonus);
-    }
-
-    void bad_history(move_t bad_move, int depth) {
-        int penalty = -depth * depth;
-        tableHist(bad_move, penalty);
+    void update(move_t move, int bonus) {
+        table[move.info.team][move.info.from][move.info.to] +=
+                bonus - table[move.info.team][move.info.from][move.info.to] * abs(bonus) / 8192;
     }
 
     int get(move_t move) const {
-        return historyTable[move.info.team][move.info.from][move.info.to];
+        return table[move.info.team][move.info.from][move.info.to];
     }
 private:
     // Indexed by [TEAM][FROM][TO]
-    int historyTable[2][64][64] = {};
-
-    // Intenal update routine
-    void tableHist(move_t move, int delta) {
-        historyTable[move.info.team][move.info.from][move.info.to] += delta;
-        if (historyTable[move.info.team][move.info.from][move.info.to] > 1000000000) {
-            for (auto &h : historyTable) {
-                for (auto &i : h) {
-                    for (int &j : i) {
-                        j /= 16;
-                    }
-                }
-            }
-        }
-    }
+    int table[2][64][64] = {};
 };
 
 // Killer heuristic
@@ -74,22 +52,21 @@ public:
     move_t secondary(int ply) const {
         return killers[ply][1];
     }
-
 private:
     move_t killers[MAX_PLY][2] = {{}};
 };
 
 struct heuristic_set_t {
-    killer_heur_t killers;
     history_heur_t history;
+    killer_heur_t killers;
 };
 
 class movesort_t {
 public:
     movesort_t(GenMode mode, const heuristic_set_t &heuristics, const board_t &board, move_t hash_move, move_t refutation, int ply);
 
-    move_t next(GenStage &stage, int &score);
-    move_t *generated_quiets(int &count);
+    move_t next(GenStage &stage, int &score, bool skip_quiets);
+    move_t *generated_quiets(size_t &count);
 private:
     GenMode mode;
     const heuristic_set_t &heur;
@@ -111,8 +88,9 @@ private:
 
     int capt_idx = 0;
     int capt_buf_size = 0;
+    int bad_capt_idx = 0;
+    int bad_capt_buf_size = 0;
     move_t capt_buf[64];
-    int capt_scores[64];
 };
 
 
