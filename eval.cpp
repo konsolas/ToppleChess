@@ -278,29 +278,16 @@ void evaluator_t::eval_pst(const board_t &board, int &mg, int &eg) {
             eg -= params.pst[BLACK][type][sq][EG];
         }
     }
-
-    pieces = board.bb_pieces[WHITE][KING];
-    while (pieces) {
-        uint8_t sq = pop_bit(pieces);
-        mg += params.pst[WHITE][KING][sq][MG];
-        eg += params.pst[WHITE][KING][sq][EG];
-    }
-
-    pieces = board.bb_pieces[BLACK][KING];
-    while (pieces) {
-        uint8_t sq = pop_bit(pieces);
-        mg -= params.pst[BLACK][KING][sq][MG];
-        eg -= params.pst[BLACK][KING][sq][EG];
-    }
 }
 
 void evaluator_t::eval_pawns(const board_t &board, int &mg, int &eg) {
-    U64 pawn_hash = board.record[board.now].pawn_hash;
+    U64 pawn_hash = board.record[board.now].kp_hash;
     size_t index = (pawn_hash & pawn_hash_entries);
     pawns::structure_t *entry = pawn_hash_table.data() + index;
     if(entry->get_hash() != pawn_hash) {
         *entry = pawns::structure_t(params, pawn_hash,
-                                    board.bb_pieces[WHITE][PAWN], board.bb_pieces[BLACK][PAWN]);
+                                    board.bb_pieces[WHITE][PAWN], board.bb_pieces[BLACK][PAWN],
+                                    board.bb_pieces[WHITE][KING], board.bb_pieces[BLACK][KING]);
     }
 
     mg += entry->get_eval_mg();

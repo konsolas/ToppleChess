@@ -28,7 +28,7 @@ struct game_record_t {
     uint8_t ep_square; // Target square for en-passant after last double pawn move
     int halfmove_clock; // Moves since last pawn move or capture
     U64 hash;
-    U64 pawn_hash;
+    U64 kp_hash;
     material_data_t material;
 };
 
@@ -67,6 +67,7 @@ struct alignas(64) board_t {
     bool gives_check(move_t move) const;
 
     bool is_repetition_draw(int search_ply) const;
+    bool is_material_draw() const;
 
     int see(move_t move) const;
     U64 non_pawn_material(Team side) const;

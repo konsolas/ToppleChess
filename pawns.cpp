@@ -5,8 +5,9 @@
 #include "pawns.h"
 #include "eval.h"
 
-pawns::structure_t::structure_t(const processed_params_t &params, U64 pawn_hash, U64 w_pawns, U64 b_pawns)
-        : hash(pawn_hash), eval_mg(0), eval_eg(0) {
+pawns::structure_t::structure_t(const processed_params_t &params, U64 kp_hash, U64 w_pawns, U64 b_pawns, U64 w_king, U64 b_king)
+        : hash(kp_hash), eval_mg(0), eval_eg(0) {
+    // Find pawns
     U64 open[2] = {pawns::open_pawns<WHITE>(w_pawns, b_pawns), pawns::open_pawns<BLACK>(b_pawns, w_pawns)};
     U64 isolated[2] = {pawns::isolated(w_pawns), pawns::isolated(b_pawns)};
     U64 backwards[2] = {pawns::backward<WHITE>(w_pawns, b_pawns), pawns::backward<BLACK>(b_pawns, w_pawns)};
@@ -44,11 +45,25 @@ pawns::structure_t::structure_t(const processed_params_t &params, U64 pawn_hash,
     eval_mg += (doubled_counts[WHITE][1] - doubled_counts[BLACK][1]) * params.doubled_mg[1];
     eval_eg += (doubled_counts[WHITE][0] - doubled_counts[BLACK][0]) * params.doubled_eg[0];
     eval_eg += (doubled_counts[WHITE][1] - doubled_counts[BLACK][1]) * params.doubled_eg[1];
-    
-    // Pawns that require specific evaluation:
-    U64 bb;
 
-    // PST
+    U64 bb;
+    
+    // King PST
+    bb = w_king;
+    while (bb) {
+        uint8_t sq = pop_bit(bb);
+        eval_mg += params.pst[WHITE][KING][sq][MG];
+        eval_eg += params.pst[WHITE][KING][sq][EG];
+    }
+
+    bb = b_king;
+    while (bb) {
+        uint8_t sq = pop_bit(bb);
+        eval_mg -= params.pst[BLACK][KING][sq][MG];
+        eval_eg -= params.pst[BLACK][KING][sq][EG];
+    }
+
+    // Pawn PST
     bb = w_pawns;
     while(bb) {
         uint8_t sq = pop_bit(bb);

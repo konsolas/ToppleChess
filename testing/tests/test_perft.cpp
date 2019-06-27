@@ -103,7 +103,7 @@ U64 perft(board_t &board, int depth) {
 
         if(board != snapshot 
             || board.record[board.now].hash != snapshot.record[snapshot.now].hash
-            || board.record[board.now].pawn_hash != snapshot.record[snapshot.now].pawn_hash) {
+            || board.record[board.now].kp_hash != snapshot.record[snapshot.now].kp_hash) {
             FAIL("Unmake move failed at position: " << board
                                                     << "expecting " << snapshot
                                                     << " move=" << from_sq(next.info.from) << from_sq(next.info.to));
