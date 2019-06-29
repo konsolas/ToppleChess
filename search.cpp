@@ -26,7 +26,7 @@ search_t::search_t(board_t board, tt::hash_t *tt, const processed_params_t &para
 
     // Create an evaluator for each thread
     for(size_t i = 0; i < limits.threads; i++) {
-        evaluators.emplace_back(params, 2 * MB);
+        evaluators.emplace_back(params, 8 * MB);
     }
 
     // Find intersection of root moves with UCI searchmoves

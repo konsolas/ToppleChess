@@ -17,6 +17,7 @@ struct board_t;
 namespace pawns {
     constexpr U64 not_A = 0xfefefefefefefefe; // ~0x0101010101010101
     constexpr U64 not_H = 0x7f7f7f7f7f7f7f7f; // ~0x8080808080808080
+    constexpr U64 advanced_ranks = 0x0000ffffffff0000;
 
     // Bitboard shifting
     template<Direction D>
@@ -81,6 +82,10 @@ namespace pawns {
         return own & ~front_span<Team(!team)>(other);
     }
 
+    constexpr U64 adjacent(U64 bb) {
+        return shift<D_W>(bb) | shift<D_E>(bb);
+    }
+
     template<Team team>
     constexpr U64 telestop_squares(U64 bb) {
         return front_span<team>(bb) ^ stop_squares<team>(bb);
@@ -89,6 +94,97 @@ namespace pawns {
     constexpr U64 fill_file(U64 bb) {
         return fill_forward<WHITE>(bb) | fill_forward<BLACK>(bb);
     }
+
+    // Occluded fills with the Kogge-Stone algorithm
+    template<Direction D>
+    constexpr U64 fill_occluded(U64 bb, U64 open);
+
+    template<>
+    constexpr U64 fill_occluded<D_N>(U64 bb, U64 open) {
+        bb |= open & (bb << 8u);
+        open &= (open << 8u);
+        bb |= open & (bb << 16u);
+        open &= (open << 16u);
+        bb |= open & (bb << 32u);
+        return bb;
+    }
+
+    template<>
+    constexpr U64 fill_occluded<D_S>(U64 bb, U64 open) {
+        bb |= open & (bb >> 8u);
+        open &= (open >> 8u);
+        bb |= open & (bb >> 16u);
+        open &= (open >> 16u);
+        bb |= open & (bb >> 32u);
+        return bb;
+    }
+
+    template<>
+    constexpr U64 fill_occluded<D_E>(U64 bb, U64 open) {
+        open &= not_A;
+        bb |= open & (bb << 1u);
+        open &= (open << 1u);
+        bb |= open & (bb << 2u);
+        open &= (open << 2u);
+        bb |= open & (bb << 4u);
+        return bb;
+    }
+
+    template<>
+    constexpr U64 fill_occluded<D_NE>(U64 bb, U64 open) {
+        open &= not_A;
+        bb |= open & (bb << 9u);
+        open &= (open << 9u);
+        bb |= open & (bb << 18u);
+        open &= (open << 18u);
+        bb |= open & (bb << 36u);
+        return bb;
+    }
+
+    template<>
+    constexpr U64 fill_occluded<D_SE>(U64 bb, U64 open) {
+        open &= not_A;
+        bb |= open & (bb >> 7u);
+        open &= (open >> 7u);
+        bb |= open & (bb >> 14u);
+        open &= (open >> 14u);
+        bb |= open & (bb >> 28u);
+        return bb;
+    }
+
+    template<>
+    constexpr U64 fill_occluded<D_W>(U64 bb, U64 open) {
+        open &= not_H;
+        bb |= open & (bb >> 1u);
+        open &= (open >> 1u);
+        bb |= open & (bb >> 2u);
+        open &= (open >> 2u);
+        bb |= open & (bb >> 4u);
+        return bb;
+    }
+
+    template<>
+    constexpr U64 fill_occluded<D_SW>(U64 bb, U64 open) {
+        open &= not_H;
+        bb |= open & (bb >> 9u);
+        open &= (open >> 9u);
+        bb |= open & (bb >> 18u);
+        open &= (open >> 18u);
+        bb |= open & (bb >> 36u);
+        return bb;
+    }
+
+    template<>
+    constexpr U64 fill_occluded<D_NW>(U64 bb, U64 open) {
+        open &= not_H;
+        bb |= open & (bb << 7u);
+        open &= (open << 7u);
+        bb |= open & (bb << 14u);
+        open &= (open << 14u);
+        bb |= open & (bb << 28u);
+        return bb;
+    }
+
 
     // Files
     constexpr uint8_t file_set(U64 bb) {
@@ -181,8 +277,21 @@ namespace pawns {
     }
 
     template<Team team>
-    constexpr U64 straggler(U64 own, U64 other, U64 own_backwards) {
-        return own_backwards & open_pawns<team>(own, other) & (team ? 0x00ffff0000000000ull : 0x0000000000ffff00ull);
+    constexpr U64 semi_backward(U64 own, U64 other) {
+        return stop_squares<Team(!team)>(
+                stop_squares<team>(own)
+                & ~fill_forward<team>(left_attacks<team>(own) | right_attacks<team>(own))
+                & front_span<Team(!team)>(attacks<Team(!team)>(other))
+        );
+    }
+
+    constexpr U64 paired(U64 bb) {
+        return bb & adjacent(bb);
+    }
+
+    template<Team team>
+    constexpr U64 undefendable_pawns(U64 own, U64 other) {
+        return own & ~attacks<team>(fill_occluded<(rel_offset(team, D_N))>(own, ~other)) & advanced_ranks;
     }
 
     template<Team team>

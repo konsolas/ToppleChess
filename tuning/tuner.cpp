@@ -339,6 +339,30 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
+    std::cout << "  semi_backwards_mg ";
+    for (int param : current_params.semi_backwards_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  semi_backward_eg ";
+    for (int param : current_params.semi_backwards_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  paired_mg ";
+    for (int param : current_params.paired_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  paired_eg ";
+    for (int param : current_params.paired_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
     std::cout << "  doubled_mg ";
     for (int param : current_params.doubled_mg) {
         std::cout << param << ", ";
@@ -402,6 +426,7 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
+    std::cout << "  kat_zero " << current_params.kat_zero << std::endl;
     std::cout << "  kat_open_file " << current_params.kat_open_file << std::endl;
     std::cout << "  kat_own_half_open_file " << current_params.kat_own_half_open_file << std::endl;
     std::cout << "  kat_other_half_open_file " << current_params.kat_other_half_open_file << std::endl;

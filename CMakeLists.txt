@@ -50,7 +50,7 @@ if (MINGW)
 endif ()
 
 # Set -march for the Topple target
-target_compile_options(Topple PUBLIC -march=native -O3)
+target_compile_options(Topple PUBLIC -march=broadwell -O3)
 
 # Configure the "Release" target
 if (CMAKE_BUILD_TYPE STREQUAL "Release")

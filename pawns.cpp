@@ -11,6 +11,8 @@ pawns::structure_t::structure_t(const processed_params_t &params, U64 kp_hash, U
     U64 open[2] = {pawns::open_pawns<WHITE>(w_pawns, b_pawns), pawns::open_pawns<BLACK>(b_pawns, w_pawns)};
     U64 isolated[2] = {pawns::isolated(w_pawns), pawns::isolated(b_pawns)};
     U64 backwards[2] = {pawns::backward<WHITE>(w_pawns, b_pawns), pawns::backward<BLACK>(b_pawns, w_pawns)};
+    U64 semi_backwards[2] = {pawns::semi_backward<WHITE>(w_pawns, b_pawns), pawns::semi_backward<BLACK>(b_pawns, w_pawns)};
+    U64 paired[2] = {pawns::paired(w_pawns), pawns::paired(b_pawns)};
     U64 doubled[2] = {pawns::doubled<WHITE>(w_pawns), pawns::doubled<BLACK>(b_pawns)};
     U64 chain[2] = {pawns::attacks<WHITE>(w_pawns) & w_pawns, pawns::attacks<BLACK>(b_pawns) & b_pawns};
     U64 passed[2] = {pawns::passed<WHITE>(w_pawns, b_pawns), pawns::passed<BLACK>(b_pawns, w_pawns)};
@@ -24,6 +26,14 @@ pawns::structure_t::structure_t(const processed_params_t &params, U64 kp_hash, U
     int backwards_counts[2][2] = {
             {pop_count(backwards[WHITE] & ~open[WHITE]), pop_count(backwards[WHITE] & open[WHITE])},
             {pop_count(backwards[BLACK] & ~open[BLACK]), pop_count(backwards[BLACK] & open[BLACK])}
+    }; // [TEAM][OPEN]
+    int semi_backwards_counts[2][2] = {
+            {pop_count(semi_backwards[WHITE] & ~open[WHITE]), pop_count(semi_backwards[WHITE] & open[WHITE])},
+            {pop_count(semi_backwards[BLACK] & ~open[BLACK]), pop_count(semi_backwards[BLACK] & open[BLACK])}
+    }; // [TEAM][OPEN]
+    int paired_counts[2][2] = {
+            {pop_count(paired[WHITE] & ~open[WHITE]), pop_count(paired[WHITE] & open[WHITE])},
+            {pop_count(paired[BLACK] & ~open[BLACK]), pop_count(paired[BLACK] & open[BLACK])}
     }; // [TEAM][OPEN]
     int doubled_counts[2][2] = {
             {pop_count(doubled[WHITE] & ~open[WHITE]), pop_count(doubled[WHITE] & open[WHITE])},
@@ -40,6 +50,16 @@ pawns::structure_t::structure_t(const processed_params_t &params, U64 kp_hash, U
     eval_mg += (backwards_counts[WHITE][1] - backwards_counts[BLACK][1]) * params.backwards_mg[1];
     eval_eg += (backwards_counts[WHITE][0] - backwards_counts[BLACK][0]) * params.backwards_eg[0];
     eval_eg += (backwards_counts[WHITE][1] - backwards_counts[BLACK][1]) * params.backwards_eg[1];
+
+    eval_mg += (semi_backwards_counts[WHITE][0] - semi_backwards_counts[BLACK][0]) * params.semi_backwards_mg[0];
+    eval_mg += (semi_backwards_counts[WHITE][1] - semi_backwards_counts[BLACK][1]) * params.semi_backwards_mg[1];
+    eval_eg += (semi_backwards_counts[WHITE][0] - semi_backwards_counts[BLACK][0]) * params.semi_backwards_eg[0];
+    eval_eg += (semi_backwards_counts[WHITE][1] - semi_backwards_counts[BLACK][1]) * params.semi_backwards_eg[1];
+
+    eval_mg += (paired_counts[WHITE][0] - paired_counts[BLACK][0]) * params.paired_mg[0];
+    eval_mg += (paired_counts[WHITE][1] - paired_counts[BLACK][1]) * params.paired_mg[1];
+    eval_eg += (paired_counts[WHITE][0] - paired_counts[BLACK][0]) * params.paired_eg[0];
+    eval_eg += (paired_counts[WHITE][1] - paired_counts[BLACK][1]) * params.paired_eg[1];
     
     eval_mg += (doubled_counts[WHITE][0] - doubled_counts[BLACK][0]) * params.doubled_mg[0];
     eval_mg += (doubled_counts[WHITE][1] - doubled_counts[BLACK][1]) * params.doubled_mg[1];
