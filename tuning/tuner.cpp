@@ -363,6 +363,18 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
+    std::cout << "  detached_mg ";
+    for (int param : current_params.detached_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  detached_eg ";
+    for (int param : current_params.detached_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
     std::cout << "  doubled_mg ";
     for (int param : current_params.doubled_mg) {
         std::cout << param << ", ";
@@ -407,6 +419,18 @@ void tuner_t::print_params() {
 
     std::cout << "  candidate_eg ";
     for (int param : current_params.candidate_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  king_tropism_eg ";
+    for (int param : current_params.king_tropism_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  passer_tropism_eg ";
+    for (int param : current_params.passer_tropism_eg) {
         std::cout << param << ", ";
     }
     std::cout << std::endl;

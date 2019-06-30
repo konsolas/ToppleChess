@@ -294,6 +294,15 @@ namespace pawns {
         return own & ~attacks<team>(fill_occluded<(rel_offset(team, D_N))>(own, ~other)) & advanced_ranks;
     }
 
+    constexpr U64 alone(U64 bb) {
+        return bb & ~(adjacent(bb) | attacks<WHITE>(bb) | attacks<BLACK>(bb));
+    }
+
+    template<Team team>
+    constexpr U64 detached(U64 own, U64 other) {
+        return undefendable_pawns<team>(own, other) & alone(own);
+    }
+
     template<Team team>
     constexpr U64 forward_coverage(U64 bb) {
         U64 spans = front_span<team>(bb);

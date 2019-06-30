@@ -329,7 +329,7 @@ void evaluator_t::eval_movement(const board_t &board, int &mg, int &eg) {
     mg -= params.ks_pawn_shield[pawn_shield_b];
 
     // Check for attacks on the king
-    int king_danger[2] = {};
+    int king_danger[2] = {params.kat_zero, params.kat_zero};
 
     if(board.bb_pieces[BLACK][ROOK] != 0) {
         if(king_circle[WHITE] & open_files) {
