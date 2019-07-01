@@ -435,8 +435,18 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
-    std::cout << "  blocked_mg " << current_params.blocked_mg << std::endl;
-    std::cout << "  blocked_eg " << current_params.blocked_eg << std::endl;
+    std::cout << "  blocked_mg ";
+    for (int param : current_params.blocked_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  blocked_eg ";
+    for (int param : current_params.blocked_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
     std::cout << "  pos_r_open_file_mg " << current_params.pos_r_open_file_mg << std::endl;
     std::cout << "  pos_r_open_file_eg " << current_params.pos_r_open_file_eg << std::endl;
     std::cout << "  pos_r_own_half_open_file_mg " << current_params.pos_r_own_half_open_file_mg << std::endl;

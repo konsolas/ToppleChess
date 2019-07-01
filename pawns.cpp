@@ -12,7 +12,8 @@ pawns::structure_t::structure_t(const processed_params_t &params, U64 kp_hash, U
     U64 open[2] = {pawns::open_pawns<WHITE>(w_pawns, b_pawns), pawns::open_pawns<BLACK>(b_pawns, w_pawns)};
     U64 isolated[2] = {pawns::isolated(w_pawns), pawns::isolated(b_pawns)};
     U64 backwards[2] = {pawns::backward<WHITE>(w_pawns, b_pawns), pawns::backward<BLACK>(b_pawns, w_pawns)};
-    U64 semi_backwards[2] = {pawns::semi_backward<WHITE>(w_pawns, b_pawns), pawns::semi_backward<BLACK>(b_pawns, w_pawns)};
+    U64 semi_backwards[2] = {pawns::semi_backward<WHITE>(w_pawns, b_pawns),
+                             pawns::semi_backward<BLACK>(b_pawns, w_pawns)};
     U64 paired[2] = {pawns::paired(w_pawns), pawns::paired(b_pawns)};
     U64 detached[2] = {pawns::detached<WHITE>(w_pawns, b_pawns), pawns::detached<BLACK>(b_pawns, w_pawns)};
     U64 doubled[2] = {pawns::doubled<WHITE>(w_pawns), pawns::doubled<BLACK>(b_pawns)};
@@ -178,7 +179,10 @@ void pawns::structure_t::eval_dynamic(const processed_params_t &params, const bo
 
     // Blocked pawns
     U64 stop_squares[2] = {pawns::stop_squares<WHITE>(w_pawns), pawns::stop_squares<BLACK>(b_pawns)};
-    int blocked_count[2] = {pop_count(stop_squares[WHITE] & board.bb_all), pop_count(stop_squares[BLACK] & board.bb_all)};
+    int blocked_count[2][2] = {
+            {pop_count(stop_squares[WHITE] & board.bb_side[WHITE]), pop_count(stop_squares[WHITE] & board.bb_side[BLACK])},
+            {pop_count(stop_squares[BLACK] & board.bb_side[BLACK]), pop_count(stop_squares[BLACK] & board.bb_side[WHITE])}
+    };
 
     // Rook on open files
     int open_file_count[2] = {
@@ -195,13 +199,17 @@ void pawns::structure_t::eval_dynamic(const processed_params_t &params, const bo
     };
 
     // Summing up
-    mg += (blocked_count[WHITE] - blocked_count[BLACK]) * params.blocked_mg;
-    eg += (blocked_count[WHITE] - blocked_count[BLACK]) * params.blocked_eg;
+    mg += (blocked_count[WHITE][0] - blocked_count[BLACK][0]) * params.blocked_mg[0];
+    mg += (blocked_count[WHITE][1] - blocked_count[BLACK][1]) * params.blocked_mg[1];
+    eg += (blocked_count[WHITE][0] - blocked_count[BLACK][0]) * params.blocked_eg[0];
+    eg += (blocked_count[WHITE][1] - blocked_count[BLACK][1]) * params.blocked_eg[1];
 
     mg += (open_file_count[WHITE] - open_file_count[BLACK]) * params.pos_r_open_file_mg;
     mg += (own_half_open_file_count[WHITE] - own_half_open_file_count[BLACK]) * params.pos_r_own_half_open_file_mg;
-    mg += (other_half_open_file_count[WHITE] - other_half_open_file_count[BLACK]) * params.pos_r_other_half_open_file_mg;
+    mg += (other_half_open_file_count[WHITE] - other_half_open_file_count[BLACK]) *
+          params.pos_r_other_half_open_file_mg;
     eg += (open_file_count[WHITE] - open_file_count[BLACK]) * params.pos_r_open_file_eg;
     eg += (own_half_open_file_count[WHITE] - own_half_open_file_count[BLACK]) * params.pos_r_own_half_open_file_eg;
-    eg += (other_half_open_file_count[WHITE] - other_half_open_file_count[BLACK]) * params.pos_r_other_half_open_file_eg;
+    eg += (other_half_open_file_count[WHITE] - other_half_open_file_count[BLACK]) *
+          params.pos_r_other_half_open_file_eg;
 }
