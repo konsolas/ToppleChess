@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
     eg_init();
 
     // Board
-    std::unique_ptr<board_t> board = nullptr;
+    std::unique_ptr<board_t> board = std::make_unique<board_t>("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
     // Hash
     uint64_t hash_size = 128;
