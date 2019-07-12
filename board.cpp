@@ -11,6 +11,7 @@
 #include "board.h"
 #include "testing/catch.hpp"
 #include "move.h"
+#include "hash.h"
 
 void board_t::move(move_t move) {
     // Copy the record
@@ -388,7 +389,7 @@ void board_t::switch_piece(Team side, Piece piece, uint8_t sq) {
     if (HASH) { // Update hash
         U64 square_hash = zobrist::squares[sq][side][piece];
         record[now].hash ^= square_hash;
-        if(piece == PAWN) record[now].pawn_hash ^= square_hash;
+        if(piece == PAWN || piece == KING) record[now].kp_hash ^= square_hash;
         if(sq_data[sq].occupied) record[now].material.info.inc(side, piece);
         else record[now].material.info.dec(side, piece);
     }
@@ -567,6 +568,17 @@ bool board_t::is_repetition_draw(int search_ply) const {
     }
 
     return false;
+}
+
+bool board_t::is_material_draw() const {
+    if(record[now].material.info.w_pawns || record[now].material.info.b_pawns ||
+             record[now].material.info.w_queens || record[now].material.info.b_queens ||
+             record[now].material.info.w_rooks || record[now].material.info.b_rooks) {
+        return false;
+    } else {
+        return record[now].material.info.w_bishops + record[now].material.info.b_bishops
+               + record[now].material.info.w_knights + record[now].material.info.b_knights <= 1;
+    }
 }
 
 void board_t::mirror() {

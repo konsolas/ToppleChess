@@ -339,6 +339,42 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
+    std::cout << "  semi_backwards_mg ";
+    for (int param : current_params.semi_backwards_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  semi_backward_eg ";
+    for (int param : current_params.semi_backwards_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  paired_mg ";
+    for (int param : current_params.paired_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  paired_eg ";
+    for (int param : current_params.paired_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  detached_mg ";
+    for (int param : current_params.detached_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  detached_eg ";
+    for (int param : current_params.detached_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
     std::cout << "  doubled_mg ";
     for (int param : current_params.doubled_mg) {
         std::cout << param << ", ";
@@ -387,8 +423,30 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
-    std::cout << "  blocked_mg " << current_params.blocked_mg << std::endl;
-    std::cout << "  blocked_eg " << current_params.blocked_eg << std::endl;
+    std::cout << "  king_tropism_eg ";
+    for (int param : current_params.king_tropism_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  passer_tropism_eg ";
+    for (int param : current_params.passer_tropism_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  blocked_mg ";
+    for (int param : current_params.blocked_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  blocked_eg ";
+    for (int param : current_params.blocked_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
     std::cout << "  pos_r_open_file_mg " << current_params.pos_r_open_file_mg << std::endl;
     std::cout << "  pos_r_open_file_eg " << current_params.pos_r_open_file_eg << std::endl;
     std::cout << "  pos_r_own_half_open_file_mg " << current_params.pos_r_own_half_open_file_mg << std::endl;
@@ -402,6 +460,7 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
+    std::cout << "  kat_zero " << current_params.kat_zero << std::endl;
     std::cout << "  kat_open_file " << current_params.kat_open_file << std::endl;
     std::cout << "  kat_own_half_open_file " << current_params.kat_own_half_open_file << std::endl;
     std::cout << "  kat_other_half_open_file " << current_params.kat_other_half_open_file << std::endl;

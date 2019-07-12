@@ -216,7 +216,8 @@ namespace pvs {
 
         // Game state
         if (board->record[board->now].halfmove_clock >= 100
-            || board->is_repetition_draw(ply)) {
+            || board->is_repetition_draw(ply)
+            || board->is_material_draw()) {
             return 0;
         }
 
@@ -414,6 +415,9 @@ namespace pvs {
             return evaluator->evaluate(*board);
         }
 
+        if(board->is_material_draw())
+            return 0;
+
         int stand_pat = evaluator->evaluate(*board);
 
         // Probe endgame tablebases
@@ -499,7 +503,8 @@ namespace pvs {
 
         // Game state
         if (board->record[board->now].halfmove_clock >= 100
-            || board->is_repetition_draw(ply)) {
+            || board->is_repetition_draw(ply)
+            || board->is_material_draw()) {
             return 0;
         }
 
@@ -671,7 +676,7 @@ namespace pvs {
 
                 // Prefetch
                 tt->prefetch(board->record[board->now].hash);
-                evaluator->prefetch(board->record[board->now].pawn_hash);
+                evaluator->prefetch(board->record[board->now].kp_hash);
 
                 // Check and castling extensions
                 if (move_is_check) {

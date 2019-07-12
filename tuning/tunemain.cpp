@@ -145,7 +145,17 @@ int main(int argc, char *argv[]) {
                 tuner.anneal(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int), 
                         temp, hc_frac, n_iter);
             } else if(cmd == "iso") {
-                tuner.optimise(reinterpret_cast<int*> (tuner.get_current_params()->isolated_mg), 4, 5);
+                int n_iter;
+                iss >> n_iter;
+
+                double temp;
+                iss >> temp;
+
+                double hc_frac;
+                iss >> hc_frac;
+
+                tuner.anneal(reinterpret_cast<int*> (tuner.get_current_params()->semi_backwards_mg), 8,
+                             temp, hc_frac, n_iter);
             }
         }
     }
