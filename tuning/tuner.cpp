@@ -454,6 +454,42 @@ void tuner_t::print_params() {
     std::cout << "  pos_r_other_half_open_file_mg " << current_params.pos_r_other_half_open_file_mg << std::endl;
     std::cout << "  pos_r_other_half_open_file_eg " << current_params.pos_r_other_half_open_file_eg << std::endl;
 
+    std::cout << "  outpost_mg ";
+    for (auto param : current_params.outpost_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  outpost_eg ";
+    for (auto param : current_params.outpost_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  outpost_hole_mg ";
+    for (auto param : current_params.outpost_hole_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  outpost_hole_eg ";
+    for (auto param : current_params.outpost_hole_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  outpost_half_mg ";
+    for (auto param : current_params.outpost_half_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  outpost_half_eg ";
+    for (auto param : current_params.outpost_half_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
     std::cout << "  ks_pawn_shield ";
     for (int param : current_params.ks_pawn_shield) {
         std::cout << param << ", ";

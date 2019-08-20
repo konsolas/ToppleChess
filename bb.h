@@ -37,10 +37,6 @@ namespace bb_magics {
 }
 
 namespace bb_util {
-    extern uint8_t sq_index[8][8];
-    extern uint8_t file_index[64];
-    extern uint8_t rank_index[64];
-
     extern U64 between[64][64];
     extern U64 line[64][64];
     extern U64 ray[64][64];
@@ -259,7 +255,7 @@ inline U64 file_mask(uint8_t file_index) {
  * @param b square b
  * @return true if the squares are of the same colour
  */
-inline bool same_colour(uint8_t a, uint8_t b) {
+constexpr bool same_colour(uint8_t a, uint8_t b) {
     return ((uint8_t) (9 * (a ^ b)) & uint8_t(8)) == 0;
 }
 
@@ -270,21 +266,21 @@ inline bool same_colour(uint8_t a, uint8_t b) {
  * @param rank rank
  * @return square index
  */
-inline uint8_t square_index(uint8_t file, uint8_t rank) {
-    return bb_util::sq_index[file][rank];
+constexpr uint8_t square_index(uint8_t file, uint8_t rank) {
+    return (rank << 3u) + file;
 }
 
 // Opposite of the above
 
-inline uint8_t rank_index(uint8_t sq_index) {
-    return bb_util::rank_index[sq_index];
+constexpr uint8_t rank_index(uint8_t sq_index) {
+    return sq_index >> 3u;
 }
 
-inline uint8_t file_index(uint8_t sq_index) {
-    return bb_util::file_index[sq_index];
+constexpr uint8_t file_index(uint8_t sq_index) {
+    return sq_index & 7u;
 }
 
-inline uint8_t file_edge_distance(uint8_t file) {
+constexpr uint8_t file_edge_distance(uint8_t file) {
     return file < 4 ? file : 7 - file;
 }
 

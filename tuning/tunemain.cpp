@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
                 double hc_frac;
                 iss >> hc_frac;
 
-                tuner.anneal(reinterpret_cast<int*> (tuner.get_current_params()->semi_backwards_mg), 8,
+                tuner.anneal(reinterpret_cast<int*> (tuner.get_current_params()->outpost_mg), 8,
                              temp, hc_frac, n_iter);
             }
         }

@@ -198,6 +198,43 @@ void pawns::structure_t::eval_dynamic(const processed_params_t &params, const bo
             pop_count(half_open_files[WHITE] & board.bb_pieces[BLACK][ROOK])
     };
 
+    // Outposts
+    U64 attacks_bb[2] = {attacks<WHITE>(w_pawns), attacks<BLACK>(b_pawns)};
+    U64 outpost_squares[2] = {outpost[WHITE] & attacks_bb[WHITE] & ~attacks_bb[BLACK],
+                              outpost[BLACK] & attacks_bb[BLACK] & ~attacks_bb[WHITE]};
+    U64 holes_bb[2] = {holes<WHITE>(w_pawns), holes<BLACK>(b_pawns)};
+
+    int outpost_count[2][2] = {
+            {
+                    pop_count(outpost_squares[WHITE] & board.bb_pieces[WHITE][KNIGHT]),
+                    pop_count(outpost_squares[WHITE] & board.bb_pieces[WHITE][BISHOP])
+            },
+            {
+                    pop_count(outpost_squares[BLACK] & board.bb_pieces[BLACK][KNIGHT]),
+                    pop_count(outpost_squares[BLACK] & board.bb_pieces[BLACK][BISHOP])
+            },
+    };
+    int outpost_hole_count[2][2] = {
+            {
+                    pop_count(outpost_squares[WHITE] & holes_bb[BLACK] & board.bb_pieces[WHITE][KNIGHT]),
+                    pop_count(outpost_squares[WHITE] & holes_bb[BLACK] & board.bb_pieces[WHITE][BISHOP])
+            },
+            {
+                    pop_count(outpost_squares[BLACK] & holes_bb[WHITE] & board.bb_pieces[BLACK][KNIGHT]),
+                    pop_count(outpost_squares[BLACK] & holes_bb[WHITE] & board.bb_pieces[BLACK][BISHOP])
+            },
+    };
+    int outpost_half_count[2][2] = {
+            {
+                    pop_count(outpost_squares[WHITE] & half_open_files[WHITE] & board.bb_pieces[WHITE][KNIGHT]),
+                    pop_count(outpost_squares[WHITE] & half_open_files[WHITE] & board.bb_pieces[WHITE][BISHOP])
+            },
+            {
+                    pop_count(outpost_squares[BLACK] & half_open_files[BLACK] & board.bb_pieces[BLACK][KNIGHT]),
+                    pop_count(outpost_squares[BLACK] & half_open_files[BLACK] & board.bb_pieces[BLACK][BISHOP])
+            },
+    };
+
     // Summing up
     mg += (blocked_count[WHITE][0] - blocked_count[BLACK][0]) * params.blocked_mg[0];
     mg += (blocked_count[WHITE][1] - blocked_count[BLACK][1]) * params.blocked_mg[1];
@@ -212,4 +249,17 @@ void pawns::structure_t::eval_dynamic(const processed_params_t &params, const bo
     eg += (own_half_open_file_count[WHITE] - own_half_open_file_count[BLACK]) * params.pos_r_own_half_open_file_eg;
     eg += (other_half_open_file_count[WHITE] - other_half_open_file_count[BLACK]) *
           params.pos_r_other_half_open_file_eg;
+
+    mg += (outpost_count[WHITE][0] - outpost_count[BLACK][0]) * params.outpost_mg[0];
+    mg += (outpost_count[WHITE][1] - outpost_count[BLACK][1]) * params.outpost_mg[1];
+    eg += (outpost_count[WHITE][0] - outpost_count[BLACK][0]) * params.outpost_eg[0];
+    eg += (outpost_count[WHITE][1] - outpost_count[BLACK][1]) * params.outpost_eg[1];
+    mg += (outpost_hole_count[WHITE][0] - outpost_hole_count[BLACK][0]) * params.outpost_hole_mg[0];
+    mg += (outpost_hole_count[WHITE][1] - outpost_hole_count[BLACK][1]) * params.outpost_hole_mg[1];
+    eg += (outpost_hole_count[WHITE][0] - outpost_hole_count[BLACK][0]) * params.outpost_hole_eg[0];
+    eg += (outpost_hole_count[WHITE][1] - outpost_hole_count[BLACK][1]) * params.outpost_hole_eg[1];
+    mg += (outpost_half_count[WHITE][0] - outpost_half_count[BLACK][0]) * params.outpost_half_mg[0];
+    mg += (outpost_half_count[WHITE][1] - outpost_half_count[BLACK][1]) * params.outpost_half_mg[1];
+    eg += (outpost_half_count[WHITE][0] - outpost_half_count[BLACK][0]) * params.outpost_half_eg[0];
+    eg += (outpost_half_count[WHITE][1] - outpost_half_count[BLACK][1]) * params.outpost_half_eg[1];
 }

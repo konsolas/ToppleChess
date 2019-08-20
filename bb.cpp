@@ -351,29 +351,16 @@ namespace bb_magics {
  * =====================================================================================================================
  */
 namespace bb_util {
-    uint8_t sq_index[8][8];
-    uint8_t file_index[64];
-    uint8_t rank_index[64];
-
     U64 between[64][64];
     U64 line[64][64];
     U64 ray[64][64];
     U64 file[8];
 
     void init_util() {
-        for (uint8_t rank = 0; rank < 8; rank++) {
-            for (uint8_t file = 0; file < 8; file++) {
-                uint8_t square = (rank) * uint8_t(8) + file;
-                sq_index[file][rank] = square;
-                file_index[square] = file;
-                rank_index[square] = rank;
-            }
-        }
-
         for (uint8_t a = 0; a < 64; a++) {
             // File
             {
-                file[file_index[a]] |= single_bit(a);
+                file[file_index(a)] |= single_bit(a);
             }
 
             for (uint8_t b = 0; b < 64; b++) {
@@ -435,7 +422,7 @@ namespace bb_normal_moves {
     inline void update_array(U64 *arr, const uint8_t &file, const uint8_t &rank,
                              int file_offset, int rank_offset) {
         if (valid_square(file + file_offset, rank + rank_offset)) {
-            arr[bb_util::sq_index[file][rank]] |= single_bit(bb_util::sq_index[file + file_offset][rank + rank_offset]);
+            arr[square_index(file, rank)] |= single_bit(square_index(file + file_offset, rank + rank_offset));
         }
     }
 

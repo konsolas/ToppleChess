@@ -18,6 +18,10 @@ namespace pawns {
     constexpr U64 not_A = 0xfefefefefefefefe; // ~0x0101010101010101
     constexpr U64 not_H = 0x7f7f7f7f7f7f7f7f; // ~0x8080808080808080
     constexpr U64 advanced_ranks = 0x0000ffffffff0000;
+    constexpr U64 outpost[2] = {
+            0b0000000000000000001111000011110000111100000000000000000000000000,
+            0b0000000000000000000000000011110000111100001111000000000000000000
+    };
 
     // Bitboard shifting
     template<Direction D>
