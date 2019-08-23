@@ -33,7 +33,7 @@ namespace pvs {
         bool in_check = board->is_incheck();
 
         // Probe transposition table
-        tt::entry_t h = {0};
+        tt::entry_t h = {};
         tt::Bound h_bound = tt::NONE;
         move_t tt_move = EMPTY_MOVE;
         if (tt->probe(board->record[board->now].hash, h)) {
@@ -222,7 +222,7 @@ namespace pvs {
         }
 
         // Probe transposition table
-        tt::entry_t h = {0};
+        tt::entry_t h = {};
         tt::Bound h_bound = tt::NONE;
         move_t tt_move = EMPTY_MOVE;
         if (tt->probe(board->record[board->now].hash, h)) {
@@ -418,7 +418,19 @@ namespace pvs {
         if(board->is_material_draw())
             return 0;
 
-        int stand_pat = evaluator->evaluate(*board);
+        // Probe transposition table
+        tt::entry_t h = {};
+        if (tt->probe(board->record[board->now].hash, h)) {
+            int score = h.value(ply);
+            stack[ply].eval = h.info.static_eval;
+            tt::Bound h_bound = h.bound();
+
+            if (h_bound == tt::LOWER && score >= beta) return score;
+            if (h_bound == tt::UPPER && score <= alpha) return score;
+            if (h_bound == tt::EXACT) return score;
+        } else {
+            stack[ply].eval = evaluator->evaluate(*board);
+        }
 
         // Probe endgame tablebases
         if (ply && board->record[board->now].halfmove_clock == 0 && pop_count(board->bb_all) <= use_tb) {
@@ -440,21 +452,21 @@ namespace pvs {
                 if (bound == tt::EXACT
                     || (bound == tt::LOWER && value >= beta)
                     || (bound == tt::UPPER && value <= alpha)) {
-                    tt->save(bound, board->record[board->now].hash, MAX_PLY - 1, ply, stand_pat, value, EMPTY_MOVE);
+                    tt->save(bound, board->record[board->now].hash, MAX_PLY - 1, ply, stack[ply].eval, value, EMPTY_MOVE);
                     return value;
                 }
             }
         }
 
-        if (stand_pat >= beta) return beta;
-        if (alpha < stand_pat) alpha = stand_pat;
+        if (stack[ply].eval >= beta) return beta;
+        if (alpha < stack[ply].eval) alpha = stack[ply].eval;
 
         GenStage stage = GEN_NONE;
         move_t move{};
         int move_score;
         movesort_t gen(QUIESCENCE, heur, *board, EMPTY_MOVE, EMPTY_MOVE, 0);
         while ((move = gen.next(stage, move_score, true)) != EMPTY_MOVE) {
-            if (stand_pat + move_score < alpha - 128) break; // Delta pruning
+            if (stack[ply].eval + move_score < alpha - 128) break; // Delta pruning
 
             board->move(move);
             if (board->is_illegal()) {

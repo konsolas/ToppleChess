@@ -104,7 +104,6 @@ void tt::hash_t::save(Bound bound, U64 hash, int depth, int ply, int static_eval
 
     tt::entry_t *replace = bucket;
     for(size_t i = 1; i < bucket_size; i++) {
-        // Always replace if same position
         if(((bucket + i)->coded_hash ^ (bucket + i)->data) == hash) {
             if(bound == EXACT || depth >= bucket->depth() - 2) {
                 *(bucket + i) = updated;
