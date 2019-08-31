@@ -5,7 +5,6 @@
 #include <utility>
 #include <vector>
 #include <algorithm>
-#include <type_traits>
 
 #include "search.h"
 #include "move.h"
@@ -22,20 +21,18 @@ search_t::search_t(board_t board, tt::hash_t *tt, const processed_params_t &para
 
     // Copy legal moves to root_moves
     std::copy_if(buf, buf + pseudo_legal, std::back_inserter(root_moves),
-            [board](move_t move) { return board.is_legal(move); });
+                 [board](move_t move) { return board.is_legal(move); });
 
     // Create an evaluator for each thread
-    for(size_t i = 0; i < limits.threads; i++) {
+    for (size_t i = 0; i < limits.threads; i++) {
         evaluators.emplace_back(params, 8 * MB);
     }
 
     // Find intersection of root moves with UCI searchmoves
     if (!limits.search_moves.empty()) {
-        root_moves.erase(std::remove_if(root_moves.begin(), root_moves.end(),
-                               [limits](move_t move) {
-                                   return std::find(limits.search_moves.begin(), limits.search_moves.end(), move) ==
-                                          limits.search_moves.end();
-                               }), root_moves.end());
+        root_moves.erase(std::remove_if(root_moves.begin(), root_moves.end(),[limits](move_t move) {
+            return std::find(limits.search_moves.begin(), limits.search_moves.end(), move) == limits.search_moves.end();
+        }), root_moves.end());
     }
 }
 
@@ -58,7 +55,7 @@ search_result_t search_t::think(std::atomic_bool &aborted) {
             } else {
                 tb_root_moves = root_probe_wdl(board, tb_wdl);
 
-                if(!tb_root_moves.empty()) {
+                if (!tb_root_moves.empty()) {
                     // WDL tablebases available: set root moves and only use tablebases during search if we're winning.
                     root_moves = std::move(tb_root_moves);
                     if (tb_wdl <= 0) {
@@ -68,13 +65,13 @@ search_result_t search_t::think(std::atomic_bool &aborted) {
             }
         }
 
-        if(root_moves.empty()) {
+        if (root_moves.empty()) {
             std::cerr << "warn: no legal moves found at the root position" << std::endl;
-            return {EMPTY_MOVE, EMPTY_MOVE, 0, 0};
+            return {EMPTY_MOVE, EMPTY_MOVE};
         }
 
         // Instantly exit if there is only one legal move
-        if(limits.game_situation && root_moves.size() == 1) {
+        if (limits.game_situation && root_moves.size() == 1) {
             // Try to obtain a ponder move from the transposition table
             board.move(root_moves[0]);
 
@@ -86,18 +83,18 @@ search_result_t search_t::think(std::atomic_bool &aborted) {
 
             board.unmove();
 
-            return {root_moves[0], ponder_move, 1, 0};
+            return {root_moves[0], ponder_move};
         }
 
         // Start threads
-        for(size_t tid = 0; tid < limits.threads; tid++) {
+        for (size_t tid = 0; tid < limits.threads; tid++) {
             contexts.emplace_back(&boards[tid], &evaluators[tid], tt, use_tb);
         }
 
         // Start all the threads
         std::vector<std::future<void>> futures;
         futures.reserve(limits.threads);
-        for(size_t tid = 0; tid < limits.threads; tid++) {
+        for (size_t tid = 0; tid < limits.threads; tid++) {
             futures.push_back(std::async(std::launch::async, &search_t::thread_start,
                                          this, std::ref(contexts[tid]), std::ref(aborted), tid));
         }
@@ -108,7 +105,7 @@ search_result_t search_t::think(std::atomic_bool &aborted) {
         // Then abort and wait for all the helper threads
         aborted = true;
 
-        for(size_t tid = 1; tid < limits.threads; tid++) {
+        for (size_t tid = 1; tid < limits.threads; tid++) {
             futures[tid].wait();
         }
     } else {
@@ -121,7 +118,7 @@ search_result_t search_t::think(std::atomic_bool &aborted) {
 
     if (pv.empty()) {
         std::cerr << "warn: insufficient time to search to depth 1" << std::endl;
-        return {EMPTY_MOVE, EMPTY_MOVE, 0, 0};
+        return {EMPTY_MOVE, EMPTY_MOVE};
     }
 
     // If we don't have a ponder move (e.g. if we're currently failing high but the search was aborted), look in the tt.
@@ -139,7 +136,7 @@ search_result_t search_t::think(std::atomic_bool &aborted) {
         pv.push_back(ponder_move);
     }
 
-    return {pv[0], pv[1], main_root_depth, CHRONO_DIFF(start, engine_clock::now())};
+    return {pv[0], pv[1]};
 }
 
 void search_t::enable_timer() {
@@ -156,39 +153,43 @@ void search_t::wait_for_timer() {
     while (!timer_started) timer_cnd.wait(lock);
 }
 
-void search_t::thread_start(pvs::context_t &context, const std::atomic_bool &aborted, size_t tid) {
+void search_t::thread_start(pvs::context_t &context, const std::atomic_bool &aborted, const size_t tid) {
     int prev_score = 0;
 
-    for(int depth = 1; depth <= MAX_PLY && (tid != 0 || keep_searching(depth)); depth++) {
-        int score = search_aspiration(context, prev_score, depth, aborted, tid);
-        if(aborted) break;
+    // Check if this is the main thread
+    if (tid == 0) {
+        int junk;
 
-        if(tid == 0) {
-            main_root_depth = depth;
-        }
+        // Scale search time based on the complexity of the position
+        double tapering_factor = evaluators[0].eval_material(*context.get_board(), junk, junk);
+        double complexity = std::clamp(root_moves.size() / 30.0, 0.5, 8.0) * tapering_factor + (1 - tapering_factor);
+        int adjusted_suggestion = static_cast<int>(complexity * limits.suggested_time_limit);
 
-        if(tid == 0) { // Main thread
+        for (int depth = 1; depth <= MAX_PLY && (tid != 0 || keep_searching(depth)); depth++) {
+            int score = search_aspiration(context, prev_score, depth, aborted, tid);
+            if (aborted) break;
+
             // If in game situation, try and manage time
             if (limits.game_situation && timer_started) {
                 auto elapsed = CHRONO_DIFF(timer_start, engine_clock::now());
 
-                // Scale the search time based on the complexity of the position
-                int junk;
-                double tapering_factor = evaluators[0].eval_material(*context.get_board(), junk, junk);
-                double complexity = std::clamp(root_moves.size() / 30.0, 0.5, 3.0) * tapering_factor + (1 - tapering_factor);
-                int adjusted_suggestion = static_cast<int>(complexity * limits.suggested_time_limit);
-
                 // See if we can justify ending the search early, as long as we're not doing badly
-                if (depth <= 5 || score > prev_score - 50) {
+                if (depth <= 5 || score > prev_score - 10) {
                     // If it's unlikely that we'll search deeper
                     if (elapsed > adjusted_suggestion * 0.7) {
                         break;
                     }
                 }
             }
-        }
 
-        prev_score = score;
+            prev_score = score;
+        }
+    } else {
+        for (int depth = 1; depth <= MAX_PLY; depth++) {
+            int score = search_aspiration(context, prev_score, depth, aborted, tid);
+            if (aborted) break;
+            prev_score = score;
+        }
     }
 }
 
@@ -211,11 +212,16 @@ int search_t::search_aspiration(pvs::context_t &context, int prev_score, int dep
 
     // Check if we need to search again
     while (true) {
-        if(tid == 0 && time > 1000) {
+        if (tid == 0 && time > 1000) {
             score = context.search_root(root_moves,
-                [this, tid, depth, &aborted](int score) { print_stats(boards[tid], score, depth, tt::EXACT, aborted); },
-                [](int num, move_t move) { std::cout << "info currmove " << move << " currmovenumber " << num << std::endl; },
-                alpha, beta, depth, aborted);
+                                        [this, tid, depth, &aborted](int score) {
+                                            print_stats(boards[tid], score, depth, tt::EXACT, aborted);
+                                        },
+                                        [](int num, move_t move) {
+                                            std::cout << "info currmove " << move << " currmovenumber " << num
+                                                      << std::endl;
+                                        },
+                                        alpha, beta, depth, aborted);
         } else {
             score = context.search_root(root_moves, nullptr, nullptr, alpha, beta, depth, aborted);
         }
@@ -225,12 +231,12 @@ int search_t::search_aspiration(pvs::context_t &context, int prev_score, int dep
         // Only save the principal variation if the bound is LOWER or EXACT
         if (score >= beta) {
             context.save_pv();
-            if(tid == 0) {
+            if (tid == 0) {
                 print_stats(boards[tid], score, depth, tt::LOWER, aborted);
             }
             beta = std::min(INF, beta + delta);
         } else if (score <= alpha) {
-            if(tid == 0) {
+            if (tid == 0) {
                 print_stats(boards[tid], score, depth, tt::UPPER, aborted);
             }
             beta = (alpha + beta) / 2;
@@ -243,7 +249,7 @@ int search_t::search_aspiration(pvs::context_t &context, int prev_score, int dep
         delta = delta + delta / 2;
     }
 
-    if(tid == 0) {
+    if (tid == 0) {
         print_stats(boards[tid], score, depth, tt::EXACT, aborted);
     }
 
@@ -258,7 +264,7 @@ bool search_t::keep_searching(int depth) {
 
 U64 search_t::count_nodes() {
     U64 total_nodes = 0;
-    for(size_t tid = 0; tid < limits.threads; tid++) {
+    for (size_t tid = 0; tid < limits.threads; tid++) {
         total_nodes += contexts[tid].get_nodes();
     }
 
@@ -267,7 +273,7 @@ U64 search_t::count_nodes() {
 
 U64 search_t::count_tb_hits() {
     U64 total_tb_hits = 0;
-    for(size_t tid = 0; tid < limits.threads; tid++) {
+    for (size_t tid = 0; tid < limits.threads; tid++) {
         total_tb_hits += contexts[tid].get_tb_hits();
     }
 

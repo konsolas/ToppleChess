@@ -38,6 +38,7 @@ int main(int argc, char *argv[]) {
 
     // Parameters
     size_t threads = 1;
+    int move_overhead = 50;
     size_t syzygy_resolve = 512;
     std::string tb_path;
 
@@ -64,6 +65,7 @@ int main(int argc, char *argv[]) {
 
                 // Print options
                 std::cout << "option name Hash type spin default 128 min 1 max 1048576" << std::endl;
+                std::cout << "option name MoveOverhead type spin default 50 min 0 max 10000" << std::endl;
                 std::cout << "option name Threads type spin default 1 min 1 max 128" << std::endl;
                 std::cout << "option name SyzygyPath type string default <empty>" << std::endl;
                 std::cout << "option name SyzygyResolve type spin default 512 min 1 max 1024" << std::endl;
@@ -71,7 +73,7 @@ int main(int argc, char *argv[]) {
 
                 std::cout << "uciok" << std::endl;
             } else if (cmd == "setoption") {
-                if(search) {
+                if (search) {
                     std::cerr << "warn: setoption command rejected as search is in progress" << std::endl;
                 } else {
                     std::string name;
@@ -91,6 +93,10 @@ int main(int argc, char *argv[]) {
                             delete tt;
                             tt = new tt::hash_t(hash_size * MB);
                         }
+                    } else if (name == "MoveOverhead") {
+                        std::string value;
+                        iss >> value;
+                        iss >> move_overhead;
                     } else if (name == "Threads") {
                         std::string value;
                         iss >> value; // Skip value
@@ -235,15 +241,9 @@ int main(int argc, char *argv[]) {
                     search_abort = false;
 
                     search_limits_t limits = time_control.enabled ?
-                                             search_limits_t(board->now,
-                                                             time_control.time,
-                                                             time_control.inc,
-                                                             time_control.moves)
-                                                                  :
-                                             search_limits_t(max_time,
-                                                             max_depth,
-                                                             max_nodes,
-                                                             root_moves);
+                                             search_limits_t(time_control.time - move_overhead,
+                                                             time_control.inc, time_control.moves) :
+                                             search_limits_t(max_time, max_depth, max_nodes, root_moves);
 
                     limits.threads = threads;
                     limits.syzygy_resolve = syzygy_resolve;

@@ -25,7 +25,7 @@
 
 struct search_limits_t {
     // Game situation
-    explicit search_limits_t(int now, int time, int inc, int moves_to_go) {
+    explicit search_limits_t(int time, int inc, int moves_to_go) {
         game_situation = true;
 
         // Set other limits
@@ -33,24 +33,15 @@ struct search_limits_t {
         node_limit = UINT64_MAX;
         search_moves = std::vector<move_t>();
 
-        if(moves_to_go > 0) {
-            // Repeating time controls
-            suggested_time_limit = (time / (moves_to_go + 1));
-            suggested_time_limit += inc / 2;
-            hard_time_limit = suggested_time_limit * 3;
-            if(moves_to_go > 1 && hard_time_limit > time / 2) {
-                hard_time_limit = time / 2;
-            }
-        } else {
-            // Other time controls
-            suggested_time_limit = (time / std::max(80 - now, 60));
-            suggested_time_limit += inc / 2;
-            hard_time_limit = suggested_time_limit * 3;
-        }
+        // Use the same time management for repeating and fixed time controls
+        if(moves_to_go == 0) moves_to_go = 60;
+
+        suggested_time_limit = (time / (moves_to_go + 1)) + inc;
+        hard_time_limit = std::min(suggested_time_limit * 8, time / std::min(4, moves_to_go));
 
         // Clamp both time limits
-        suggested_time_limit = std::clamp(suggested_time_limit, 10, std::max(10, time - 50));
-        hard_time_limit = std::clamp(hard_time_limit, 10, std::max(10, time - 50));
+        hard_time_limit = std::max(10, std::min(hard_time_limit, time));
+        suggested_time_limit = std::max(1, std::min(suggested_time_limit, hard_time_limit));
     }
 
     // Custom search
@@ -76,10 +67,8 @@ struct search_limits_t {
 };
 
 struct search_result_t {
-    move_t best_move{};
-    move_t ponder{};
-    int root_depth = 0;
-    long long search_time = 0;
+    move_t best_move;
+    move_t ponder;
 };
 
 class search_t {
@@ -110,7 +99,6 @@ private:
     std::vector<evaluator_t> evaluators;
     std::vector<board_t> boards;
     std::vector<pvs::context_t> contexts;
-    int main_root_depth = 0;
 
     // Root moves
     std::vector<move_t> root_moves;
