@@ -1,13 +1,15 @@
 # Topple
 
 Topple is a UCI-compatible chess engine.
-Topple v0.5.0 is rated 2801 in CCRL 40/40 and 2845 in CCRL 40/4.
+Topple v0.7.2 is rated 3008 in CCRL 40/4 on 4 threads.
 
 ## Usage
 Topple requires a GUI that supports the UCI protocol to be used comfortably, although it can be used from the command line.
 Five configuration options are made available: `Hash`, `Threads`, `SyzygyPath`, `SyzygyResolve` and `Ponder`.
 
 The `Hash` option sets the size of the main transposition table in MiB. If the size given is not a power of two, Topple will round it down to next lowest power of 2 to maximise probing efficiency. For example, if a value of 1000 is specified, Topple will only use a 512 MiB hash table. `Hash` does not control the value of the other tables in Topple, such as those used for move generation, evaluation and other data structures.
+
+The `MoveOverhead` option sets the (network or GUI) delay that should be accounted for in time management. This can be used to prevent losses on time.
 
 The `Threads` option sets the number of search threads that Topple will use. Topple may use additional threads for keeping track of inputs (such as the UCI `stop` command). Topple utilises additional threads by using Lazy SMP, so the `Hash` value should be increased to improve scaling with additional threads. 
 
