@@ -230,9 +230,6 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
-
-    std::cout << "  mat_exch_scale " << current_params.mat_exch_scale << std::endl;
-    std::cout << "  mat_exch_pawn " << current_params.mat_exch_pawn << std::endl;
     std::cout << "  mat_exch_minor " << current_params.mat_exch_minor << std::endl;
     std::cout << "  mat_exch_rook " << current_params.mat_exch_rook << std::endl;
     std::cout << "  mat_exch_queen " << current_params.mat_exch_queen << std::endl;

@@ -239,22 +239,16 @@ double evaluator_t::eval_material(const board_t &board, int &mg, int &eg) {
     mg += params.mat_mg[QUEEN] * queen_balance;
     eg += params.mat_eg[QUEEN] * queen_balance;
 
-    const int mat_w = params.mat_exch_pawn * (material.info.w_pawns)
-                      + params.mat_exch_minor * (material.info.w_knights + material.info.w_bishops)
+    const int mat_w = params.mat_exch_minor * (material.info.w_knights + material.info.w_bishops)
                       + params.mat_exch_rook * (material.info.w_rooks)
                       + params.mat_exch_queen * (material.info.w_queens);
-    const int mat_b = params.mat_exch_pawn * (material.info.b_pawns)
-                      + params.mat_exch_minor * (material.info.b_knights + material.info.b_bishops)
+    const int mat_b = params.mat_exch_minor * (material.info.b_knights + material.info.b_bishops)
                       + params.mat_exch_rook * (material.info.b_rooks)
                       + params.mat_exch_queen * (material.info.b_queens);
-    const int mat_max = 2 * (params.mat_exch_pawn * 8
-                             + params.mat_exch_minor * (2 + 2)
+    const int mat_max = 2 * (params.mat_exch_minor * (2 + 2)
                              + params.mat_exch_rook * 2
                              + params.mat_exch_queen * 1);
     const int mat_total = mat_w + mat_b;
-
-    // Aim to exchange while up material
-    eg += params.mat_exch_scale * (mat_w - mat_b);
 
     // Calculate tapering (game phase)
     // Close to 1 at the start, close to 0 at the end

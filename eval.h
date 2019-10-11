@@ -20,8 +20,6 @@ struct eval_params_t {
     /// Material
     int mat_mg[5] = {92, 367, 444, 583, 1342};
     int mat_eg[5] = {88, 370, 394, 646, 1233};
-    int mat_exch_scale = -3;
-    int mat_exch_pawn = 0;
     int mat_exch_minor = 2;
     int mat_exch_rook = 4;
     int mat_exch_queen = 9;
