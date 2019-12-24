@@ -725,8 +725,7 @@ namespace pvs {
                     alpha = score;
 
                     if (score >= beta) {
-                        tt->save(tt::LOWER, board->record[board->now].hash, depth, ply, stack[ply].eval, score,
-                                 best_move);
+                        tt->prefetch(board->record[board->now].hash);
 
                         if (!move.info.is_capture) {
                             size_t n_prev_quiets;
@@ -739,6 +738,9 @@ namespace pvs {
                             heur.history.update(move, bonus);
                             heur.killers.update(move, ply);
                         }
+
+                        tt->save(tt::LOWER, board->record[board->now].hash, depth, ply,
+                                 stack[ply].eval, score, best_move);
 
                         return beta; // Fail hard
                     }

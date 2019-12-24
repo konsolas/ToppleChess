@@ -64,9 +64,9 @@ int main(int argc, char *argv[]) {
                 std::cout << "id author Vincent Tang" << std::endl;
 
                 // Print options
-                std::cout << "option name Hash type spin default 128 min 1 max 1048576" << std::endl;
+                std::cout << "option name Hash type spin default 128 min 1 max 131072" << std::endl;
                 std::cout << "option name MoveOverhead type spin default 50 min 0 max 10000" << std::endl;
-                std::cout << "option name Threads type spin default 1 min 1 max 128" << std::endl;
+                std::cout << "option name Threads type spin default 1 min 1 max 256" << std::endl;
                 std::cout << "option name SyzygyPath type string default <empty>" << std::endl;
                 std::cout << "option name SyzygyResolve type spin default 512 min 1 max 1024" << std::endl;
                 std::cout << "option name Ponder type check default false" << std::endl;

@@ -182,8 +182,18 @@ namespace tt {
         explicit hash_t(size_t size);
         ~hash_t();
 
+        inline void prefetch(U64 hash) {
+            const size_t index = (hash & num_entries) * bucket_size;
+            tt::entry_t *bucket = table + index;
+
+#if defined(__GNUC__)
+            __builtin_prefetch(bucket);
+#elif defined(_MSC_VER) || defined(__INTEL_COMPILER)
+            _mm_prefetch((char*) bucket, _MM_HINT_T0);
+#endif
+        }
+
         bool probe(U64 hash, entry_t &entry);
-        void prefetch(U64 hash);
         void save(Bound bound, U64 hash, int depth, int ply, int static_eval, int score, move_t move);
         void age();
         size_t hash_full();

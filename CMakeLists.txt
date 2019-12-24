@@ -50,7 +50,7 @@ if (MINGW)
 endif ()
 
 # Set -march for the Topple target
-target_compile_options(Topple PUBLIC -march=skylake -O3)
+target_compile_options(Topple PUBLIC -march=native -O3 -DNDEBUG) # NDEBUG to disable asserts
 
 # Configure the "Release" target
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
