@@ -212,8 +212,6 @@ double evaluator_t::eval_material(const board_t &board, int &mg, int &eg) {
 
     // Collect material data
     const int pawn_balance = material.info.w_pawns - material.info.b_pawns;
-    mg += params.mat_mg[PAWN] * pawn_balance;
-    eg += params.mat_eg[PAWN] * pawn_balance;
 
     if(opposite_coloured_bishops) {
         if(pawn_balance > 0) {
@@ -223,29 +221,16 @@ double evaluator_t::eval_material(const board_t &board, int &mg, int &eg) {
         }
     }
 
-    const int knight_balance = material.info.w_knights - material.info.b_knights;
-    mg += params.mat_mg[KNIGHT] * knight_balance;
-    eg += params.mat_eg[KNIGHT] * knight_balance;
-
-    const int bishop_balance = material.info.w_bishops - material.info.b_bishops;
-    mg += params.mat_mg[BISHOP] * bishop_balance;
-    eg += params.mat_eg[BISHOP] * bishop_balance;
-
-    const int rook_balance = material.info.w_rooks - material.info.b_rooks;
-    mg += params.mat_mg[ROOK] * rook_balance;
-    eg += params.mat_eg[ROOK] * rook_balance;
-
-    const int queen_balance = material.info.w_queens - material.info.b_queens;
-    mg += params.mat_mg[QUEEN] * queen_balance;
-    eg += params.mat_eg[QUEEN] * queen_balance;
-
-    const int mat_w = params.mat_exch_minor * (material.info.w_knights + material.info.w_bishops)
+    const int mat_w = params.mat_exch_knight * (material.info.w_knights)
+                      + params.mat_exch_bishop * (material.info.w_bishops)
                       + params.mat_exch_rook * (material.info.w_rooks)
                       + params.mat_exch_queen * (material.info.w_queens);
-    const int mat_b = params.mat_exch_minor * (material.info.b_knights + material.info.b_bishops)
+    const int mat_b = params.mat_exch_knight * (material.info.b_knights)
+                      + params.mat_exch_bishop * (material.info.b_bishops)
                       + params.mat_exch_rook * (material.info.b_rooks)
                       + params.mat_exch_queen * (material.info.b_queens);
-    const int mat_max = 2 * (params.mat_exch_minor * (2 + 2)
+    const int mat_max = 2 * (params.mat_exch_knight * 2
+                             + params.mat_exch_bishop * 2
                              + params.mat_exch_rook * 2
                              + params.mat_exch_queen * 1);
     const int mat_total = mat_w + mat_b;

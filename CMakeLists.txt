@@ -27,15 +27,14 @@ set(TEST_FILES testing/catch.hpp testing/runner.cpp testing/util.h testing/util.
         testing/tests/test_hash.cpp)
 set(TUNE_FILES tuning/tunemain.cpp tuning/tuner.cpp tuning/tuner.h)
 
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+
 # Add version definitions
 add_definitions(-DTOPPLE_VER="${TOPPLE_VERSION}")
 
 add_executable(Topple ${SOURCE_FILES} main.cpp)
 add_executable(ToppleTest ${SOURCE_FILES} ${TEST_FILES})
 add_executable(ToppleTune ${SOURCE_FILES} ${TUNE_FILES})
-
-# Max optimisation for tuning
-set_target_properties(ToppleTune PROPERTIES COMPILE_FLAGS "-DTOPPLE_TUNE -Ofast -march=native")
 
 # Link pthreads on linux
 set(THREADS_PREFER_PTHREAD_FLAG ON)
@@ -51,6 +50,7 @@ endif ()
 
 # Set -march for the Topple target
 target_compile_options(Topple PUBLIC -march=native -O3 -DNDEBUG) # NDEBUG to disable asserts
+target_compile_options(ToppleTune PUBLIC -DTOPPLE_TUNE -O3 -march=native -DNDEBUG)
 
 # Configure the "Release" target
 if (CMAKE_BUILD_TYPE STREQUAL "Release")

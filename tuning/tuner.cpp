@@ -18,49 +18,12 @@ tuner_t::tuner_t(unsigned int threads, size_t entries, std::vector<board_t> &pos
 
     current_error = mean_evaluation_error();
 
+    std::cout << sizeof(eval_params_t) / sizeof(int) << " parameters" << std::endl;
     std::cout << "starting error: " << current_error << std::endl;
 
     // Pick scaling constant
     current_error = momentum_optimise(&scaling_constant, current_error, 500, 1);
     std::cout << "scaling constant = " << scaling_constant << std::endl;
-}
-
-int tuner_t::quiesce(board_t &board, int alpha, int beta, evaluator_t &evaluator) {
-    int stand_pat = evaluator.evaluate(board);
-
-    if (stand_pat >= beta) return beta;
-    if (alpha < stand_pat) alpha = stand_pat;
-
-    movegen_t gen(board);
-    move_t next{};
-    move_t buf[128] = {};
-    gen.gen_noisy(buf);
-    int idx = 0;
-
-    while ((next = buf[idx++]) != EMPTY_MOVE) {
-        if (next.info.captured_type == KING) return INF; // Ignore this position in case of a king capture
-        if (board.see(next) < 0) {
-            continue;
-        }
-
-        board.move(next);
-        if (board.is_illegal()) {
-            board.unmove();
-            continue;
-        } else {
-            int score = -quiesce(board, -beta, -alpha, evaluator);
-            board.unmove();
-
-            if (score >= beta) {
-                return beta;
-            }
-            if (score > alpha) {
-                alpha = score;
-            }
-        }
-    }
-
-    return alpha;
 }
 
 double tuner_t::sigmoid(double score) {
@@ -218,19 +181,8 @@ void tuner_t::anneal(int *parameter, size_t count, double base_temp, double hc_f
 }
 
 void tuner_t::print_params() {
-    std::cout << "  mat_mg ";
-    for (int param : current_params.mat_mg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  mat_eg ";
-    for (int param : current_params.mat_eg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  mat_exch_minor " << current_params.mat_exch_minor << std::endl;
+    std::cout << "  mat_exch_knight " << current_params.mat_exch_knight << std::endl;
+    std::cout << "  mat_exch_bishop " << current_params.mat_exch_bishop << std::endl;
     std::cout << "  mat_exch_rook " << current_params.mat_exch_rook << std::endl;
     std::cout << "  mat_exch_queen " << current_params.mat_exch_queen << std::endl;
 

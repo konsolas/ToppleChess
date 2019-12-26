@@ -51,7 +51,7 @@ enum Square {
     A8, B8, C8, D8, E8, F8, G8, H8,
 };
 
-const uint8_t MIRROR_TABLE[64] = {
+constexpr uint8_t MIRROR_TABLE[64] = {
         56, 57, 58, 59, 60, 61, 62, 63,
         48, 49, 50, 51, 52, 53, 54, 55,
         40, 41, 42, 43, 44, 45, 46, 47,
