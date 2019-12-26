@@ -15,78 +15,13 @@
 /// Utility tables
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-U64 BB_PASSED[2][64] = {};
-U64 BB_ISOLATED[2][64] = {};
-U64 BB_IN_FRONT[2][64] = {};
-U64 BB_HOLE[2][64] = {};
-U64 BB_BACKWARDS[2][64] = {};
-
 U64 BB_KING_CIRCLE[64] = {};
-
-U64 BB_CENTRE = 0;
 
 void evaluator_t::eval_init() {
     for (uint8_t sq = 0; sq < 64; sq++) {
-        BB_HOLE[WHITE][sq] = 0xffffffffffffffff;
-
-        for (uint8_t rank = rank_index(sq) + uint8_t(1); rank < 8; rank++) {
-            // Passed
-            if (file_index(sq) > 0) BB_PASSED[WHITE][sq] |= single_bit(square_index(uint8_t(file_index(sq) - 1), rank));
-            if (file_index(sq) < 7) BB_PASSED[WHITE][sq] |= single_bit(square_index(uint8_t(file_index(sq) + 1), rank));
-            BB_PASSED[WHITE][sq] |= single_bit(square_index(file_index(sq), rank));
-
-            // Candidate
-            BB_IN_FRONT[WHITE][sq] |= single_bit(square_index(file_index(sq), rank));
-        }
-
-        for(uint8_t rank = 0; rank <= rank_index(sq); rank++) {
-            // Backward
-            if (file_index(sq) > 0) BB_BACKWARDS[WHITE][sq] |= single_bit(square_index(uint8_t(file_index(sq) - 1), rank));
-            if (file_index(sq) < 7) BB_BACKWARDS[WHITE][sq] |= single_bit(square_index(uint8_t(file_index(sq) + 1), rank));
-            if(rank < rank_index(sq)) {
-                BB_BACKWARDS[WHITE][sq] |= single_bit(square_index(file_index(sq), rank));
-            }
-        }
-
-        // Hole
-        BB_HOLE[WHITE][sq] ^= BB_PASSED[WHITE][sq];
-        BB_HOLE[WHITE][sq] ^= BB_IN_FRONT[WHITE][sq];
-
-        // Isolated
-        for (uint8_t rank = 0; rank < 8; rank++) {
-            if (file_index(sq) > 0)
-                BB_ISOLATED[WHITE][sq] |= single_bit(square_index(uint8_t(file_index(sq) - 1), rank));
-            if (file_index(sq) < 7)
-                BB_ISOLATED[WHITE][sq] |= single_bit(square_index(uint8_t(file_index(sq) + 1), rank));
-        }
-
-        // Centre
-        if (file_index(sq) <= 4 && file_index(sq) >= 3 && rank_index(sq) <= 4 && rank_index(sq) >= 3) {
-            BB_CENTRE |= single_bit(sq);
-        }
-
         // King circle
         BB_KING_CIRCLE[sq] |= find_moves<KING>(WHITE, sq, 0);
         BB_KING_CIRCLE[sq] |= find_moves<KNIGHT>(WHITE, sq, 0);
-    }
-
-    // Mirror
-    for (uint8_t i = 0; i < 64; i++) {
-        // Tables
-        // ... none yet
-
-        for (uint8_t square = 0; square < 64; square++) {
-            if (BB_PASSED[WHITE][i] & single_bit(square))
-                BB_PASSED[BLACK][MIRROR_TABLE[i]] |= single_bit(MIRROR_TABLE[square]);
-            if (BB_ISOLATED[WHITE][i] & single_bit(square))
-                BB_ISOLATED[BLACK][MIRROR_TABLE[i]] |= single_bit(MIRROR_TABLE[square]);
-            if (BB_IN_FRONT[WHITE][i] & single_bit(square))
-                BB_IN_FRONT[BLACK][MIRROR_TABLE[i]] |= single_bit(MIRROR_TABLE[square]);
-            if (BB_HOLE[WHITE][i] & single_bit(square))
-                BB_HOLE[BLACK][MIRROR_TABLE[i]] |= single_bit(MIRROR_TABLE[square]);
-            if (BB_BACKWARDS[WHITE][i] & single_bit(square))
-                BB_BACKWARDS[BLACK][MIRROR_TABLE[i]] |= single_bit(MIRROR_TABLE[square]);
-        }
     }
 }
 
