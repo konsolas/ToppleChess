@@ -71,31 +71,9 @@ namespace pvs {
                 bool move_is_check = board->gives_check(move);
                 int ex = move_is_check;
 
-                // Singular extension
-                if (depth >= 8 && move == tt_move
-                    && (h_bound == tt::LOWER || h_bound == tt::EXACT)
-                    && h.depth() >= depth - 2) {
-                    int reduced_beta = (h.value(0)) - depth;
-                    score = search_zw(reduced_beta - 1, reduced_beta, 0, depth / 2,
-                                      true, move, true, aborted);
-                    if (aborted) return TIMEOUT;
-
-                    if (score < reduced_beta) {
-                        ex = 1;
-                    }
-                }
-
-                int reduction = 0;
-                // Late move reductions
-                if (n_legal > 1 && !move_is_check && stage == GEN_QUIETS) {
-                    if (depth >= 3) {
-                        // LMR
-                        reduction = depth / 8 + n_legal / 8 - 1;
-                        if (reduction >= 1 && board->see(reverse(move)) < 0) reduction -= 2;
-                    }
-                }
-
-                move_list.emplace_back(move, n_legal, depth - reduction - 1 + ex, depth - 1 + ex);
+                // PV extension
+                if (n_legal == 1) ex = 1;
+                move_list.emplace_back(move, n_legal, depth - 1 + ex, depth - 1 + ex);
             }
         }
         // Keep searching until we prove that all other moves are bad.

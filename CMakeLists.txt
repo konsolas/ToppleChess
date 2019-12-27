@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.9)
 project(Topple)
 
 set(CMAKE_CXX_STANDARD 17)
-set(TOPPLE_VERSION 0.7.3)
+set(TOPPLE_VERSION 0.7.4)
 
 # Source files for different targets
 set(SOURCE_FILES

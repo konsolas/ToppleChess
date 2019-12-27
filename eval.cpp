@@ -15,13 +15,28 @@
 /// Utility tables
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+U64 BB_KING_SQUARE[64] = {};
 U64 BB_KING_CIRCLE[64] = {};
+U64 BB_PAWN_SHIELD[64] = {};
 
 void evaluator_t::eval_init() {
     for (uint8_t sq = 0; sq < 64; sq++) {
+        BB_KING_SQUARE[sq] = single_bit(sq) | find_moves<KING>(WHITE, sq, 0);
+    }
+
+    for (uint8_t sq = 0; sq < 64; sq++) {
         // King circle
-        BB_KING_CIRCLE[sq] |= find_moves<KING>(WHITE, sq, 0);
-        BB_KING_CIRCLE[sq] |= find_moves<KNIGHT>(WHITE, sq, 0);
+        BB_KING_CIRCLE[sq] = BB_KING_SQUARE[sq];
+        if(rank_index(sq) == 0) BB_KING_CIRCLE[sq] |= pawns::shift<D_N>(BB_KING_SQUARE[sq]);
+        if(rank_index(sq) == 7) BB_KING_CIRCLE[sq] |= pawns::shift<D_S>(BB_KING_SQUARE[sq]);
+        if(file_index(sq) == 0) BB_KING_CIRCLE[sq] |= pawns::shift<D_E>(BB_KING_SQUARE[sq]);
+        if(rank_index(sq) == 7) BB_KING_CIRCLE[sq] |= pawns::shift<D_W>(BB_KING_SQUARE[sq]);
+
+        if(rank_index(sq) <= 1) {
+            BB_PAWN_SHIELD[sq] = pawns::shift<D_N>(BB_KING_SQUARE[sq]);
+        } else if(rank_index(sq) >= 6) {
+            BB_PAWN_SHIELD[sq] = pawns::shift<D_S>(BB_KING_SQUARE[sq]);
+        }
     }
 }
 
@@ -214,8 +229,8 @@ void evaluator_t::eval_movement(const board_t &board, int &mg, int &eg) {
     int king_pos[2] = {bit_scan(board.bb_pieces[WHITE][KING]), bit_scan(board.bb_pieces[BLACK][KING])};
     U64 king_circle[2] = {BB_KING_CIRCLE[king_pos[WHITE]], BB_KING_CIRCLE[king_pos[BLACK]]};
 
-    int pawn_shield_w = std::min(3, pop_count(king_circle[WHITE] & board.bb_pieces[WHITE][PAWN]));
-    int pawn_shield_b = std::min(3, pop_count(king_circle[BLACK] & board.bb_pieces[BLACK][PAWN]));
+    int pawn_shield_w = std::min(3, pop_count(BB_PAWN_SHIELD[king_pos[WHITE]] & board.bb_pieces[WHITE][PAWN]));
+    int pawn_shield_b = std::min(3, pop_count(BB_PAWN_SHIELD[king_pos[BLACK]] & board.bb_pieces[BLACK][PAWN]));
 
     U64 open_files = pawns::open_files(board.bb_pieces[WHITE][PAWN], board.bb_pieces[BLACK][PAWN]);
     U64 half_open_files[2] = {
