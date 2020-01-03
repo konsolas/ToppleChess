@@ -32,11 +32,6 @@ namespace pvs {
                 const std::function<void(int)> &output_info, const std::function<void(int, move_t)> &output_currmove,
                 int alpha, int beta, int depth, const std::atomic_bool &aborted);
 
-        int search_pv(int alpha, int beta, int ply, int depth, const std::atomic_bool &aborted);
-
-        template<bool PV>
-        int search_qs(int alpha, int beta, int ply, const std::atomic_bool &aborted);
-
         // Principal variation
         std::vector<move_t> get_current_pv() {
             return std::vector<move_t>(pv_table[0], pv_table[0] + pv_table_len[0]);
@@ -67,8 +62,10 @@ namespace pvs {
             return tb_hits;
         }
     private:
-        int search_zw(int alpha, int beta, int ply, int depth, bool can_null, move_t excluded,
-                      bool cut, const std::atomic_bool &aborted);
+        int search_pv(int alpha, int beta, int ply, int depth, const std::atomic_bool &aborted);
+        template<bool PV>
+        int search_qs(int alpha, int beta, int ply, const std::atomic_bool &aborted);
+        int search_zw(int beta, int ply, int depth, const std::atomic_bool &aborted, move_t excluded = EMPTY_MOVE);
 
         void update_pv(int ply, move_t move) {
             pv_table[ply][ply] = move;

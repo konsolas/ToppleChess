@@ -24,7 +24,7 @@ class history_heur_t {
 public:
     void update(move_t move, int bonus) {
         table[move.info.team][move.info.from][move.info.to] +=
-                bonus - table[move.info.team][move.info.from][move.info.to] * abs(bonus) / 8192;
+                bonus - table[move.info.team][move.info.from][move.info.to] * abs(bonus) / 2048;
     }
 
     int get(move_t move) const {

@@ -6,6 +6,7 @@
 #include "movesort.h"
 
 #include "syzygy/tbprobe.h"
+#include "move.h"
 
 namespace pvs {
     struct pv_move_t {
@@ -119,16 +120,15 @@ namespace pvs {
             // Search remaining moves in parallel
             bool failed_high = false;
             for (auto it = move_list.cbegin() + 1; it < move_list.cend(); it++) {
-                board->move(it->move);
-
                 if (output_currmove) {
                     output_currmove(it->move_number, it->move);
                 }
 
+                board->move(it->move);
+
                 bool full_search = true;
                 if (it->reduced_depth < it->depth) {
-                    score = -search_zw(-alpha - 1, -alpha, 0 + 1, it->reduced_depth,
-                                       true, EMPTY_MOVE, true, aborted);
+                    score = -search_zw(-alpha, 0 + 1, it->reduced_depth, aborted);
                     full_search = score > alpha;
                 }
 
@@ -137,8 +137,7 @@ namespace pvs {
                 }
 
                 if (full_search) {
-                    score = -search_zw(-alpha - 1, -alpha, 0 + 1, it->depth,
-                                       true, EMPTY_MOVE, true, aborted);
+                    score = -search_zw(-alpha, 0 + 1, it->depth, aborted);
                 }
                 board->unmove();
                 if (aborted) return TIMEOUT;
@@ -275,8 +274,7 @@ namespace pvs {
                     && (h_bound == tt::LOWER || h_bound == tt::EXACT)
                     && h.depth() >= depth - 2) {
                     int reduced_beta = (h.value(ply)) - depth;
-                    score = search_zw(reduced_beta - 1, reduced_beta, ply, depth / 2,
-                                      true, move, true, aborted);
+                    score = search_zw(reduced_beta, ply, depth / 2, aborted);
                     if (aborted) return TIMEOUT;
 
                     if (score < reduced_beta) {
@@ -284,17 +282,16 @@ namespace pvs {
                     }
                 }
 
-                int reduction = 0;
+                int R = 0;
                 // Late move reductions
-                if (n_legal > 1 && !move_is_check && stage == GEN_QUIETS) {
-                    if (depth >= 3) {
-                        // LMR
-                        reduction = depth / 8 + n_legal / 8 - improving;
-                        if (reduction >= 1 && board->see(reverse(move)) < 0) reduction -= 2;
-                    }
+                if (depth >= 3 && n_legal > 1) {
+                    // LMR
+                    R = depth / 8 + n_legal / 8 - improving;
+                    if(stage == GEN_QUIETS && move_score < 0) R++;
+                    if (R >= 1 && board->see(reverse(move)) < 0) R -= 2;
                 }
 
-                move_list.emplace_back(move, n_legal, depth - reduction - 1 + ex, depth - 1 + ex);
+                move_list.emplace_back(move, n_legal, depth - R - 1 + ex, depth - 1 + ex);
             }
         }
         // Keep searching until we prove that all other moves are bad.
@@ -334,8 +331,7 @@ namespace pvs {
                 board->move(it->move);
                 bool full_search = true;
                 if (it->reduced_depth < it->depth) {
-                    score = -search_zw(-alpha - 1, -alpha, ply + 1, it->reduced_depth,
-                                       true, EMPTY_MOVE, true, aborted);
+                    score = -search_zw(-alpha, ply + 1, it->reduced_depth, aborted);
                     full_search = score > alpha;
                 }
 
@@ -344,8 +340,7 @@ namespace pvs {
                 }
 
                 if (full_search) {
-                    score = -search_zw(-alpha - 1, -alpha, ply + 1, it->depth,
-                                       true, EMPTY_MOVE, true, aborted);
+                    score = -search_zw(-alpha, ply + 1, it->depth, aborted);
                 }
                 board->unmove();
                 if (aborted) return TIMEOUT;
@@ -473,8 +468,7 @@ namespace pvs {
         return alpha;
     }
 
-    int context_t::search_zw(int alpha, int beta, const int ply, const int depth, bool can_null,
-                             move_t excluded, bool cut, const std::atomic_bool &aborted) {
+    int context_t::search_zw(int beta, const int ply, const int depth, const std::atomic_bool &aborted, move_t excluded) {
         if (aborted) {
             return TIMEOUT;
         } else if (ply > MAX_PLY) {
@@ -482,15 +476,14 @@ namespace pvs {
         }
 
         // Quiescence search
-        if (depth < 1) return search_qs<false>(alpha, beta, ply, aborted);
+        if (depth < 1) return search_qs<false>(beta - 1, beta, ply, aborted);
 
         // Count node if we didn't go into quiescence search
         nodes++;
 
         // Search variables
         int score, best_score = -INF;
-        const int old_alpha = alpha;
-        move_t best_move{};
+        move_t best_move = EMPTY_MOVE;
 
         // Game state
         if (board->record[board->now].halfmove_clock >= 100
@@ -500,11 +493,8 @@ namespace pvs {
         }
 
         // Mate distance pruning
-        if (ply) {
-            alpha = std::max(-TO_MATE_SCORE(ply), alpha);
-            beta = std::min(TO_MATE_SCORE(ply + 1), beta);
-            if (alpha >= beta) return beta;
-        }
+        beta = std::min(TO_MATE_SCORE(ply + 1), beta);
+        if (std::max(-TO_MATE_SCORE(ply), beta - 1) >= beta) return beta;
 
         // Probe transposition table
         tt::entry_t h = {0};
@@ -516,9 +506,9 @@ namespace pvs {
             h_bound = h.bound();
 
             if (h.depth() >= depth) {
-                if (h_bound == tt::LOWER && score >= beta) return score;
-                if (h_bound == tt::UPPER && score <= alpha) return score;
-                if (h_bound == tt::EXACT) return score;
+                if (h_bound == tt::LOWER && score >= beta) return beta;
+                if (h_bound == tt::UPPER && score <= beta - 1) return beta - 1;
+                if (h_bound == tt::EXACT) return std::clamp(score, beta - 1, beta);
             }
 
             tt_move = board->to_move(h.info.move);
@@ -546,7 +536,7 @@ namespace pvs {
 
                 if (bound == tt::EXACT
                     || (bound == tt::LOWER && value >= beta)
-                    || (bound == tt::UPPER && value <= alpha)) {
+                    || (bound == tt::UPPER && value <= beta - 1)) {
                     tt->save(bound, board->record[board->now].hash, MAX_PLY - 1, ply, stack[ply].eval, value,
                              EMPTY_MOVE);
                     return value;
@@ -564,23 +554,22 @@ namespace pvs {
         // Child node pruning
         if (!in_check && excluded == EMPTY_MOVE) {
             // Razoring
-            if (depth <= 1 && stack[ply].eval + 500 < alpha) {
-                return search_qs<false>(alpha, beta, ply, aborted);
+            if (depth <= 1 && stack[ply].eval + 350 < beta) {
+                return search_qs<false>(beta - 1, beta, ply, aborted);
             }
 
             // Static null move pruning
-            if (depth <= 6 && stack[ply].eval - 85 * depth + 16 * improving > beta) {
+            if (depth <= 6 && stack[ply].eval - 85 * depth > beta) {
                 return stack[ply].eval;
             }
 
             // Null move pruning
             int null_score = 0;
-            if (can_null && stack[ply].eval >= beta && non_pawn_material) {
+            if (board->record[board->now].prev_move != EMPTY_MOVE && stack[ply].eval >= beta && non_pawn_material) {
                 board->move(EMPTY_MOVE);
 
-                int R = 2 + depth / 6;
-                null_score = -search_zw(-beta, -beta + 1, ply + 1, depth - R - 1, false, EMPTY_MOVE, !cut,
-                                        aborted);
+                int R = 2 + depth / 4;
+                null_score = -search_zw(1 - beta, ply + 1, depth - R - 1, aborted);
 
                 tt::entry_t null_entry = {};
                 if (tt->probe(board->record[board->now].hash, null_entry)) {
@@ -597,19 +586,7 @@ namespace pvs {
             }
         }
 
-        // Internal iterative deepening
-        if (depth > 7 && tt_move == EMPTY_MOVE) {
-            search_zw(alpha, beta, ply, depth - 7, can_null, EMPTY_MOVE, cut, aborted);
-            if (aborted) return TIMEOUT;
-            if (tt->probe(board->record[board->now].hash, h)) {
-                score = h.value(ply);
-                stack[ply].eval = h.info.static_eval;
-                h_bound = h.bound();
-                tt_move = board->to_move(h.info.move);
-            }
-        }
-
-        bool futility_pruning = depth <= 6 && stack[ply].eval + 95 * depth <= alpha;
+        bool futility_pruning = depth <= 6 && stack[ply].eval + 95 * depth < beta;
         bool skip_quiets = false;
 
         GenStage stage = GEN_NONE;
@@ -641,7 +618,7 @@ namespace pvs {
                     } else {
                         skip_quiets = searched > 2 + depth * depth / 2;
                     }
-                }
+                } else if (stage == GEN_BAD_NOISY && depth <= 4) continue;
             }
 
             // Singular extension
@@ -650,8 +627,7 @@ namespace pvs {
                 && excluded == EMPTY_MOVE
                 && h.depth() >= depth - 2) {
                 int reduced_beta = (h.value(ply)) - depth;
-                score = search_zw(reduced_beta - 1, reduced_beta, ply, depth / 2,
-                                  can_null, move, cut, aborted);
+                score = search_zw(reduced_beta, ply, depth / 2, aborted, move);
                 if (aborted) return TIMEOUT;
 
                 if (score < reduced_beta) {
@@ -672,23 +648,20 @@ namespace pvs {
             }
 
             bool normal_search = true;
-            if (searched > 1 && !move_is_check && stage == GEN_QUIETS) {
-                if (depth >= 3) {
-                    // LMR
-                    int R = 1 + depth / 8 + searched / 8 - improving;
-                    if (cut) R += 2;
-                    if (R >= 1 && board->see(reverse(move)) < 0) R -= 2;
+            if (depth >= 3 && searched > 1) {
+                // LMR
+                int R = 1 + depth / 8 + searched / 8 - improving;
+                if(stage == GEN_QUIETS && move_score < 0) R++;
+                if (R >= 1 && board->see(reverse(move)) < 0) R -= 2;
 
-                    if (R > 0) {
-                        score = -search_zw(-alpha - 1, -alpha, ply + 1, depth - R - 1 + ex,
-                                           can_null, EMPTY_MOVE, !cut, aborted);
-                        normal_search = score > alpha;
-                    }
+                if (R > 0) {
+                    score = -search_zw(1 - beta, ply + 1, depth - R - 1 + ex, aborted);
+                    normal_search = score >= beta;
                 }
             }
 
             if (normal_search) {
-                score = -search_zw(-alpha - 1, -alpha, ply + 1, depth - 1, can_null, EMPTY_MOVE, !cut, aborted);
+                score = -search_zw(1 - beta, ply + 1, depth - 1 + ex, aborted);
             }
 
             board->unmove();
@@ -699,29 +672,25 @@ namespace pvs {
                 best_score = score;
                 best_move = move;
 
-                if (score > alpha) {
-                    alpha = score;
+                if (score >= beta) {
+                    tt->prefetch(board->record[board->now].hash);
 
-                    if (score >= beta) {
-                        tt->prefetch(board->record[board->now].hash);
-
-                        if (!move.info.is_capture) {
-                            size_t n_prev_quiets;
-                            move_t *prev_quiets = gen.generated_quiets(n_prev_quiets);
-                            int bonus = depth * depth;
-                            for (size_t i = 0; i < n_prev_quiets; i++) {
-                                heur.history.update(prev_quiets[i], -bonus);
-                            }
-
-                            heur.history.update(move, bonus);
-                            heur.killers.update(move, ply);
+                    if (!move.info.is_capture) {
+                        size_t n_prev_quiets;
+                        move_t *prev_quiets = gen.generated_quiets(n_prev_quiets);
+                        int bonus = depth * depth;
+                        for (size_t i = 0; i < n_prev_quiets; i++) {
+                            heur.history.update(prev_quiets[i], -bonus);
                         }
 
-                        tt->save(tt::LOWER, board->record[board->now].hash, depth, ply,
-                                 stack[ply].eval, score, best_move);
-
-                        return beta; // Fail hard
+                        heur.history.update(move, bonus);
+                        heur.killers.update(move, ply);
                     }
+
+                    tt->save(tt::LOWER, board->record[board->now].hash, depth, ply,
+                             stack[ply].eval, score, best_move);
+
+                    return beta; // Fail hard
                 }
             }
         }
@@ -734,13 +703,10 @@ namespace pvs {
             }
         }
 
-        if (alpha > old_alpha) {
-            tt->save(tt::EXACT, board->record[board->now].hash, depth, ply, stack[ply].eval, alpha, best_move);
-            if (!best_move.info.is_capture) heur.history.update(best_move, depth * depth);
-        } else if (excluded == EMPTY_MOVE) {
-            tt->save(tt::UPPER, board->record[board->now].hash, depth, ply, stack[ply].eval, alpha, best_move);
+        if (excluded == EMPTY_MOVE) {
+            tt->save(tt::UPPER, board->record[board->now].hash, depth, ply, stack[ply].eval, beta - 1, best_move);
         }
 
-        return alpha;
+        return beta - 1;
     }
 }
