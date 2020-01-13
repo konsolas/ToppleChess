@@ -30,7 +30,7 @@ void evaluator_t::eval_init() {
         if(rank_index(sq) == 0) BB_KING_CIRCLE[sq] |= pawns::shift<D_N>(BB_KING_SQUARE[sq]);
         if(rank_index(sq) == 7) BB_KING_CIRCLE[sq] |= pawns::shift<D_S>(BB_KING_SQUARE[sq]);
         if(file_index(sq) == 0) BB_KING_CIRCLE[sq] |= pawns::shift<D_E>(BB_KING_SQUARE[sq]);
-        if(rank_index(sq) == 7) BB_KING_CIRCLE[sq] |= pawns::shift<D_W>(BB_KING_SQUARE[sq]);
+        if(file_index(sq) == 7) BB_KING_CIRCLE[sq] |= pawns::shift<D_W>(BB_KING_SQUARE[sq]);
 
         if(rank_index(sq) <= 1) {
             BB_PAWN_SHIELD[sq] = pawns::shift<D_N>(BB_KING_SQUARE[sq]);
@@ -67,6 +67,10 @@ processed_params_t::processed_params_t(const eval_params_t &params)
         for (int j = 0; j < 4; j++) {
             pst[WHITE][KNIGHT][square_mapping[i][j]][MG] = params.n_pst_mg[i];
             pst[WHITE][KNIGHT][square_mapping[i][j]][EG] = params.n_pst_eg[i];
+            pst[WHITE][BISHOP][square_mapping[i][j]][MG] = params.b_pst_mg[i];
+            pst[WHITE][BISHOP][square_mapping[i][j]][EG] = params.b_pst_eg[i];
+            pst[WHITE][ROOK][square_mapping[i][j]][MG] = params.r_pst_mg[i];
+            pst[WHITE][ROOK][square_mapping[i][j]][EG] = params.r_pst_eg[i];
             pst[WHITE][QUEEN][square_mapping[i][j]][MG] = params.q_pst_mg[i];
             pst[WHITE][QUEEN][square_mapping[i][j]][EG] = params.q_pst_eg[i];
             pst[WHITE][KING][square_mapping[i][j]][MG] = params.k_pst_mg[i];
@@ -82,10 +86,6 @@ processed_params_t::processed_params_t(const eval_params_t &params)
             pst[WHITE][PAWN][sq][MG] = params.p_pst_mg[param_index - 4];
             pst[WHITE][PAWN][sq][EG] = params.p_pst_eg[param_index - 4];
         }
-        pst[WHITE][BISHOP][sq][MG] = params.b_pst_mg[param_index];
-        pst[WHITE][BISHOP][sq][EG] = params.b_pst_eg[param_index];
-        pst[WHITE][ROOK][sq][MG] = params.r_pst_mg[param_index];
-        pst[WHITE][ROOK][sq][EG] = params.r_pst_eg[param_index];
     }
 
     // Mirror PST for black
@@ -127,24 +127,28 @@ void evaluator_t::prefetch(U64 pawn_hash) {
 }
 
 int evaluator_t::evaluate(const board_t &board) {
-    // Check endgame
-    /*
-    eg_eval_t eg_eval = eval_eg(board);
-    if (eg_eval.valid) {
-        return board.record[board.now].next_move ? -eg_eval.eval : +eg_eval.eval;
-    }
-    */
+    eval_data_t data = {};
+
+    // Initialise king danger evaluation
+    data.king_pos[WHITE] = bit_scan(board.bb_pieces[WHITE][KING]);
+    data.king_pos[BLACK] = bit_scan(board.bb_pieces[BLACK][KING]);
+    data.king_circle[WHITE] = BB_KING_CIRCLE[data.king_pos[WHITE]];
+    data.king_circle[BLACK] = BB_KING_CIRCLE[data.king_pos[BLACK]];
+    data.king_danger[WHITE] = params.kat_zero;
+    data.king_danger[BLACK] = params.kat_zero;
+    data.update_attacks(WHITE, KING, find_moves<KING>(WHITE, data.king_pos[WHITE], board.bb_all));
+    data.update_attacks(BLACK, KING, find_moves<KING>(BLACK, data.king_pos[BLACK], board.bb_all));
 
     // Middlegame and endgame scores
     int mg = 0;
     int eg = 0;
 
     // Main evaluation functions
-    double phase = eval_material(board, mg, eg);
-    eval_pawns(board, mg, eg);
-    eval_pst(board, mg, eg);
-    eval_movement(board, mg, eg);
-    eval_positional(board, mg, eg);
+    double phase = game_phase(board);
+    eval_pawns(board, mg, eg, data);
+    eval_pieces(board, mg, eg, data);
+    eval_threats(board, mg, eg, data);
+    eval_positional(board, mg, eg, data);
 
     // Interpolate between middlegame and endgame scores
     auto total = int(phase * mg + (1 - phase) * eg);
@@ -152,24 +156,8 @@ int evaluator_t::evaluate(const board_t &board) {
     return board.record[board.now].next_move ? -total : total;
 }
 
-double evaluator_t::eval_material(const board_t &board, int &mg, int &eg) {
+double evaluator_t::game_phase(const board_t &board) const {
     material_data_t material = board.record[board.now].material;
-
-    // Check for opposite coloured bishops
-    bool opposite_coloured_bishops = board.bb_pieces[WHITE][BISHOP] && board.bb_pieces[BLACK][BISHOP]
-        && !multiple_bits(board.bb_pieces[WHITE][BISHOP]) && !multiple_bits(board.bb_pieces[BLACK][BISHOP])
-        && !same_colour(bit_scan(board.bb_pieces[WHITE][BISHOP]), bit_scan(board.bb_pieces[BLACK][BISHOP]));
-
-    // Collect material data
-    const int pawn_balance = material.info.w_pawns - material.info.b_pawns;
-
-    if(opposite_coloured_bishops) {
-        if(pawn_balance > 0) {
-            eg -= params.mat_opp_bishop[std::min(2, pawn_balance - 1)];
-        } else if(pawn_balance < 0) {
-            eg += params.mat_opp_bishop[std::min(2, -pawn_balance - 1)];
-        }
-    }
 
     const int mat_w = params.mat_exch_knight * (material.info.w_knights)
                       + params.mat_exch_bishop * (material.info.w_bishops)
@@ -190,7 +178,7 @@ double evaluator_t::eval_material(const board_t &board, int &mg, int &eg) {
     return std::min((double(mat_total) / double(mat_max)), 1.0);
 }
 
-void evaluator_t::eval_pst(const board_t &board, int &mg, int &eg) {
+void evaluator_t::eval_pieces(const board_t &board, int &mg, int &eg, eval_data_t &data) {
     U64 pieces;
     for (int type = KNIGHT; type < KING; type++) {
         pieces = board.bb_pieces[WHITE][type];
@@ -198,6 +186,14 @@ void evaluator_t::eval_pst(const board_t &board, int &mg, int &eg) {
             uint8_t sq = pop_bit(pieces);
             mg += params.pst[WHITE][type][sq][MG];
             eg += params.pst[WHITE][type][sq][EG];
+
+            U64 attacks = find_moves(Piece(type), WHITE, sq, board.bb_all);
+            data.king_danger[WHITE] -= pop_count(attacks & data.king_circle[WHITE]) * params.kat_defence_weight[type];
+            data.king_danger[BLACK] += pop_count(attacks & data.king_circle[BLACK]) * params.kat_attack_weight[type];
+            data.update_attacks(WHITE, Piece(type), attacks);
+            int mobility = pop_count(attacks & ~data.attacks[BLACK][PAWN] & ~board.bb_side[WHITE]);
+            mg += mobility * params.pos_mob_mg[type - 1];
+            eg += mobility * params.pos_mob_eg[type - 1];
         }
 
         pieces = board.bb_pieces[BLACK][type];
@@ -205,11 +201,19 @@ void evaluator_t::eval_pst(const board_t &board, int &mg, int &eg) {
             uint8_t sq = pop_bit(pieces);
             mg -= params.pst[BLACK][type][sq][MG];
             eg -= params.pst[BLACK][type][sq][EG];
+
+            U64 attacks = find_moves(Piece(type), WHITE, sq, board.bb_all);
+            data.king_danger[BLACK] -= pop_count(attacks & data.king_circle[BLACK]) * params.kat_defence_weight[type];
+            data.king_danger[WHITE] += pop_count(attacks & data.king_circle[WHITE]) * params.kat_attack_weight[type];
+            data.update_attacks(BLACK, Piece(type), attacks);
+            int mobility = pop_count(attacks & ~data.attacks[WHITE][PAWN] & ~board.bb_side[BLACK]);
+            mg -= mobility * params.pos_mob_mg[type - 1];
+            eg -= mobility * params.pos_mob_eg[type - 1];
         }
     }
 }
 
-void evaluator_t::eval_pawns(const board_t &board, int &mg, int &eg) {
+void evaluator_t::eval_pawns(const board_t &board, int &mg, int &eg, eval_data_t &data) {
     U64 pawn_hash = board.record[board.now].kp_hash;
     size_t index = (pawn_hash & pawn_hash_entries);
     pawns::structure_t *entry = pawn_hash_table.data() + index;
@@ -222,174 +226,167 @@ void evaluator_t::eval_pawns(const board_t &board, int &mg, int &eg) {
     mg += entry->get_eval_mg();
     eg += entry->get_eval_eg();
 
-    entry->eval_dynamic(params, board, mg, eg);
-}
+    U64 w_pawns = board.bb_pieces[WHITE][PAWN];
+    U64 b_pawns = board.bb_pieces[BLACK][PAWN];
 
-void evaluator_t::eval_movement(const board_t &board, int &mg, int &eg) {
-    int king_pos[2] = {bit_scan(board.bb_pieces[WHITE][KING]), bit_scan(board.bb_pieces[BLACK][KING])};
-    U64 king_circle[2] = {BB_KING_CIRCLE[king_pos[WHITE]], BB_KING_CIRCLE[king_pos[BLACK]]};
-
-    int pawn_shield_w = std::min(3, pop_count(BB_PAWN_SHIELD[king_pos[WHITE]] & board.bb_pieces[WHITE][PAWN]));
-    int pawn_shield_b = std::min(3, pop_count(BB_PAWN_SHIELD[king_pos[BLACK]] & board.bb_pieces[BLACK][PAWN]));
-
-    U64 open_files = pawns::open_files(board.bb_pieces[WHITE][PAWN], board.bb_pieces[BLACK][PAWN]);
+    U64 open_files = pawns::open_files(w_pawns, b_pawns);
     U64 half_open_files[2] = {
-        pawns::half_or_open_files(board.bb_pieces[WHITE][PAWN]) ^ open_files,
-        pawns::half_or_open_files(board.bb_pieces[BLACK][PAWN]) ^ open_files
+            pawns::half_or_open_files(w_pawns) ^ open_files,
+            pawns::half_or_open_files(b_pawns) ^ open_files
     };
-    U64 defended[2] = {
-            pawns::attacks<WHITE>(board.bb_pieces[WHITE][PAWN]),
-            pawns::attacks<BLACK>(board.bb_pieces[BLACK][PAWN])
+
+    // Blocked pawns
+    U64 stop_squares[2] = {pawns::stop_squares<WHITE>(w_pawns), pawns::stop_squares<BLACK>(b_pawns)};
+    int blocked_count[2][2] = {
+            {pop_count(stop_squares[WHITE] & board.bb_side[WHITE]),
+             pop_count(stop_squares[WHITE] & board.bb_side[BLACK])},
+            {pop_count(stop_squares[BLACK] & board.bb_side[BLACK]),
+             pop_count(stop_squares[BLACK] & board.bb_side[WHITE])}
     };
-    U64 undefended_pawns[2] = {
-            board.bb_pieces[WHITE][PAWN] & ~defended[WHITE],
-            board.bb_pieces[BLACK][PAWN] & ~defended[BLACK]
+
+    // Rook on open files
+    int open_file_count[2] = {
+            pop_count(open_files & board.bb_pieces[WHITE][ROOK]),
+            pop_count(open_files & board.bb_pieces[BLACK][ROOK])
     };
+    int own_half_open_file_count[2] = {
+            pop_count(half_open_files[WHITE] & board.bb_pieces[WHITE][ROOK]),
+            pop_count(half_open_files[BLACK] & board.bb_pieces[BLACK][ROOK])
+    };
+    int other_half_open_file_count[2] = {
+            pop_count(half_open_files[BLACK] & board.bb_pieces[WHITE][ROOK]),
+            pop_count(half_open_files[WHITE] & board.bb_pieces[BLACK][ROOK])
+    };
+
+    // Outposts
+    U64 defended[2] = {pawns::attacks<WHITE>(w_pawns), pawns::attacks<BLACK>(b_pawns)};
+    U64 outpost_squares[2] = {pawns::outpost[WHITE] & defended[WHITE] & ~defended[BLACK],
+                              pawns::outpost[BLACK] & defended[BLACK] & ~defended[WHITE]};
+    U64 holes_bb[2] = {pawns::holes<WHITE>(w_pawns), pawns::holes<BLACK>(b_pawns)};
+
+    int outpost_count[2][2] = {
+            {pop_count(outpost_squares[WHITE] & board.bb_pieces[WHITE][KNIGHT]),
+             pop_count(outpost_squares[WHITE] & board.bb_pieces[WHITE][BISHOP])},
+            {pop_count(outpost_squares[BLACK] & board.bb_pieces[BLACK][KNIGHT]),
+             pop_count(outpost_squares[BLACK] & board.bb_pieces[BLACK][BISHOP])},
+    };
+    int outpost_hole_count[2][2] = {
+            {pop_count(outpost_squares[WHITE] & holes_bb[BLACK] & board.bb_pieces[WHITE][KNIGHT]),
+             pop_count(outpost_squares[WHITE] & holes_bb[BLACK] & board.bb_pieces[WHITE][BISHOP])},
+            {pop_count(outpost_squares[BLACK] & holes_bb[WHITE] & board.bb_pieces[BLACK][KNIGHT]),
+             pop_count(outpost_squares[BLACK] & holes_bb[WHITE] & board.bb_pieces[BLACK][BISHOP])},
+    };
+    int outpost_half_count[2][2] = {
+            {pop_count(outpost_squares[WHITE] & half_open_files[WHITE] & board.bb_pieces[WHITE][KNIGHT]),
+             pop_count(outpost_squares[WHITE] & half_open_files[WHITE] & board.bb_pieces[WHITE][BISHOP])},
+            {pop_count(outpost_squares[BLACK] & half_open_files[BLACK] & board.bb_pieces[BLACK][KNIGHT]),
+             pop_count(outpost_squares[BLACK] & half_open_files[BLACK] & board.bb_pieces[BLACK][BISHOP])},
+    };
+
+    // Rooks
     U64 passed[2] = {
             pawns::passed<WHITE>(board.bb_pieces[WHITE][PAWN], board.bb_pieces[BLACK][PAWN]),
             pawns::passed<BLACK>(board.bb_pieces[BLACK][PAWN], board.bb_pieces[WHITE][PAWN])
     };
     U64 passed_rear[2] = {
-            pawns::rear_span<WHITE>(passed[WHITE]),
-            pawns::rear_span<BLACK>(passed[BLACK])
+            pawns::shift<D_S>(pawns::fill_occluded<D_S>(passed[WHITE], ~board.bb_all)),
+            pawns::shift<D_N>(pawns::fill_occluded<D_N>(passed[BLACK], ~board.bb_all)),
     };
+    int rook_behind[2][2] = {
+            {pop_count(board.bb_pieces[WHITE][ROOK] & passed_rear[WHITE]),
+                    pop_count(board.bb_pieces[WHITE][ROOK] & passed_rear[BLACK])},
+            {pop_count(board.bb_pieces[BLACK][ROOK] & passed_rear[BLACK]),
+                    pop_count(board.bb_pieces[BLACK][ROOK] & passed_rear[WHITE])},
+    };
+
+    // King shield
+    int pawn_shield_w = std::min(3, pop_count(BB_PAWN_SHIELD[data.king_pos[WHITE]] & board.bb_pieces[WHITE][PAWN]));
+    int pawn_shield_b = std::min(3, pop_count(BB_PAWN_SHIELD[data.king_pos[BLACK]] & board.bb_pieces[BLACK][PAWN]));
+
+    mg += (blocked_count[WHITE][0] - blocked_count[BLACK][0]) * params.blocked_mg[0];
+    mg += (blocked_count[WHITE][1] - blocked_count[BLACK][1]) * params.blocked_mg[1];
+    eg += (blocked_count[WHITE][0] - blocked_count[BLACK][0]) * params.blocked_eg[0];
+    eg += (blocked_count[WHITE][1] - blocked_count[BLACK][1]) * params.blocked_eg[1];
+
+    mg += (open_file_count[WHITE] - open_file_count[BLACK]) * params.pos_r_open_file_mg;
+    mg += (own_half_open_file_count[WHITE] - own_half_open_file_count[BLACK]) * params.pos_r_own_half_open_file_mg;
+    mg += (other_half_open_file_count[WHITE] - other_half_open_file_count[BLACK]) *
+          params.pos_r_other_half_open_file_mg;
+    eg += (open_file_count[WHITE] - open_file_count[BLACK]) * params.pos_r_open_file_eg;
+    eg += (own_half_open_file_count[WHITE] - own_half_open_file_count[BLACK]) * params.pos_r_own_half_open_file_eg;
+    eg += (other_half_open_file_count[WHITE] - other_half_open_file_count[BLACK]) *
+          params.pos_r_other_half_open_file_eg;
+
+    mg += (outpost_count[WHITE][0] - outpost_count[BLACK][0]) * params.outpost_mg[0];
+    mg += (outpost_count[WHITE][1] - outpost_count[BLACK][1]) * params.outpost_mg[1];
+    eg += (outpost_count[WHITE][0] - outpost_count[BLACK][0]) * params.outpost_eg[0];
+    eg += (outpost_count[WHITE][1] - outpost_count[BLACK][1]) * params.outpost_eg[1];
+    mg += (outpost_hole_count[WHITE][0] - outpost_hole_count[BLACK][0]) * params.outpost_hole_mg[0];
+    mg += (outpost_hole_count[WHITE][1] - outpost_hole_count[BLACK][1]) * params.outpost_hole_mg[1];
+    eg += (outpost_hole_count[WHITE][0] - outpost_hole_count[BLACK][0]) * params.outpost_hole_eg[0];
+    eg += (outpost_hole_count[WHITE][1] - outpost_hole_count[BLACK][1]) * params.outpost_hole_eg[1];
+    mg += (outpost_half_count[WHITE][0] - outpost_half_count[BLACK][0]) * params.outpost_half_mg[0];
+    mg += (outpost_half_count[WHITE][1] - outpost_half_count[BLACK][1]) * params.outpost_half_mg[1];
+    eg += (outpost_half_count[WHITE][0] - outpost_half_count[BLACK][0]) * params.outpost_half_eg[0];
+    eg += (outpost_half_count[WHITE][1] - outpost_half_count[BLACK][1]) * params.outpost_half_eg[1];
+
+    eg += (rook_behind[WHITE][0] - rook_behind[BLACK][0]) * params.pos_r_behind_own_passer_eg;
+    eg += (rook_behind[WHITE][1] - rook_behind[BLACK][1]) * params.pos_r_behind_enemy_passer_eg;
+
+    // Update attacks
+    data.update_attacks(WHITE, PAWN, pawns::left_attacks<WHITE>(board.bb_pieces[WHITE][PAWN]));
+    data.update_attacks(WHITE, PAWN, pawns::right_attacks<WHITE>(board.bb_pieces[WHITE][PAWN]));
+    data.update_attacks(BLACK, PAWN, pawns::left_attacks<BLACK>(board.bb_pieces[BLACK][PAWN]));
+    data.update_attacks(BLACK, PAWN, pawns::right_attacks<BLACK>(board.bb_pieces[BLACK][PAWN]));
+
+    // King safety
+    if(board.bb_pieces[BLACK][ROOK] || board.bb_pieces[BLACK][QUEEN]) {
+        if(data.king_circle[WHITE] & open_files) {
+            data.king_danger[WHITE] += params.kat_open_file;
+        } else if(data.king_circle[WHITE] & half_open_files[WHITE]) {
+            data.king_danger[WHITE] += params.kat_own_half_open_file;
+        } else if(data.king_circle[WHITE] & half_open_files[BLACK]) {
+            data.king_danger[WHITE] += params.kat_other_half_open_file;
+        }
+    }
+    if(board.bb_pieces[WHITE][ROOK] || board.bb_pieces[WHITE][QUEEN]) {
+        if(data.king_circle[BLACK] & open_files) {
+            data.king_danger[BLACK] += params.kat_open_file;
+        } else if(data.king_circle[BLACK] & half_open_files[BLACK]) {
+            data.king_danger[BLACK] += params.kat_own_half_open_file;
+        } else if(data.king_circle[BLACK] & half_open_files[WHITE]) {
+            data.king_danger[BLACK] += params.kat_other_half_open_file;
+        }
+    }
 
     mg += params.ks_pawn_shield[pawn_shield_w];
     mg -= params.ks_pawn_shield[pawn_shield_b];
-
-    // Check for attacks on the king
-    int king_danger[2] = {params.kat_zero, params.kat_zero};
-
-    if(board.bb_pieces[BLACK][ROOK] != 0) {
-        if(king_circle[WHITE] & open_files) {
-            king_danger[WHITE] += params.kat_open_file;
-        } else if(king_circle[WHITE] & half_open_files[WHITE]) {
-            king_danger[WHITE] += params.kat_own_half_open_file;
-        } else if(king_circle[WHITE] & half_open_files[BLACK]) {
-            king_danger[WHITE] += params.kat_other_half_open_file;
-        }
-    }
-    if(board.bb_pieces[WHITE][ROOK] != 0) {
-        if(king_circle[BLACK] & open_files) {
-            king_danger[BLACK] += params.kat_open_file;
-        } else if(king_circle[BLACK] & half_open_files[BLACK]) {
-            king_danger[BLACK] += params.kat_own_half_open_file;
-        } else if(king_circle[BLACK] & half_open_files[WHITE]) {
-            king_danger[BLACK] += params.kat_other_half_open_file;
-        }
-    }
-
-    king_danger[WHITE] -= params.kat_defence_weight[PAWN] * pawn_shield_w;
-    king_danger[WHITE] += params.kat_attack_weight[PAWN] * pop_count(defended[BLACK] & king_circle[WHITE]);
-
-    king_danger[BLACK] -= params.kat_defence_weight[PAWN] * pawn_shield_b;
-    king_danger[BLACK] += params.kat_attack_weight[PAWN] * pop_count(defended[WHITE] & king_circle[BLACK]);
-
-    U64 knights = board.bb_pieces[WHITE][KNIGHT];
-    while (knights) {
-        uint8_t sq = pop_bit(knights);
-        U64 moves = find_moves<KNIGHT>(WHITE, sq, board.bb_all);
-        king_danger[WHITE] -= params.kat_defence_weight[KNIGHT] * pop_count(moves & king_circle[WHITE]);
-        king_danger[BLACK] += params.kat_attack_weight[KNIGHT] * pop_count(moves & king_circle[BLACK]);
-        int move_count = pop_count(moves & ~defended[BLACK] & ~board.bb_side[WHITE]);
-        mg += move_count * params.pos_mob_mg[KNIGHT - 1];
-        eg += move_count * params.pos_mob_eg[KNIGHT - 1];
-    }
-
-    U64 bishops = board.bb_pieces[WHITE][BISHOP];
-    while (bishops) {
-        uint8_t sq = pop_bit(bishops);
-        U64 moves = find_moves<BISHOP>(WHITE, sq, board.bb_all);
-        king_danger[WHITE] -= params.kat_defence_weight[BISHOP] * pop_count(moves & king_circle[WHITE]);
-        king_danger[BLACK] += params.kat_attack_weight[BISHOP] * pop_count(moves & king_circle[BLACK]);
-        int move_count = pop_count(moves & ~defended[BLACK] & ~board.bb_side[WHITE]);
-        mg += move_count * params.pos_mob_mg[BISHOP - 1];
-        eg += move_count * params.pos_mob_eg[BISHOP - 1];
-    }
-
-    U64 rooks = board.bb_pieces[WHITE][ROOK];
-    while (rooks) {
-        uint8_t sq = pop_bit(rooks);
-        U64 moves = find_moves<ROOK>(WHITE, sq, board.bb_all);
-        king_danger[WHITE] -= params.kat_defence_weight[ROOK] * pop_count(moves & king_circle[WHITE]);
-        king_danger[BLACK] += params.kat_attack_weight[ROOK] * pop_count(moves & king_circle[BLACK]);
-        int move_count = pop_count(moves & ~defended[BLACK] & ~board.bb_side[WHITE]);
-        mg += move_count * params.pos_mob_mg[ROOK - 1];
-        eg += move_count * params.pos_mob_eg[ROOK - 1];
-
-        // extended evaluation of rooks
-        if((single_bit(sq) & passed_rear[WHITE]) && (moves & passed[WHITE])) eg += params.pos_r_behind_own_passer_eg;
-        if((single_bit(sq) & passed_rear[BLACK]) && (moves & passed[BLACK])) eg += params.pos_r_behind_enemy_passer_eg;
-        eg += pop_count(find_moves<ROOK>(WHITE, sq, board.bb_pieces[WHITE][PAWN]) & undefended_pawns[BLACK])
-                * params.pos_r_xray_pawn_eg;
-    }
-
-    U64 queens = board.bb_pieces[WHITE][QUEEN];
-    while (queens) {
-        uint8_t sq = pop_bit(queens);
-        U64 moves = find_moves<QUEEN>(WHITE, sq, board.bb_all);
-        king_danger[WHITE] -= params.kat_defence_weight[QUEEN] * pop_count(moves & king_circle[WHITE]);
-        king_danger[BLACK] += params.kat_attack_weight[QUEEN] * pop_count(moves & king_circle[BLACK]);
-        int move_count = pop_count(moves & ~defended[BLACK] & ~board.bb_side[WHITE]);
-        mg += move_count * params.pos_mob_mg[QUEEN - 1];
-        eg += move_count * params.pos_mob_eg[QUEEN - 1];
-    }
-
-    knights = board.bb_pieces[BLACK][KNIGHT];
-    while (knights) {
-        uint8_t sq = pop_bit(knights);
-        U64 moves = find_moves<KNIGHT>(BLACK, sq, board.bb_all);
-        king_danger[BLACK] -= params.kat_defence_weight[KNIGHT] * pop_count(moves & king_circle[BLACK]);
-        king_danger[WHITE] += params.kat_attack_weight[KNIGHT] * pop_count(moves & king_circle[WHITE]);
-        int move_count = pop_count(moves & ~defended[WHITE] & ~board.bb_side[BLACK]);
-        mg -= move_count * params.pos_mob_mg[KNIGHT - 1];
-        eg -= move_count * params.pos_mob_eg[KNIGHT - 1];
-    }
-
-    bishops = board.bb_pieces[BLACK][BISHOP];
-    while (bishops) {
-        uint8_t sq = pop_bit(bishops);
-        U64 moves = find_moves<BISHOP>(BLACK, sq, board.bb_all);
-        king_danger[BLACK] -= params.kat_defence_weight[BISHOP] * pop_count(moves & king_circle[BLACK]);
-        king_danger[WHITE] += params.kat_attack_weight[BISHOP] * pop_count(moves & king_circle[WHITE]);
-        int move_count = pop_count(moves & ~defended[WHITE] & ~board.bb_side[BLACK]);
-        mg -= move_count * params.pos_mob_mg[BISHOP - 1];
-        eg -= move_count * params.pos_mob_eg[BISHOP - 1];
-    }
-
-    rooks = board.bb_pieces[BLACK][ROOK];
-    while (rooks) {
-        uint8_t sq = pop_bit(rooks);
-        U64 moves = find_moves<ROOK>(BLACK, sq, board.bb_all);
-        king_danger[BLACK] -= params.kat_defence_weight[ROOK] * pop_count(moves & king_circle[BLACK]);
-        king_danger[WHITE] += params.kat_attack_weight[ROOK] * pop_count(moves & king_circle[WHITE]);
-        int move_count = pop_count(moves & ~defended[WHITE] & ~board.bb_side[BLACK]);
-        mg -= move_count * params.pos_mob_mg[ROOK - 1];
-        eg -= move_count * params.pos_mob_eg[ROOK - 1];
-
-        // extended evaluation of rooks
-        if((single_bit(sq) & passed_rear[BLACK]) && (moves & passed[BLACK])) eg -= params.pos_r_behind_own_passer_eg;
-        if((single_bit(sq) & passed_rear[WHITE]) && (moves & passed[WHITE])) eg -= params.pos_r_behind_enemy_passer_eg;
-        eg -= pop_count(find_moves<ROOK>(BLACK, sq, board.bb_pieces[BLACK][PAWN]) & undefended_pawns[WHITE])
-              * params.pos_r_xray_pawn_eg;
-    }
-
-    queens = board.bb_pieces[BLACK][QUEEN];
-    while (queens) {
-        uint8_t sq = pop_bit(queens);
-        U64 moves = find_moves<QUEEN>(BLACK, sq, board.bb_all);
-        king_danger[BLACK] -= params.kat_defence_weight[QUEEN] * pop_count(moves & king_circle[BLACK]);
-        king_danger[WHITE] += params.kat_attack_weight[QUEEN] * pop_count(moves & king_circle[WHITE]);
-        int move_count = pop_count(moves & ~defended[WHITE] & ~board.bb_side[BLACK]);
-        mg -= move_count * params.pos_mob_mg[QUEEN - 1];
-        eg -= move_count * params.pos_mob_eg[QUEEN - 1];
-    }
-
-    mg -= params.kat_table[std::clamp(king_danger[WHITE], 0, 127)];
-    mg += params.kat_table[std::clamp(king_danger[BLACK], 0, 127)];
+    data.king_danger[WHITE] -= params.kat_defence_weight[PAWN] * pawn_shield_w;
+    data.king_danger[WHITE] += params.kat_attack_weight[PAWN] * pop_count(defended[BLACK] & data.king_circle[WHITE]);
+    data.king_danger[BLACK] -= params.kat_defence_weight[PAWN] * pawn_shield_b;
+    data.king_danger[BLACK] += params.kat_attack_weight[PAWN] * pop_count(defended[WHITE] & data.king_circle[BLACK]);
 }
 
-void evaluator_t::eval_positional(const board_t &board, int &mg, int &eg) {
+void evaluator_t::eval_threats(const board_t &board, int &mg, int &eg, eval_data_t &data) {
+    for(int target = PAWN; target < KING; target++) {
+        int undefended[2] = {pop_count(board.bb_pieces[WHITE][target] & ~data.team_attacks[WHITE]),
+                             pop_count(board.bb_pieces[BLACK][target] & ~data.team_attacks[BLACK])};
+        mg += (undefended[WHITE] - undefended[BLACK]) * params.undefended_mg[target];
+        eg += (undefended[WHITE] - undefended[BLACK]) * params.undefended_eg[target];
+
+        for(int attacker = PAWN; attacker < QUEEN; attacker++) {
+            int attacks[2] = {pop_count(board.bb_pieces[BLACK][target] & data.attacks[WHITE][attacker]),
+                           pop_count(board.bb_pieces[WHITE][target] & data.attacks[BLACK][attacker])};
+            mg += (attacks[WHITE] - attacks[BLACK]) * params.threat_matrix_mg[attacker][target];
+            eg += (attacks[WHITE] - attacks[BLACK]) * params.threat_matrix_eg[attacker][target];
+        }
+    }
+
+    mg -= params.kat_table[std::clamp(data.king_danger[WHITE], 0, 127)];
+    mg += params.kat_table[std::clamp(data.king_danger[BLACK], 0, 127)];
+}
+
+void evaluator_t::eval_positional(const board_t &board, int &mg, int &eg, eval_data_t &data) {
     if(board.record[board.now].material.info.w_bishops >= 2) {
         mg += params.pos_bishop_pair_mg;
         eg += params.pos_bishop_pair_eg;
@@ -398,6 +395,20 @@ void evaluator_t::eval_positional(const board_t &board, int &mg, int &eg) {
     if(board.record[board.now].material.info.b_bishops >= 2) {
         mg -= params.pos_bishop_pair_mg;
         eg -= params.pos_bishop_pair_eg;
+    }
+
+    // Check for opposite coloured bishops
+    bool opposite_coloured_bishops = board.bb_pieces[WHITE][BISHOP] && board.bb_pieces[BLACK][BISHOP]
+                                     && !multiple_bits(board.bb_pieces[WHITE][BISHOP]) && !multiple_bits(board.bb_pieces[BLACK][BISHOP])
+                                     && !same_colour(bit_scan(board.bb_pieces[WHITE][BISHOP]), bit_scan(board.bb_pieces[BLACK][BISHOP]));
+    const int pawn_balance = board.record[board.now].material.info.w_pawns - board.record[board.now].material.info.b_pawns;
+
+    if(opposite_coloured_bishops) {
+        if(pawn_balance > 0) {
+            eg -= params.mat_opp_bishop[std::min(2, pawn_balance - 1)];
+        } else if(pawn_balance < 0) {
+            eg += params.mat_opp_bishop[std::min(2, -pawn_balance - 1)];
+        }
     }
 
     // Rook trapped without castling

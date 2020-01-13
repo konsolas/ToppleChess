@@ -158,10 +158,8 @@ void search_t::thread_start(pvs::context_t &context, const std::atomic_bool &abo
 
     // Check if this is the main thread
     if (tid == 0) {
-        int junk;
-
         // Scale search time based on the complexity of the position
-        double tapering_factor = evaluators[0].eval_material(*context.get_board(), junk, junk);
+        double tapering_factor = evaluators[0].game_phase(*context.get_board());
         double complexity = std::clamp(root_moves.size() / 30.0, 0.5, 8.0) * tapering_factor + (1 - tapering_factor);
         int adjusted_suggestion = static_cast<int>(complexity * limits.suggested_time_limit);
 

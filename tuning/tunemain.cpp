@@ -144,6 +144,20 @@ int main(int argc, char *argv[]) {
 
                 tuner.anneal(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int), 
                         temp, hc_frac, n_iter);
+            } else if(cmd == "threats") {
+                std::string parameter;
+                iss >> parameter;
+
+                std::string max_iter;
+                iss >> max_iter;
+                int n_iter = std::stoi(max_iter);
+
+                int times = std::stoi(parameter);
+                for(int i = 0; i < times; i++) {
+                    tuner.random_optimise(reinterpret_cast<int*> (tuner.get_current_params()->undefended_mg), 50, n_iter);
+                }
+
+                tuner.print_params();
             }
         }
     }

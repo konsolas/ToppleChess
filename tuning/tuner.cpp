@@ -186,26 +186,20 @@ void tuner_t::print_params() {
     std::cout << "  mat_exch_rook " << current_params.mat_exch_rook << std::endl;
     std::cout << "  mat_exch_queen " << current_params.mat_exch_queen << std::endl;
 
-    std::cout << "  mat_opp_bishop ";
-    for (int param : current_params.mat_opp_bishop) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
     std::cout << "  n_pst_mg ";
     for (int param : current_params.n_pst_mg) {
         std::cout << param << ", ";
     }
     std::cout << std::endl;
 
-    std::cout << "  q_pst_mg ";
-    for (int param : current_params.q_pst_mg) {
+    std::cout << "  n_pst_eg ";
+    for (int param : current_params.n_pst_eg) {
         std::cout << param << ", ";
     }
     std::cout << std::endl;
 
-    std::cout << "  n_pst_eg ";
-    for (int param : current_params.n_pst_eg) {
+    std::cout << "  q_pst_mg ";
+    for (int param : current_params.q_pst_mg) {
         std::cout << param << ", ";
     }
     std::cout << std::endl;
@@ -222,14 +216,14 @@ void tuner_t::print_params() {
     }
     std::cout << std::endl;
 
-    std::cout << "  r_pst_mg ";
-    for (int param : current_params.r_pst_mg) {
+    std::cout << "  b_pst_eg ";
+    for (int param : current_params.b_pst_eg) {
         std::cout << param << ", ";
     }
     std::cout << std::endl;
 
-    std::cout << "  b_pst_eg ";
-    for (int param : current_params.b_pst_eg) {
+    std::cout << "  r_pst_mg ";
+    for (int param : current_params.r_pst_mg) {
         std::cout << param << ", ";
     }
     std::cout << std::endl;
@@ -467,13 +461,47 @@ void tuner_t::print_params() {
     std::cout << "  kat_table_max " << current_params.kat_table_max << std::endl;
     std::cout << "  kat_table_offset " << current_params.kat_table_offset << std::endl;
 
+    std::cout << "  undefended_mg ";
+    for (int param : current_params.undefended_mg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  undefended_eg ";
+    for (int param : current_params.undefended_eg) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << " threat_matrix_mg" << std::endl;
+    for(auto &param : current_params.threat_matrix_mg) {
+        std::cout << "  {";
+        for(auto param2 : param) {
+            std::cout << param2 << ", ";
+        }
+        std::cout << "}, " << std::endl;
+    }
+    std::cout << " threat_matrix_eg" << std::endl;
+    for(auto &param : current_params.threat_matrix_eg) {
+        std::cout << "  {";
+        for(auto param2 : param) {
+            std::cout << param2 << ", ";
+        }
+        std::cout << "}, " << std::endl;
+    }
+
     std::cout << "  pos_bishop_pair_mg " << current_params.pos_bishop_pair_mg << std::endl;
     std::cout << "  pos_bishop_pair_eg " << current_params.pos_bishop_pair_eg << std::endl;
+
+    std::cout << "  mat_opp_bishop ";
+    for (int param : current_params.mat_opp_bishop) {
+        std::cout << param << ", ";
+    }
+    std::cout << std::endl;
 
     std::cout << "  pos_r_trapped_mg " << current_params.pos_r_trapped_mg << std::endl;
     std::cout << "  pos_r_behind_own_passer_eg " << current_params.pos_r_behind_own_passer_eg << std::endl;
     std::cout << "  pos_r_behind_enemy_passer_eg " << current_params.pos_r_behind_enemy_passer_eg << std::endl;
-    std::cout << "  pos_r_xray_pawn_eg " << current_params.pos_r_xray_pawn_eg << std::endl;
 
     std::cout << "  pos_mob_mg ";
     for (int param : current_params.pos_mob_mg) {

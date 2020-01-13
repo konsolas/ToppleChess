@@ -334,7 +334,6 @@ namespace pawns {
     public:
         structure_t() = default;
         structure_t(const processed_params_t &params, U64 kp_hash, U64 w_pawns, U64 b_pawns, U64 w_king, U64 b_king);
-        void eval_dynamic(const processed_params_t &params, const board_t &board, int &mg, int &eg) const;
 
         inline U64 get_hash() const {
             return hash;
