@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.9)
 project(Topple)
 
 set(CMAKE_CXX_STANDARD 17)
-set(TOPPLE_VERSION 0.7.5_dev)
+set(TOPPLE_VERSION 0.7.5)
 
 # Source files for different targets
 set(SOURCE_FILES
@@ -27,13 +27,12 @@ set(TEST_FILES testing/catch.hpp testing/runner.cpp testing/util.h testing/util.
         testing/tests/test_hash.cpp)
 set(TUNE_FILES tuning/tunemain.cpp tuning/tuner.cpp tuning/tuner.h)
 
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
-
 # Add version definitions
 add_definitions(-DTOPPLE_VER="${TOPPLE_VERSION}")
 
-add_executable(Topple ${SOURCE_FILES} main.cpp)
 add_executable(ToppleTest ${SOURCE_FILES} ${TEST_FILES})
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+add_executable(Topple ${SOURCE_FILES} main.cpp)
 add_executable(ToppleTune ${SOURCE_FILES} ${TUNE_FILES})
 
 # Link pthreads on linux
