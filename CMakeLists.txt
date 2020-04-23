@@ -48,6 +48,7 @@ if (MINGW)
 endif ()
 
 # Set -march for the Topple target
+target_compile_options(ToppleTest PUBLIC -march=native -O3)
 target_compile_options(Topple PUBLIC -march=native -O3 -DNDEBUG) # NDEBUG to disable asserts
 target_compile_options(ToppleTune PUBLIC -DTOPPLE_TUNE -O3 -march=native -DNDEBUG)
 

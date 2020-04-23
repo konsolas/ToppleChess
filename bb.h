@@ -9,30 +9,228 @@
 
 #include <string>
 #include <cassert>
+#include <array>
 
-#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
-#include <intrin.h>
+#ifdef __BMI2__
+#include <x86intrin.h>
 #endif
 
-namespace bb_magics {
-    extern const unsigned int b_shift[64];
-    extern const U64 b_magics[64];
-    extern const U64 b_mask[64];
-    extern const U64 *b_index[64];
+/**
+ * Generate a bitboard with a single bit set, corresponding to the given argument
+ *
+ * @param square bit to set
+ * @return bitboard with the bit at {@code square} set
+ */
+inline U64 single_bit(uint8_t square) {
+    return 0x1ull << square;
+}
 
-    extern const unsigned int r_shift[64];
-    extern const U64 r_magics[64];
-    extern const U64 r_mask[64];
-    extern const U64 *r_index[64];
+namespace bb_shifts {
+    constexpr U64 not_A = 0xfefefefefefefefe; // ~0x0101010101010101
+    constexpr U64 not_H = 0x7f7f7f7f7f7f7f7f; // ~0x8080808080808080
 
-    inline U64 bishop_moves(const uint8_t &square, const U64 &occupancy) {
-        return *(b_index[square] + (((occupancy & b_mask[square]) * b_magics[square])
-                >> b_shift[square]));
+    // Bitboard shifting
+    template<Direction D>
+    constexpr U64 shift(U64 bb);
+
+    // General utility
+    template<Team team> constexpr U64 fill_forward(U64 bb);
+
+    // Occluded fills with the Kogge-Stone algorithm
+    template<Direction D>
+    constexpr U64 fill_occluded(U64 bb, U64 open);
+
+    template<>
+    constexpr U64 shift<D_N>(U64 b) { return b << 8u; }
+
+    template<>
+    constexpr U64 shift<D_S>(U64 b) { return b >> 8u; }
+
+    template<>
+    constexpr U64 shift<D_E>(U64 b) { return (b << 1u) & not_A; }
+
+    template<>
+    constexpr U64 shift<D_NE>(U64 b) { return (b << 9u) & not_A; }
+
+    template<>
+    constexpr U64 shift<D_SE>(U64 b) { return (b >> 7u) & not_A; }
+
+    template<>
+    constexpr U64 shift<D_W>(U64 b) { return (b >> 1u) & not_H; }
+
+    template<>
+    constexpr U64 shift<D_SW>(U64 b) { return (b >> 9u) & not_H; }
+
+    template<>
+    constexpr U64 shift<D_NW>(U64 b) { return (b << 7u) & not_H; }
+
+    template<> constexpr U64 fill_forward<WHITE>(U64 bb) {
+        bb |= (bb << 8u);
+        bb |= (bb << 16u);
+        bb |= (bb << 32u);
+        return bb;
     }
 
-    inline U64 rook_moves(const uint8_t &square, const U64 &occupancy) {
-        return *(r_index[square] + (((occupancy & r_mask[square]) * r_magics[square])
-                >> r_shift[square]));
+    template<> constexpr U64 fill_forward<BLACK>(U64 bb) {
+        bb |= (bb >> 8u);
+        bb |= (bb >> 16u);
+        bb |= (bb >> 32u);
+        return bb;
+    }
+
+    template<>
+    constexpr U64 fill_occluded<D_N>(U64 bb, U64 open) {
+        bb |= open & (bb << 8u);
+        open &= (open << 8u);
+        bb |= open & (bb << 16u);
+        open &= (open << 16u);
+        bb |= open & (bb << 32u);
+        return bb;
+    }
+
+    template<>
+    constexpr U64 fill_occluded<D_S>(U64 bb, U64 open) {
+        bb |= open & (bb >> 8u);
+        open &= (open >> 8u);
+        bb |= open & (bb >> 16u);
+        open &= (open >> 16u);
+        bb |= open & (bb >> 32u);
+        return bb;
+    }
+
+    template<>
+    constexpr U64 fill_occluded<D_E>(U64 bb, U64 open) {
+        open &= not_A;
+        bb |= open & (bb << 1u);
+        open &= (open << 1u);
+        bb |= open & (bb << 2u);
+        open &= (open << 2u);
+        bb |= open & (bb << 4u);
+        return bb;
+    }
+
+    template<>
+    constexpr U64 fill_occluded<D_NE>(U64 bb, U64 open) {
+        open &= not_A;
+        bb |= open & (bb << 9u);
+        open &= (open << 9u);
+        bb |= open & (bb << 18u);
+        open &= (open << 18u);
+        bb |= open & (bb << 36u);
+        return bb;
+    }
+
+    template<>
+    constexpr U64 fill_occluded<D_SE>(U64 bb, U64 open) {
+        open &= not_A;
+        bb |= open & (bb >> 7u);
+        open &= (open >> 7u);
+        bb |= open & (bb >> 14u);
+        open &= (open >> 14u);
+        bb |= open & (bb >> 28u);
+        return bb;
+    }
+
+    template<>
+    constexpr U64 fill_occluded<D_W>(U64 bb, U64 open) {
+        open &= not_H;
+        bb |= open & (bb >> 1u);
+        open &= (open >> 1u);
+        bb |= open & (bb >> 2u);
+        open &= (open >> 2u);
+        bb |= open & (bb >> 4u);
+        return bb;
+    }
+
+    template<>
+    constexpr U64 fill_occluded<D_SW>(U64 bb, U64 open) {
+        open &= not_H;
+        bb |= open & (bb >> 9u);
+        open &= (open >> 9u);
+        bb |= open & (bb >> 18u);
+        open &= (open >> 18u);
+        bb |= open & (bb >> 36u);
+        return bb;
+    }
+
+    template<>
+    constexpr U64 fill_occluded<D_NW>(U64 bb, U64 open) {
+        open &= not_H;
+        bb |= open & (bb << 7u);
+        open &= (open << 7u);
+        bb |= open & (bb << 14u);
+        open &= (open << 14u);
+        bb |= open & (bb << 28u);
+        return bb;
+    }
+}
+
+namespace bb_intrin {
+    inline uint8_t lsb(U64 b) {
+        assert(b);
+        return Square(__builtin_ctzll(b));
+    }
+
+    inline uint8_t msb(U64 b) { // unused
+        assert(b);
+        return Square(63 - __builtin_clzll(b));
+    }
+
+    inline int pop_count(U64 b) {
+        return __builtin_popcountll(b);
+    }
+
+    inline U64 pext(U64 source, U64 mask) { // unused
+#ifdef __BMI2__
+        return _pext_u64(source, mask);
+#else
+        // Software emulation of pext
+        U64 res = 0;
+        for(U64 bb = 1; mask != 0; bb += bb) {
+            if(source & mask & -mask) {
+                res |= bb;
+            }
+            mask &= mask - 1;
+        }
+        return res;
+#endif
+    }
+
+    inline U64 pdep(U64 source, U64 mask) {
+#ifdef __BMI2__
+        return _pdep_u64(source, mask);
+#else
+        // Software emulation of pdep
+        U64 res = 0;
+        for (U64 bb = 1; mask; bb += bb) {
+            if (source & bb) {
+                res |= mask & -mask;
+            }
+            mask &= mask - 1;
+        }
+        return res;
+#endif
+    }
+}
+
+namespace bb_sliders {
+    struct sq_entry_t {
+        U64 mask;
+        U64 magic;
+        U64 *base;
+    };
+
+    extern sq_entry_t b_table[64];
+    extern sq_entry_t r_table[64];
+
+    inline U64 bishop_moves(uint8_t sq, U64 occupancy) {
+        sq_entry_t entry = b_table[sq];
+        return entry.base[((occupancy & entry.mask) * entry.magic) >> (64u - 9u)];
+    }
+
+    inline U64 rook_moves(uint8_t sq, U64 occupancy) {
+        sq_entry_t entry = r_table[sq];
+        return entry.base[((occupancy & entry.mask) * entry.magic) >> (64u - 12u)];
     }
 }
 
@@ -49,44 +247,6 @@ namespace bb_normal_moves {
     extern U64 pawn_moves_x1[2][64];
     extern U64 pawn_moves_x2[2][64];
     extern U64 pawn_caps[2][64];
-}
-
-namespace bb_intrin {
-    inline uint8_t lsb(U64 b) {
-        assert(b);
-#if defined(__GNUC__)
-        return Square(__builtin_ctzll(b));
-#elif defined(_MSC_VER) || defined(__INTEL_COMPILER)
-        unsigned long idx;
-        _BitScanForward64(&idx, b);
-        return Square(idx);
-#else
-#error "No intrinsic lsb/bitscanforward/ctz available"
-#endif
-    }
-
-    inline uint8_t msb(U64 b) {
-        assert(b);
-#if defined(__GNUC__)
-        return Square(63 - __builtin_clzll(b));
-#elif defined(_MSC_VER) || defined(__INTEL_COMPILER)
-        unsigned long idx;
-        _BitScanReverse64(&idx, b);
-        return Square(idx);
-#else
-#error "No intrinsic msb/bitscanreverse/clz available"
-#endif
-    }
-
-    inline int pop_count(const U64 &b) {
-#if defined(__GNUC__)
-        return __builtin_popcountll(b);
-#elif defined(_MSC_VER) || defined(__INTEL_COMPILER)
-        return (int) _mm_popcnt_u64(b);
-#else
-#error "No intrinsic popcnt available"
-#endif
-    }
 }
 
 /**
@@ -135,17 +295,17 @@ inline U64 find_moves<KNIGHT>(Team side, uint8_t square, U64 occupied) {
 
 template<>
 inline U64 find_moves<BISHOP>(Team side, uint8_t square, U64 occupied) {
-    return bb_magics::bishop_moves(square, occupied);
+    return bb_sliders::bishop_moves(square, occupied);
 }
 
 template<>
 inline U64 find_moves<ROOK>(Team side, uint8_t square, U64 occupied) {
-    return bb_magics::rook_moves(square, occupied);
+    return bb_sliders::rook_moves(square, occupied);
 }
 
 template<>
 inline U64 find_moves<QUEEN>(Team side, uint8_t square, U64 occupied) {
-    return bb_magics::bishop_moves(square, occupied) | bb_magics::rook_moves(square, occupied);
+    return bb_sliders::bishop_moves(square, occupied) | bb_sliders::rook_moves(square, occupied);
 }
 
 template<>
@@ -182,16 +342,6 @@ inline U64 find_moves(Piece type, Team side, uint8_t square, U64 occupied) {
  */
 inline U64 pawn_caps(Team side, uint8_t square) {
     return bb_normal_moves::pawn_caps[side][square];
-}
-
-/**
- * Generate a bitboard with a single bit set, corresponding to the given argument
- *
- * @param square bit to set
- * @return bitboard with the bit at {@code square} set
- */
-inline U64 single_bit(uint8_t square) {
-    return 0x1ull << square;
 }
 
 /**

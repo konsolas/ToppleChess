@@ -3,10 +3,7 @@
 //
 
 #include "eval.h"
-#include "board.h"
 #include "endgame.h"
-#include "hash.h"
-#include <sstream>
 #include <algorithm>
 #include <cstring>
 #include <cmath>
@@ -27,15 +24,15 @@ void evaluator_t::eval_init() {
     for (uint8_t sq = 0; sq < 64; sq++) {
         // King circle
         BB_KING_CIRCLE[sq] = BB_KING_SQUARE[sq];
-        if(rank_index(sq) == 0) BB_KING_CIRCLE[sq] |= pawns::shift<D_N>(BB_KING_SQUARE[sq]);
-        if(rank_index(sq) == 7) BB_KING_CIRCLE[sq] |= pawns::shift<D_S>(BB_KING_SQUARE[sq]);
-        if(file_index(sq) == 0) BB_KING_CIRCLE[sq] |= pawns::shift<D_E>(BB_KING_SQUARE[sq]);
-        if(file_index(sq) == 7) BB_KING_CIRCLE[sq] |= pawns::shift<D_W>(BB_KING_SQUARE[sq]);
+        if(rank_index(sq) == 0) BB_KING_CIRCLE[sq] |= bb_shifts::shift<D_N>(BB_KING_SQUARE[sq]);
+        if(rank_index(sq) == 7) BB_KING_CIRCLE[sq] |= bb_shifts::shift<D_S>(BB_KING_SQUARE[sq]);
+        if(file_index(sq) == 0) BB_KING_CIRCLE[sq] |= bb_shifts::shift<D_E>(BB_KING_SQUARE[sq]);
+        if(file_index(sq) == 7) BB_KING_CIRCLE[sq] |= bb_shifts::shift<D_W>(BB_KING_SQUARE[sq]);
 
         if(rank_index(sq) <= 1) {
-            BB_PAWN_SHIELD[sq] = pawns::shift<D_N>(BB_KING_SQUARE[sq]);
+            BB_PAWN_SHIELD[sq] = bb_shifts::shift<D_N>(BB_KING_SQUARE[sq]);
         } else if(rank_index(sq) >= 6) {
-            BB_PAWN_SHIELD[sq] = pawns::shift<D_S>(BB_KING_SQUARE[sq]);
+            BB_PAWN_SHIELD[sq] = bb_shifts::shift<D_S>(BB_KING_SQUARE[sq]);
         }
     }
 }
@@ -289,8 +286,8 @@ void evaluator_t::eval_pawns(const board_t &board, int &mg, int &eg, eval_data_t
             pawns::passed<BLACK>(board.bb_pieces[BLACK][PAWN], board.bb_pieces[WHITE][PAWN])
     };
     U64 passed_rear[2] = {
-            pawns::shift<D_S>(pawns::fill_occluded<D_S>(passed[WHITE], ~board.bb_all)),
-            pawns::shift<D_N>(pawns::fill_occluded<D_N>(passed[BLACK], ~board.bb_all)),
+            bb_shifts::shift<D_S>(bb_shifts::fill_occluded<D_S>(passed[WHITE], ~board.bb_all)),
+            bb_shifts::shift<D_N>(bb_shifts::fill_occluded<D_N>(passed[BLACK], ~board.bb_all)),
     };
     int rook_behind[2][2] = {
             {pop_count(board.bb_pieces[WHITE][ROOK] & passed_rear[WHITE]),

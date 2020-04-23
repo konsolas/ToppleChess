@@ -3,7 +3,6 @@
 //
 
 #include <stdexcept>
-#include <iostream>
 
 #include "bb.h"
 
@@ -12,335 +11,203 @@
  * MAGIC MOVE BIT BOARD GENERATION
  * =====================================================================================================================
  */
-namespace bb_magics {
-    /*
-     * Magic bitboards by Pradyumna Kannan:
-     *
-     * Copyright (C) 2007 Pradyumna Kannan.
-     *
-     * This code is provided 'as-is', without any expressed or implied warranty.
-     * In no event will the authors be held liable for any damages arising from
-     * the use of this code. Permission is granted to anyone to use this
-     * code for any purpose, including commercial applications, and to alter
-     * it and redistribute it freely, subject to the following restrictions:
-     *
-     * 1. The origin of this code must not be misrepresented; you must not
-     * claim that you wrote the original code. If you use this code in a
-     * product, an acknowledgment in the product documentation would be
-     * appreciated but is not required.
-     *
-     * 2. Altered source versions must be plainly marked as such, and must not be
-     * misrepresented as being the original code.
-     *
-     * 3. This notice may not be removed or altered from any source distribution.
-     */
-    const unsigned int r_shift[64] =
-            {
-                    52, 53, 53, 53, 53, 53, 53, 52,
-                    53, 54, 54, 54, 54, 54, 54, 53,
-                    53, 54, 54, 54, 54, 54, 54, 53,
-                    53, 54, 54, 54, 54, 54, 54, 53,
-                    53, 54, 54, 54, 54, 54, 54, 53,
-                    53, 54, 54, 54, 54, 54, 54, 53,
-                    53, 54, 54, 54, 54, 54, 54, 53,
-                    53, 54, 54, 53, 53, 53, 53, 53
-            };
+namespace bb_sliders {
+    constexpr U64 outer_files = 0x8181818181818181ull;
+    constexpr U64 outer_ranks = 0xff000000000000ffull;
+    constexpr U64 edge = outer_files | outer_ranks;
 
-    const U64 r_magics[64] =
-            {
-                    (0x0080001020400080), (0x0040001000200040), (0x0080081000200080), (0x0080040800100080),
-                    (0x0080020400080080), (0x0080010200040080), (0x0080008001000200), (0x0080002040800100),
-                    (0x0000800020400080), (0x0000400020005000), (0x0000801000200080), (0x0000800800100080),
-                    (0x0000800400080080), (0x0000800200040080), (0x0000800100020080), (0x0000800040800100),
-                    (0x0000208000400080), (0x0000404000201000), (0x0000808010002000), (0x0000808008001000),
-                    (0x0000808004000800), (0x0000808002000400), (0x0000010100020004), (0x0000020000408104),
-                    (0x0000208080004000), (0x0000200040005000), (0x0000100080200080), (0x0000080080100080),
-                    (0x0000040080080080), (0x0000020080040080), (0x0000010080800200), (0x0000800080004100),
-                    (0x0000204000800080), (0x0000200040401000), (0x0000100080802000), (0x0000080080801000),
-                    (0x0000040080800800), (0x0000020080800400), (0x0000020001010004), (0x0000800040800100),
-                    (0x0000204000808000), (0x0000200040008080), (0x0000100020008080), (0x0000080010008080),
-                    (0x0000040008008080), (0x0000020004008080), (0x0000010002008080), (0x0000004081020004),
-                    (0x0000204000800080), (0x0000200040008080), (0x0000100020008080), (0x0000080010008080),
-                    (0x0000040008008080), (0x0000020004008080), (0x0000800100020080), (0x0000800041000080),
-                    (0x00FFFCDDFCED714A), (0x007FFCDDFCED714A), (0x003FFFCDFFD88096), (0x0000040810002101),
-                    (0x0001000204080011), (0x0001000204000801), (0x0001000082000401), (0x0001FFFAABFAD1A2)
-            };
-    const U64 r_mask[64] =
-            {
-                    (0x000101010101017E), (0x000202020202027C), (0x000404040404047A), (0x0008080808080876),
-                    (0x001010101010106E), (0x002020202020205E), (0x004040404040403E), (0x008080808080807E),
-                    (0x0001010101017E00), (0x0002020202027C00), (0x0004040404047A00), (0x0008080808087600),
-                    (0x0010101010106E00), (0x0020202020205E00), (0x0040404040403E00), (0x0080808080807E00),
-                    (0x00010101017E0100), (0x00020202027C0200), (0x00040404047A0400), (0x0008080808760800),
-                    (0x00101010106E1000), (0x00202020205E2000), (0x00404040403E4000), (0x00808080807E8000),
-                    (0x000101017E010100), (0x000202027C020200), (0x000404047A040400), (0x0008080876080800),
-                    (0x001010106E101000), (0x002020205E202000), (0x004040403E404000), (0x008080807E808000),
-                    (0x0001017E01010100), (0x0002027C02020200), (0x0004047A04040400), (0x0008087608080800),
-                    (0x0010106E10101000), (0x0020205E20202000), (0x0040403E40404000), (0x0080807E80808000),
-                    (0x00017E0101010100), (0x00027C0202020200), (0x00047A0404040400), (0x0008760808080800),
-                    (0x00106E1010101000), (0x00205E2020202000), (0x00403E4040404000), (0x00807E8080808000),
-                    (0x007E010101010100), (0x007C020202020200), (0x007A040404040400), (0x0076080808080800),
-                    (0x006E101010101000), (0x005E202020202000), (0x003E404040404000), (0x007E808080808000),
-                    (0x7E01010101010100), (0x7C02020202020200), (0x7A04040404040400), (0x7608080808080800),
-                    (0x6E10101010101000), (0x5E20202020202000), (0x3E40404040404000), (0x7E80808080808000)
-            };
+    sq_entry_t b_table[64];
+    sq_entry_t r_table[64];
 
-    const unsigned int b_shift[64] =
-            {
-                    58, 59, 59, 59, 59, 59, 59, 58,
-                    59, 59, 59, 59, 59, 59, 59, 59,
-                    59, 59, 57, 57, 57, 57, 59, 59,
-                    59, 59, 57, 55, 55, 57, 59, 59,
-                    59, 59, 57, 55, 55, 57, 59, 59,
-                    59, 59, 57, 57, 57, 57, 59, 59,
-                    59, 59, 59, 59, 59, 59, 59, 59,
-                    58, 59, 59, 59, 59, 59, 59, 58
-            };
+    struct magic_init_t {
+        uint64_t factor;
+        int position;
+    };
 
-    const U64 b_magics[64] =
-            {
-                    (0x0002020202020200), (0x0002020202020000), (0x0004010202000000), (0x0004040080000000),
-                    (0x0001104000000000), (0x0000821040000000), (0x0000410410400000), (0x0000104104104000),
-                    (0x0000040404040400), (0x0000020202020200), (0x0000040102020000), (0x0000040400800000),
-                    (0x0000011040000000), (0x0000008210400000), (0x0000004104104000), (0x0000002082082000),
-                    (0x0004000808080800), (0x0002000404040400), (0x0001000202020200), (0x0000800802004000),
-                    (0x0000800400A00000), (0x0000200100884000), (0x0000400082082000), (0x0000200041041000),
-                    (0x0002080010101000), (0x0001040008080800), (0x0000208004010400), (0x0000404004010200),
-                    (0x0000840000802000), (0x0000404002011000), (0x0000808001041000), (0x0000404000820800),
-                    (0x0001041000202000), (0x0000820800101000), (0x0000104400080800), (0x0000020080080080),
-                    (0x0000404040040100), (0x0000808100020100), (0x0001010100020800), (0x0000808080010400),
-                    (0x0000820820004000), (0x0000410410002000), (0x0000082088001000), (0x0000002011000800),
-                    (0x0000080100400400), (0x0001010101000200), (0x0002020202000400), (0x0001010101000200),
-                    (0x0000410410400000), (0x0000208208200000), (0x0000002084100000), (0x0000000020880000),
-                    (0x0000001002020000), (0x0000040408020000), (0x0004040404040000), (0x0002020202020000),
-                    (0x0000104104104000), (0x0000002082082000), (0x0000000020841000), (0x0000000000208800),
-                    (0x0000000010020200), (0x0000000404080200), (0x0000040404040400), (0x0002020202020200)
-            };
+    // <editor-fold desc="Magic multipliers generated by Volker Annuss">
+    magic_init_t bishop_magics[64] = {
+            {0x007fbfbfbfbfbfffu, 5378},
+            {0x0000a060401007fcu, 4093},
+            {0x0001004008020000u, 4314},
+            {0x0000806004000000u, 6587},
+            {0x0000100400000000u, 6491},
+            {0x000021c100b20000u, 6330},
+            {0x0000040041008000u, 5609},
+            {0x00000fb0203fff80u, 22236},
+            {0x0000040100401004u, 6106},
+            {0x0000020080200802u, 5625},
+            {0x0000004010202000u, 16785},
+            {0x0000008060040000u, 16817},
+            {0x0000004402000000u, 6842},
+            {0x0000000801008000u, 7003},
+            {0x000007efe0bfff80u, 4197},
+            {0x0000000820820020u, 7356},
+            {0x0000400080808080u, 4602},
+            {0x00021f0100400808u, 4538},
+            {0x00018000c06f3fffu, 29531},
+            {0x0000258200801000u, 45393},
+            {0x0000240080840000u, 12420},
+            {0x000018000c03fff8u, 15763},
+            {0x00000a5840208020u, 5050},
+            {0x0000020008208020u, 4346},
+            {0x0000804000810100u, 6074},
+            {0x0001011900802008u, 7866},
+            {0x0000804000810100u, 32139},
+            {0x000100403c0403ffu, 57673},
+            {0x00078402a8802000u, 55365},
+            {0x0000101000804400u, 15818},
+            {0x0000080800104100u, 5562},
+            {0x00004004c0082008u, 6390},
+            {0x0001010120008020u, 7930},
+            {0x000080809a004010u, 13329},
+            {0x0007fefe08810010u, 7170},
+            {0x0003ff0f833fc080u, 27267},
+            {0x007fe08019003042u, 53787},
+            {0x003fffefea003000u, 5097},
+            {0x0000101010002080u, 6643},
+            {0x0000802005080804u, 6138},
+            {0x0000808080a80040u, 7418},
+            {0x0000104100200040u, 7898},
+            {0x0003ffdf7f833fc0u, 42012},
+            {0x0000008840450020u, 57350},
+            {0x00007ffc80180030u, 22813},
+            {0x007fffdd80140028u, 56693},
+            {0x00020080200a0004u, 5818},
+            {0x0000101010100020u, 7098},
+            {0x0007ffdfc1805000u, 4451},
+            {0x0003ffefe0c02200u, 4709},
+            {0x0000000820806000u, 4794},
+            {0x0000000008403000u, 13364},
+            {0x0000000100202000u, 4570},
+            {0x0000004040802000u, 4282},
+            {0x0004010040100400u, 14964},
+            {0x00006020601803f4u, 4026},
+            {0x0003ffdfdfc28048u, 4826},
+            {0x0000000820820020u, 7354},
+            {0x0000000008208060u, 4848},
+            {0x0000000000808020u, 15946},
+            {0x0000000001002020u, 14932},
+            {0x0000000401002008u, 16588},
+            {0x0000004040404040u, 6905},
+            {0x007fff9fdf7ff813u, 16076}
+    };
+    magic_init_t rook_magics[64] = {
+            {0x00280077ffebfffeu, 26304},
+            {0x2004010201097fffu, 35520},
+            {0x0010020010053fffu, 38592},
+            {0x0040040008004002u, 8026},
+            {0x7fd00441ffffd003u, 22196},
+            {0x4020008887dffffeu, 80870},
+            {0x004000888847ffffu, 76747},
+            {0x006800fbff75fffdu, 30400},
+            {0x000028010113ffffu, 11115},
+            {0x0020040201fcffffu, 18205},
+            {0x007fe80042ffffe8u, 53577},
+            {0x00001800217fffe8u, 62724},
+            {0x00001800073fffe8u, 34282},
+            {0x00001800e05fffe8u, 29196},
+            {0x00001800602fffe8u, 23806},
+            {0x000030002fffffa0u, 49481},
+            {0x00300018010bffffu, 2410},
+            {0x0003000c0085fffbu, 36498},
+            {0x0004000802010008u, 24478},
+            {0x0004002020020004u, 10074},
+            {0x0001002002002001u, 79315},
+            {0x0001001000801040u, 51779},
+            {0x0000004040008001u, 13586},
+            {0x0000006800cdfff4u, 19323},
+            {0x0040200010080010u, 70612},
+            {0x0000080010040010u, 83652},
+            {0x0004010008020008u, 63110},
+            {0x0000040020200200u, 34496},
+            {0x0002008010100100u, 84966},
+            {0x0000008020010020u, 54341},
+            {0x0000008020200040u, 60421},
+            {0x0000820020004020u, 86402},
+            {0x00fffd1800300030u, 50245},
+            {0x007fff7fbfd40020u, 76622},
+            {0x003fffbd00180018u, 84676},
+            {0x001fffde80180018u, 78757},
+            {0x000fffe0bfe80018u, 37346},
+            {0x0001000080202001u, 370},
+            {0x0003fffbff980180u, 42182},
+            {0x0001fffdff9000e0u, 45385},
+            {0x00fffefeebffd800u, 61659},
+            {0x007ffff7ffc01400u, 12790},
+            {0x003fffbfe4ffe800u, 16762},
+            {0x001ffff01fc03000u, 0},
+            {0x000fffe7f8bfe800u, 38380},
+            {0x0007ffdfdf3ff808u, 11098},
+            {0x0003fff85fffa804u, 21803},
+            {0x0001fffd75ffa802u, 39189},
+            {0x00ffffd7ffebffd8u, 58628},
+            {0x007fff75ff7fbfd8u, 44116},
+            {0x003fff863fbf7fd8u, 78357},
+            {0x001fffbfdfd7ffd8u, 44481},
+            {0x000ffff810280028u, 64134},
+            {0x0007ffd7f7feffd8u, 41759},
+            {0x0003fffc0c480048u, 1394},
+            {0x0001ffffafd7ffd8u, 40910},
+            {0x00ffffe4ffdfa3bau, 66516},
+            {0x007fffef7ff3d3dau, 3897},
+            {0x003fffbfdfeff7fau, 3930},
+            {0x001fffeff7fbfc22u, 72934},
+            {0x0000020408001001u, 72662},
+            {0x0007fffeffff77fdu, 56325},
+            {0x0003ffffbf7dfeecu, 66501},
+            {0x0001ffff9dffa333u, 14826}
+    };
+    // </editor-fold>
 
+    U64 attacks[88772];
 
-    const U64 b_mask[64] =
-            {
-                    (0x0040201008040200), (0x0000402010080400), (0x0000004020100A00), (0x0000000040221400),
-                    (0x0000000002442800), (0x0000000204085000), (0x0000020408102000), (0x0002040810204000),
-                    (0x0020100804020000), (0x0040201008040000), (0x00004020100A0000), (0x0000004022140000),
-                    (0x0000000244280000), (0x0000020408500000), (0x0002040810200000), (0x0004081020400000),
-                    (0x0010080402000200), (0x0020100804000400), (0x004020100A000A00), (0x0000402214001400),
-                    (0x0000024428002800), (0x0002040850005000), (0x0004081020002000), (0x0008102040004000),
-                    (0x0008040200020400), (0x0010080400040800), (0x0020100A000A1000), (0x0040221400142200),
-                    (0x0002442800284400), (0x0004085000500800), (0x0008102000201000), (0x0010204000402000),
-                    (0x0004020002040800), (0x0008040004081000), (0x00100A000A102000), (0x0022140014224000),
-                    (0x0044280028440200), (0x0008500050080400), (0x0010200020100800), (0x0020400040201000),
-                    (0x0002000204081000), (0x0004000408102000), (0x000A000A10204000), (0x0014001422400000),
-                    (0x0028002844020000), (0x0050005008040200), (0x0020002010080400), (0x0040004020100800),
-                    (0x0000020408102000), (0x0000040810204000), (0x00000A1020400000), (0x0000142240000000),
-                    (0x0000284402000000), (0x0000500804020000), (0x0000201008040200), (0x0000402010080400),
-                    (0x0002040810204000), (0x0004081020400000), (0x000A102040000000), (0x0014224000000000),
-                    (0x0028440200000000), (0x0050080402000000), (0x0020100804020000), (0x0040201008040200)
-            };
-
-    U64 b_db[5248];
-    const U64 *b_index[64] =
-            {
-                    b_db + 4992, b_db + 2624, b_db + 256, b_db + 896,
-                    b_db + 1280, b_db + 1664, b_db + 4800, b_db + 5120,
-                    b_db + 2560, b_db + 2656, b_db + 288, b_db + 928,
-                    b_db + 1312, b_db + 1696, b_db + 4832, b_db + 4928,
-                    b_db + 0, b_db + 128, b_db + 320, b_db + 960,
-                    b_db + 1344, b_db + 1728, b_db + 2304, b_db + 2432,
-                    b_db + 32, b_db + 160, b_db + 448, b_db + 2752,
-                    b_db + 3776, b_db + 1856, b_db + 2336, b_db + 2464,
-                    b_db + 64, b_db + 192, b_db + 576, b_db + 3264,
-                    b_db + 4288, b_db + 1984, b_db + 2368, b_db + 2496,
-                    b_db + 96, b_db + 224, b_db + 704, b_db + 1088,
-                    b_db + 1472, b_db + 2112, b_db + 2400, b_db + 2528,
-                    b_db + 2592, b_db + 2688, b_db + 832, b_db + 1216,
-                    b_db + 1600, b_db + 2240, b_db + 4864, b_db + 4960,
-                    b_db + 5056, b_db + 2720, b_db + 864, b_db + 1248,
-                    b_db + 1632, b_db + 2272, b_db + 4896, b_db + 5184
-            };
-
-
-    U64 r_db[102400];
-    const U64 *r_index[64] =
-            {
-                    r_db + 86016, r_db + 73728, r_db + 36864, r_db + 43008,
-                    r_db + 47104, r_db + 51200, r_db + 77824, r_db + 94208,
-                    r_db + 69632, r_db + 32768, r_db + 38912, r_db + 10240,
-                    r_db + 14336, r_db + 53248, r_db + 57344, r_db + 81920,
-                    r_db + 24576, r_db + 33792, r_db + 6144, r_db + 11264,
-                    r_db + 15360, r_db + 18432, r_db + 58368, r_db + 61440,
-                    r_db + 26624, r_db + 4096, r_db + 7168, r_db + 0,
-                    r_db + 2048, r_db + 19456, r_db + 22528, r_db + 63488,
-                    r_db + 28672, r_db + 5120, r_db + 8192, r_db + 1024,
-                    r_db + 3072, r_db + 20480, r_db + 23552, r_db + 65536,
-                    r_db + 30720, r_db + 34816, r_db + 9216, r_db + 12288,
-                    r_db + 16384, r_db + 21504, r_db + 59392, r_db + 67584,
-                    r_db + 71680, r_db + 35840, r_db + 39936, r_db + 13312,
-                    r_db + 17408, r_db + 54272, r_db + 60416, r_db + 83968,
-                    r_db + 90112, r_db + 75776, r_db + 40960, r_db + 45056,
-                    r_db + 49152, r_db + 55296, r_db + 79872, r_db + 98304
-            };
-
-
-    U64 init_magic_occ(const unsigned int *squares, const unsigned int numSquares, const U64 linocc) {
-        unsigned int i;
-        U64 ret = 0;
-        for (i = 0; i < numSquares; i++)
-            if (linocc & (((U64) (1)) << i)) ret |= (((U64) (1)) << squares[i]);
-        return ret;
+    U64 compute_bishop_moves(int sq, U64 occupancy) {
+        U64 open = ~occupancy;
+        return bb_shifts::shift<D_NE>(bb_shifts::fill_occluded<D_NE>(single_bit(sq), open))
+               | bb_shifts::shift<D_NW>(bb_shifts::fill_occluded<D_NW>(single_bit(sq), open))
+               | bb_shifts::shift<D_SE>(bb_shifts::fill_occluded<D_SE>(single_bit(sq), open))
+               | bb_shifts::shift<D_SW>(bb_shifts::fill_occluded<D_SW>(single_bit(sq), open));
     }
 
-    U64 compute_rookmoves(const unsigned int square, const U64 occ) {
-        U64 ret = 0;
-        U64 bit;
-        U64 rowbits = (((U64) 0xFF) << (8 * (square / 8)));
-
-        bit = (((U64) (1)) << square);
-        do {
-            bit <<= 8;
-            ret |= bit;
-        } while (bit && !(bit & occ));
-        bit = (((U64) (1)) << square);
-        do {
-            bit >>= 8;
-            ret |= bit;
-        } while (bit && !(bit & occ));
-        bit = (((U64) (1)) << square);
-        do {
-            bit <<= 1;
-            if (bit & rowbits) ret |= bit;
-            else break;
-        } while (!(bit & occ));
-        bit = (((U64) (1)) << square);
-        do {
-            bit >>= 1;
-            if (bit & rowbits) ret |= bit;
-            else break;
-        } while (!(bit & occ));
-        return ret;
+    U64 compute_rook_moves(int sq, U64 occupancy) {
+        U64 open = ~occupancy;
+        return bb_shifts::shift<D_N>(bb_shifts::fill_occluded<D_N>(single_bit(sq), open))
+               | bb_shifts::shift<D_E>(bb_shifts::fill_occluded<D_E>(single_bit(sq), open))
+               | bb_shifts::shift<D_S>(bb_shifts::fill_occluded<D_S>(single_bit(sq), open))
+               | bb_shifts::shift<D_W>(bb_shifts::fill_occluded<D_W>(single_bit(sq), open));
     }
 
-    U64 compute_bishopmoves(const unsigned int square, const U64 occ) {
-        U64 ret = 0;
-        U64 bit;
-        U64 bit2;
-        U64 rowbits = (((U64) 0xFF) << (8 * (square / 8)));
-
-        bit = (((U64) (1)) << square);
-        bit2 = bit;
-        do {
-            bit <<= 8 - 1;
-            bit2 >>= 1;
-            if (bit2 & rowbits) ret |= bit;
-            else break;
-        } while (bit && !(bit & occ));
-        bit = (((U64) (1)) << square);
-        bit2 = bit;
-        do {
-            bit <<= 8 + 1;
-            bit2 <<= 1;
-            if (bit2 & rowbits) ret |= bit;
-            else break;
-        } while (bit && !(bit & occ));
-        bit = (((U64) (1)) << square);
-        bit2 = bit;
-        do {
-            bit >>= 8 - 1;
-            bit2 <<= 1;
-            if (bit2 & rowbits) ret |= bit;
-            else break;
-        } while (bit && !(bit & occ));
-        bit = (((U64) (1)) << square);
-        bit2 = bit;
-        do {
-            bit >>= 8 + 1;
-            bit2 >>= 1;
-            if (bit2 & rowbits) ret |= bit;
-            else break;
-        } while (bit && !(bit & occ));
-        return ret;
+    U64 compute_bishop_mask(int sq) {
+        return compute_bishop_moves(sq, 0) & ~edge;
     }
 
-    void initmagicmoves() {
-        unsigned int i;
+    U64 compute_rook_mask(int sq) {
+        return ((bb_shifts::shift<D_E>(bb_shifts::fill_occluded<D_E>(single_bit(sq), ~0ull))
+                 | bb_shifts::shift<D_W>(bb_shifts::fill_occluded<D_W>(single_bit(sq), ~0ull))) & ~outer_files)
+               | ((bb_shifts::shift<D_N>(bb_shifts::fill_occluded<D_N>(single_bit(sq), ~0ull))
+                   | bb_shifts::shift<D_S>(bb_shifts::fill_occluded<D_S>(single_bit(sq), ~0ull))) & ~outer_ranks);
+    }
 
-        unsigned int bitscan_bitpos64[64] = {
-                63, 0, 58, 1, 59, 47, 53, 2,
-                60, 39, 48, 27, 54, 33, 42, 3,
-                61, 51, 37, 40, 49, 18, 28, 20,
-                55, 30, 34, 11, 43, 14, 22, 4,
-                62, 57, 46, 52, 38, 26, 32, 41,
-                50, 36, 17, 19, 29, 10, 13, 21,
-                56, 45, 25, 31, 35, 16, 9, 12,
-                44, 24, 15, 8, 23, 7, 6, 5};
+    void init_sliders() {
+        for (int sq = 0; sq < 64; sq++) {
+            sq_entry_t entry = {};
+            unsigned bits;
 
-        // indices without the const modifier
-        U64 *mm_b_indices[64] =
-                {
-                        b_db + 4992, b_db + 2624, b_db + 256, b_db + 896,
-                        b_db + 1280, b_db + 1664, b_db + 4800, b_db + 5120,
-                        b_db + 2560, b_db + 2656, b_db + 288, b_db + 928,
-                        b_db + 1312, b_db + 1696, b_db + 4832, b_db + 4928,
-                        b_db + 0, b_db + 128, b_db + 320, b_db + 960,
-                        b_db + 1344, b_db + 1728, b_db + 2304, b_db + 2432,
-                        b_db + 32, b_db + 160, b_db + 448, b_db + 2752,
-                        b_db + 3776, b_db + 1856, b_db + 2336, b_db + 2464,
-                        b_db + 64, b_db + 192, b_db + 576, b_db + 3264,
-                        b_db + 4288, b_db + 1984, b_db + 2368, b_db + 2496,
-                        b_db + 96, b_db + 224, b_db + 704, b_db + 1088,
-                        b_db + 1472, b_db + 2112, b_db + 2400, b_db + 2528,
-                        b_db + 2592, b_db + 2688, b_db + 832, b_db + 1216,
-                        b_db + 1600, b_db + 2240, b_db + 4864, b_db + 4960,
-                        b_db + 5056, b_db + 2720, b_db + 864, b_db + 1248,
-                        b_db + 1632, b_db + 2272, b_db + 4896, b_db + 5184
-                };
-        U64 *mm_r_indices[64] =
-                {
-                        r_db + 86016, r_db + 73728, r_db + 36864, r_db + 43008,
-                        r_db + 47104, r_db + 51200, r_db + 77824, r_db + 94208,
-                        r_db + 69632, r_db + 32768, r_db + 38912, r_db + 10240,
-                        r_db + 14336, r_db + 53248, r_db + 57344, r_db + 81920,
-                        r_db + 24576, r_db + 33792, r_db + 6144, r_db + 11264,
-                        r_db + 15360, r_db + 18432, r_db + 58368, r_db + 61440,
-                        r_db + 26624, r_db + 4096, r_db + 7168, r_db + 0,
-                        r_db + 2048, r_db + 19456, r_db + 22528, r_db + 63488,
-                        r_db + 28672, r_db + 5120, r_db + 8192, r_db + 1024,
-                        r_db + 3072, r_db + 20480, r_db + 23552, r_db + 65536,
-                        r_db + 30720, r_db + 34816, r_db + 9216, r_db + 12288,
-                        r_db + 16384, r_db + 21504, r_db + 59392, r_db + 67584,
-                        r_db + 71680, r_db + 35840, r_db + 39936, r_db + 13312,
-                        r_db + 17408, r_db + 54272, r_db + 60416, r_db + 83968,
-                        r_db + 90112, r_db + 75776, r_db + 40960, r_db + 45056,
-                        r_db + 49152, r_db + 55296, r_db + 79872, r_db + 98304
-                };
+            entry = {compute_bishop_mask(sq), bishop_magics[sq].factor, attacks + bishop_magics[sq].position};
+            bits = pop_count(entry.mask);
+            for (U64 dense_occ = 0; dense_occ < (1u << bits); dense_occ++) {
+                U64 occ = bb_intrin::pdep(dense_occ, entry.mask);
+                entry.base[(occ * entry.magic) >> (64u - 9u)] = compute_bishop_moves(sq, occ);
+            }
+            b_table[sq] = entry;
 
-        for (i = 0; i < 64; i++) {
-            unsigned int squares[64];
-            unsigned int n_squares = 0;
-            U64 temp = b_mask[i];
-            while (temp) {
-                U64 bit = temp & -temp;
-                squares[n_squares++] = bitscan_bitpos64[U64(bit * U64(0x07EDD5E59A4E28C2)) >> 58u];
-                temp ^= bit;
+            entry = {compute_rook_mask(sq), rook_magics[sq].factor, attacks + rook_magics[sq].position};
+            bits = pop_count(entry.mask);
+            for (U64 dense_occ = 0; dense_occ < (1u << bits); dense_occ++) {
+                U64 occ = bb_intrin::pdep(dense_occ, entry.mask);
+                entry.base[(occ * entry.magic) >> (64u - 12u)] = compute_rook_moves(sq, occ);
             }
-            for (temp = 0; temp < (((U64) (1)) << n_squares); temp++) {
-                U64 tempocc = init_magic_occ(squares, n_squares, temp);
-                *(mm_b_indices[i] + (((tempocc) * b_magics[i]) >> b_shift[i])) = compute_bishopmoves(i, tempocc);
-            }
-        }
-        for (i = 0; i < 64; i++) {
-            unsigned int squares[64];
-            unsigned int n_squares = 0;
-            U64 temp = r_mask[i];
-            while (temp) {
-                U64 bit = temp & -temp;
-                squares[n_squares++] = bitscan_bitpos64[U64(bit * U64(0x07EDD5E59A4E28C2)) >> 58u];
-                temp ^= bit;
-            }
-            for (temp = 0; temp < (((U64) (1)) << n_squares); temp++) {
-                U64 tempocc = init_magic_occ(squares, n_squares, temp);
-                *(mm_r_indices[i] + (((tempocc) * r_magics[i]) >> r_shift[i])) = compute_rookmoves(i, tempocc);
-            }
+            r_table[sq] = entry;
         }
     }
 }
@@ -367,35 +234,35 @@ namespace bb_util {
                 // Between
                 {
                     U64 occupied = single_bit(a) | single_bit(b);
-                    if (bb_magics::bishop_moves(a, 0) & single_bit(b)) {
-                        between[a][b] = bb_magics::bishop_moves(a, occupied) &
-                                        bb_magics::bishop_moves(b, occupied);
-                    } else if (bb_magics::rook_moves(a, 0) & single_bit(b)) {
-                        between[a][b] = bb_magics::rook_moves(a, occupied) &
-                                        bb_magics::rook_moves(b, occupied);
+                    if (bb_sliders::bishop_moves(a, 0) & single_bit(b)) {
+                        between[a][b] = bb_sliders::bishop_moves(a, occupied) &
+                                        bb_sliders::bishop_moves(b, occupied);
+                    } else if (bb_sliders::rook_moves(a, 0) & single_bit(b)) {
+                        between[a][b] = bb_sliders::rook_moves(a, occupied) &
+                                        bb_sliders::rook_moves(b, occupied);
                     }
                 }
 
                 // Line
                 {
-                    if (bb_magics::bishop_moves(a, 0) & single_bit(b)) {
-                        line[a][b] = bb_magics::bishop_moves(a, 0) &
-                                     bb_magics::bishop_moves(b, 0);
-                    } else if (bb_magics::rook_moves(a, 0) & single_bit(b)) {
-                        line[a][b] = bb_magics::rook_moves(a, 0) &
-                                     bb_magics::rook_moves(b, 0);
+                    if (bb_sliders::bishop_moves(a, 0) & single_bit(b)) {
+                        line[a][b] = bb_sliders::bishop_moves(a, 0) &
+                                     bb_sliders::bishop_moves(b, 0);
+                    } else if (bb_sliders::rook_moves(a, 0) & single_bit(b)) {
+                        line[a][b] = bb_sliders::rook_moves(a, 0) &
+                                     bb_sliders::rook_moves(b, 0);
                     }
                 }
 
                 // Ray
                 {
                     U64 occupied = single_bit(a);
-                    if (bb_magics::bishop_moves(a, 0) & single_bit(b)) {
-                        ray[a][b] = bb_magics::bishop_moves(a, occupied) &
-                                     bb_magics::bishop_moves(b, occupied);
-                    } else if (bb_magics::rook_moves(a, 0) & single_bit(b)) {
-                        ray[a][b] = bb_magics::rook_moves(a, occupied) &
-                                     bb_magics::rook_moves(b, occupied);
+                    if (bb_sliders::bishop_moves(a, 0) & single_bit(b)) {
+                        ray[a][b] = bb_sliders::bishop_moves(a, occupied) &
+                                    bb_sliders::bishop_moves(b, occupied);
+                    } else if (bb_sliders::rook_moves(a, 0) & single_bit(b)) {
+                        ray[a][b] = bb_sliders::rook_moves(a, occupied) &
+                                    bb_sliders::rook_moves(b, occupied);
                     }
                 }
             }
@@ -475,7 +342,7 @@ namespace bb_normal_moves {
  * =====================================================================================================================
  */
 void init_tables() {
-    bb_magics::initmagicmoves();
+    bb_sliders::init_sliders();
     bb_util::init_util();
     bb_normal_moves::init_normal_moves();
 }

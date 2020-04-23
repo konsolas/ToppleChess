@@ -15,65 +15,20 @@ struct processed_params_t;
 struct board_t;
 
 namespace pawns {
-    constexpr U64 not_A = 0xfefefefefefefefe; // ~0x0101010101010101
-    constexpr U64 not_H = 0x7f7f7f7f7f7f7f7f; // ~0x8080808080808080
     constexpr U64 advanced_ranks = 0x0000ffffffff0000;
     constexpr U64 outpost[2] = {
             0b0000000000000000001111000011110000111100000000000000000000000000,
             0b0000000000000000000000000011110000111100001111000000000000000000
     };
 
-    // Bitboard shifting
-    template<Direction D>
-    constexpr U64 shift(U64 bb);
-
-    template<>
-    constexpr U64 shift<D_N>(U64 b) { return b << 8u; }
-
-    template<>
-    constexpr U64 shift<D_S>(U64 b) { return b >> 8u; }
-
-    template<>
-    constexpr U64 shift<D_E>(U64 b) { return (b << 1u) & not_A; }
-
-    template<>
-    constexpr U64 shift<D_NE>(U64 b) { return (b << 9u) & not_A; }
-
-    template<>
-    constexpr U64 shift<D_SE>(U64 b) { return (b >> 7u) & not_A; }
-
-    template<>
-    constexpr U64 shift<D_W>(U64 b) { return (b >> 1u) & not_H; }
-
-    template<>
-    constexpr U64 shift<D_SW>(U64 b) { return (b >> 9u) & not_H; }
-
-    template<>
-    constexpr U64 shift<D_NW>(U64 b) { return (b << 7u) & not_H; }
-
-    // General utility
-    template<Team team> constexpr U64 fill_forward(U64 bb);
-    template<> constexpr U64 fill_forward<WHITE>(U64 bb) {
-        bb |= (bb << 8u);
-        bb |= (bb << 16u);
-        bb |= (bb << 32u);
-        return bb;
-    }
-    template<> constexpr U64 fill_forward<BLACK>(U64 bb) {
-        bb |= (bb >> 8u);
-        bb |= (bb >> 16u);
-        bb |= (bb >> 32u);
-        return bb;
-    }
-
     template<Team team>
     constexpr U64 stop_squares(U64 bb) {
-        return shift<rel_offset(team, D_N)>(bb);
+        return bb_shifts::shift<rel_offset(team, D_N)>(bb);
     }
 
     template<Team team>
     constexpr U64 front_span(U64 bb) {
-        return fill_forward<team>(stop_squares<team>(bb));
+        return bb_shifts::fill_forward<team>(stop_squares<team>(bb));
     }
 
     template<Team team>
@@ -87,7 +42,7 @@ namespace pawns {
     }
 
     constexpr U64 adjacent(U64 bb) {
-        return shift<D_W>(bb) | shift<D_E>(bb);
+        return bb_shifts::shift<D_W>(bb) | bb_shifts::shift<D_E>(bb);
     }
 
     template<Team team>
@@ -96,99 +51,8 @@ namespace pawns {
     }
 
     constexpr U64 fill_file(U64 bb) {
-        return fill_forward<WHITE>(bb) | fill_forward<BLACK>(bb);
+        return bb_shifts::fill_forward<WHITE>(bb) | bb_shifts::fill_forward<BLACK>(bb);
     }
-
-    // Occluded fills with the Kogge-Stone algorithm
-    template<Direction D>
-    constexpr U64 fill_occluded(U64 bb, U64 open);
-
-    template<>
-    constexpr U64 fill_occluded<D_N>(U64 bb, U64 open) {
-        bb |= open & (bb << 8u);
-        open &= (open << 8u);
-        bb |= open & (bb << 16u);
-        open &= (open << 16u);
-        bb |= open & (bb << 32u);
-        return bb;
-    }
-
-    template<>
-    constexpr U64 fill_occluded<D_S>(U64 bb, U64 open) {
-        bb |= open & (bb >> 8u);
-        open &= (open >> 8u);
-        bb |= open & (bb >> 16u);
-        open &= (open >> 16u);
-        bb |= open & (bb >> 32u);
-        return bb;
-    }
-
-    template<>
-    constexpr U64 fill_occluded<D_E>(U64 bb, U64 open) {
-        open &= not_A;
-        bb |= open & (bb << 1u);
-        open &= (open << 1u);
-        bb |= open & (bb << 2u);
-        open &= (open << 2u);
-        bb |= open & (bb << 4u);
-        return bb;
-    }
-
-    template<>
-    constexpr U64 fill_occluded<D_NE>(U64 bb, U64 open) {
-        open &= not_A;
-        bb |= open & (bb << 9u);
-        open &= (open << 9u);
-        bb |= open & (bb << 18u);
-        open &= (open << 18u);
-        bb |= open & (bb << 36u);
-        return bb;
-    }
-
-    template<>
-    constexpr U64 fill_occluded<D_SE>(U64 bb, U64 open) {
-        open &= not_A;
-        bb |= open & (bb >> 7u);
-        open &= (open >> 7u);
-        bb |= open & (bb >> 14u);
-        open &= (open >> 14u);
-        bb |= open & (bb >> 28u);
-        return bb;
-    }
-
-    template<>
-    constexpr U64 fill_occluded<D_W>(U64 bb, U64 open) {
-        open &= not_H;
-        bb |= open & (bb >> 1u);
-        open &= (open >> 1u);
-        bb |= open & (bb >> 2u);
-        open &= (open >> 2u);
-        bb |= open & (bb >> 4u);
-        return bb;
-    }
-
-    template<>
-    constexpr U64 fill_occluded<D_SW>(U64 bb, U64 open) {
-        open &= not_H;
-        bb |= open & (bb >> 9u);
-        open &= (open >> 9u);
-        bb |= open & (bb >> 18u);
-        open &= (open >> 18u);
-        bb |= open & (bb >> 36u);
-        return bb;
-    }
-
-    template<>
-    constexpr U64 fill_occluded<D_NW>(U64 bb, U64 open) {
-        open &= not_H;
-        bb |= open & (bb << 7u);
-        open &= (open << 7u);
-        bb |= open & (bb << 14u);
-        open &= (open << 14u);
-        bb |= open & (bb << 28u);
-        return bb;
-    }
-
 
     // Files
     constexpr uint8_t file_set(U64 bb) {
@@ -226,19 +90,19 @@ namespace pawns {
 
     template<Team team>
     inline int distortion(U64 bb) {
-        U64 fill = fill_forward<Team(!team)>(bb);
-        return pop_count((fill ^ (fill << 1u)) & not_A);
+        U64 fill = bb_shifts::fill_forward<Team(!team)>(bb);
+        return pop_count((fill ^ (fill << 1u)) & bb_shifts::not_A);
     }
 
     // Attacks
     template<Team team>
     constexpr U64 right_attacks(U64 bb) {
-        return shift<rel_offset(team, D_NE)>(bb);
+        return bb_shifts::shift<rel_offset(team, D_NE)>(bb);
     }
 
     template<Team team>
     constexpr U64 left_attacks(U64 bb) {
-        return shift<rel_offset(team, D_NW)>(bb);
+        return bb_shifts::shift<rel_offset(team, D_NW)>(bb);
     }
 
     template<Team team>
@@ -258,7 +122,7 @@ namespace pawns {
 
     template<Team team>
     constexpr U64 holes(U64 bb) {
-        return ~fill_forward<team>(attacks<team>(bb));
+        return ~bb_shifts::fill_forward<team>(attacks<team>(bb));
     }
 
     // Pawn identification
@@ -268,14 +132,14 @@ namespace pawns {
     }
 
     constexpr U64 isolated(U64 bb) {
-        return bb & ~fill_file(shift<D_E>(bb)) & ~fill_file(shift<D_W>(bb));
+        return bb & ~fill_file(bb_shifts::shift<D_E>(bb)) & ~fill_file(bb_shifts::shift<D_W>(bb));
     }
 
     template<Team team>
     constexpr U64 backward(U64 own, U64 other) {
         return stop_squares<Team(!team)>(
                 stop_squares<team>(own)
-                & ~fill_forward<team>(left_attacks<team>(own) | right_attacks<team>(own))
+                & ~bb_shifts::fill_forward<team>(left_attacks<team>(own) | right_attacks<team>(own))
                 & (left_attacks<Team(!team)>(other) | right_attacks<Team(!team)>(other))
         );
     }
@@ -284,7 +148,7 @@ namespace pawns {
     constexpr U64 semi_backward(U64 own, U64 other) {
         return stop_squares<Team(!team)>(
                 stop_squares<team>(own)
-                & ~fill_forward<team>(left_attacks<team>(own) | right_attacks<team>(own))
+                & ~bb_shifts::fill_forward<team>(left_attacks<team>(own) | right_attacks<team>(own))
                 & front_span<Team(!team)>(attacks<Team(!team)>(other))
         );
     }
@@ -295,7 +159,7 @@ namespace pawns {
 
     template<Team team>
     constexpr U64 undefendable_pawns(U64 own, U64 other) {
-        return own & ~attacks<team>(fill_occluded<(rel_offset(team, D_N))>(own, ~other)) & advanced_ranks;
+        return own & ~attacks<team>(bb_shifts::fill_occluded<(rel_offset(team, D_N))>(own, ~other)) & advanced_ranks;
     }
 
     constexpr U64 alone(U64 bb) {
@@ -310,7 +174,7 @@ namespace pawns {
     template<Team team>
     constexpr U64 forward_coverage(U64 bb) {
         U64 spans = front_span<team>(bb);
-        return spans | shift<D_E>(spans) | shift<D_W>(spans);
+        return spans | bb_shifts::shift<D_E>(spans) | bb_shifts::shift<D_W>(spans);
     }
 
     template<Team team>
