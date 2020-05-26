@@ -3,10 +3,8 @@
 //
 
 #include "pvs.h"
-#include "movesort.h"
 
 #include "syzygy/tbprobe.h"
-#include "move.h"
 
 namespace pvs {
     struct pv_move_t {
@@ -37,23 +35,12 @@ namespace pvs {
         tt::entry_t h = {};
         tt::Bound h_bound = tt::NONE;
         move_t tt_move = EMPTY_MOVE;
-        if (tt->probe(board->record[board->now].hash, h)) {
+        if (tt->probe(board->record.back().hash, h)) {
             stack[0].eval = h.info.static_eval;
             h_bound = h.bound();
             tt_move = board->to_move(h.info.move);
         } else {
             stack[0].eval = evaluator->evaluate(*board);
-        }
-
-        // Internal iterative deepening
-        if (depth > 6 && tt_move == EMPTY_MOVE) {
-            search_pv(alpha, beta, 0, depth - 6, aborted);
-            if (aborted) return TIMEOUT;
-            if (tt->probe(board->record[board->now].hash, h)) {
-                stack[0].eval = h.info.static_eval;
-                h_bound = h.bound();
-                tt_move = board->to_move(h.info.move);
-            }
         }
 
         std::vector<pv_move_t> move_list;
@@ -100,8 +87,7 @@ namespace pvs {
                     alpha = score;
                     update_pv(0, move_list[0].move);
                     if (score >= beta) {
-                        tt->save(tt::LOWER, board->record[board->now].hash, depth, 0, stack[0].eval, score,
-                                 best_move);
+                        tt->save(tt::LOWER, board->record.back().hash, depth, 0, stack[0].eval, score, best_move);
 
                         if (!move_list[0].move.info.is_capture) {
                             heur.history.update(move_list[0].move, depth * depth);
@@ -162,10 +148,10 @@ namespace pvs {
         }
 
         if (alpha > old_alpha) {
-            tt->save(tt::EXACT, board->record[board->now].hash, depth, 0, stack[0].eval, alpha, best_move);
+            tt->save(tt::EXACT, board->record.back().hash, depth, 0, stack[0].eval, alpha, best_move);
             if (!best_move.info.is_capture) heur.history.update(best_move, depth * depth);
         } else {
-            tt->save(tt::UPPER, board->record[board->now].hash, depth, 0, stack[0].eval, alpha, best_move);
+            tt->save(tt::UPPER, board->record.back().hash, depth, 0, stack[0].eval, alpha, best_move);
         }
 
         return alpha;
@@ -192,7 +178,7 @@ namespace pvs {
         move_t best_move{};
 
         // Game state
-        if (board->record[board->now].halfmove_clock >= 100
+        if (board->record.back().halfmove_clock >= 100
             || board->is_repetition_draw(ply)
             || board->is_material_draw()) {
             return 0;
@@ -202,7 +188,7 @@ namespace pvs {
         tt::entry_t h = {};
         tt::Bound h_bound = tt::NONE;
         move_t tt_move = EMPTY_MOVE;
-        if (tt->probe(board->record[board->now].hash, h)) {
+        if (tt->probe(board->record.back().hash, h)) {
             stack[ply].eval = h.info.static_eval;
             h_bound = h.bound();
             tt_move = board->to_move(h.info.move);
@@ -214,7 +200,7 @@ namespace pvs {
         bool improving = !in_check && (ply <= 1 || stack[ply].eval > stack[ply - 2].eval);
 
         // Probe endgame tablebases
-        if (ply && board->record[board->now].halfmove_clock == 0 && pop_count(board->bb_all) <= use_tb) {
+        if (ply && board->record.back().halfmove_clock == 0 && pop_count(board->bb_all) <= use_tb) {
             int success;
             int value = probe_wdl(*board, &success);
             if (success) {
@@ -233,7 +219,7 @@ namespace pvs {
                 if (bound == tt::EXACT
                     || (bound == tt::LOWER && value >= beta)
                     || (bound == tt::UPPER && value <= alpha)) {
-                    tt->save(bound, board->record[board->now].hash, MAX_PLY, ply, stack[ply].eval, value, EMPTY_MOVE);
+                    tt->save(bound, board->record.back().hash, MAX_PLY, ply, stack[ply].eval, value, EMPTY_MOVE);
                     return value;
                 }
 
@@ -246,7 +232,7 @@ namespace pvs {
         if (depth > 6 && tt_move == EMPTY_MOVE) {
             search_pv(alpha, beta, ply, depth - 6, aborted);
             if (aborted) return TIMEOUT;
-            if (tt->probe(board->record[board->now].hash, h)) {
+            if (tt->probe(board->record.back().hash, h)) {
                 stack[ply].eval = h.info.static_eval;
                 h_bound = h.bound();
                 tt_move = board->to_move(h.info.move);
@@ -287,7 +273,7 @@ namespace pvs {
                 if (depth >= 3 && n_legal > 1) {
                     // LMR
                     R = depth / 8 + n_legal / 8 - improving;
-                    if(stage == GEN_QUIETS && move_score < 0) R++;
+                    if (stage == GEN_QUIETS && move_score < 0) R++;
                     if (R >= 1 && board->see(reverse(move)) < 0) R -= 2;
                 }
 
@@ -312,8 +298,7 @@ namespace pvs {
                     update_pv(ply, move_list[0].move);
 
                     if (score >= beta) {
-                        tt->save(tt::LOWER, board->record[board->now].hash, depth, ply, stack[ply].eval, score,
-                                 best_move);
+                        tt->save(tt::LOWER, board->record.back().hash, depth, ply, stack[ply].eval, score, best_move);
 
                         if (!move_list[0].move.info.is_capture) {
                             heur.history.update(move_list[0].move, depth * depth);
@@ -365,10 +350,10 @@ namespace pvs {
         }
 
         if (alpha > old_alpha) {
-            tt->save(tt::EXACT, board->record[board->now].hash, depth, ply, stack[ply].eval, alpha, best_move);
+            tt->save(tt::EXACT, board->record.back().hash, depth, ply, stack[ply].eval, alpha, best_move);
             if (!best_move.info.is_capture) heur.history.update(best_move, depth * depth);
         } else {
-            tt->save(tt::UPPER, board->record[board->now].hash, depth, ply, stack[ply].eval, alpha, best_move);
+            tt->save(tt::UPPER, board->record.back().hash, depth, ply, stack[ply].eval, alpha, best_move);
         }
 
         return alpha;
@@ -393,7 +378,7 @@ namespace pvs {
 
         // Probe transposition table
         tt::entry_t h = {};
-        if (tt->probe(board->record[board->now].hash, h)) {
+        if (tt->probe(board->record.back().hash, h)) {
             int score = h.value(ply);
             stack[ply].eval = h.info.static_eval;
             tt::Bound h_bound = h.bound();
@@ -406,7 +391,7 @@ namespace pvs {
         }
 
         // Probe endgame tablebases
-        if (ply && board->record[board->now].halfmove_clock == 0 && pop_count(board->bb_all) <= use_tb) {
+        if (ply && board->record.back().halfmove_clock == 0 && pop_count(board->bb_all) <= use_tb) {
             int success;
             int value = probe_wdl(*board, &success);
             if (success) {
@@ -425,7 +410,7 @@ namespace pvs {
                 if (bound == tt::EXACT
                     || (bound == tt::LOWER && value >= beta)
                     || (bound == tt::UPPER && value <= alpha)) {
-                    tt->save(bound, board->record[board->now].hash, MAX_PLY - 1, ply, stack[ply].eval, value,
+                    tt->save(bound, board->record.back().hash, MAX_PLY - 1, ply, stack[ply].eval, value,
                              EMPTY_MOVE);
                     return value;
                 }
@@ -486,7 +471,7 @@ namespace pvs {
         move_t best_move = EMPTY_MOVE;
 
         // Game state
-        if (board->record[board->now].halfmove_clock >= 100
+        if (board->record.back().halfmove_clock >= 100
             || board->is_repetition_draw(ply)
             || board->is_material_draw()) {
             return 0;
@@ -500,7 +485,7 @@ namespace pvs {
         tt::entry_t h = {0};
         tt::Bound h_bound = tt::NONE;
         move_t tt_move = EMPTY_MOVE;
-        if (excluded == EMPTY_MOVE && tt->probe(board->record[board->now].hash, h)) {
+        if (excluded == EMPTY_MOVE && tt->probe(board->record.back().hash, h)) {
             score = h.value(ply);
             stack[ply].eval = h.info.static_eval;
             h_bound = h.bound();
@@ -518,7 +503,7 @@ namespace pvs {
         }
 
         // Probe endgame tablebases
-        if (ply && board->record[board->now].halfmove_clock == 0 && pop_count(board->bb_all) <= use_tb) {
+        if (ply && board->record.back().halfmove_clock == 0 && pop_count(board->bb_all) <= use_tb) {
             int success;
             int value = probe_wdl(*board, &success);
             if (success) {
@@ -537,7 +522,7 @@ namespace pvs {
                 if (bound == tt::EXACT
                     || (bound == tt::LOWER && value >= beta)
                     || (bound == tt::UPPER && value <= beta - 1)) {
-                    tt->save(bound, board->record[board->now].hash, MAX_PLY - 1, ply, stack[ply].eval, value,
+                    tt->save(bound, board->record.back().hash, MAX_PLY - 1, ply, stack[ply].eval, value,
                              EMPTY_MOVE);
                     return value;
                 }
@@ -546,7 +531,7 @@ namespace pvs {
 
         bool in_check = board->is_incheck();
         bool improving = !in_check && (ply <= 1 || stack[ply].eval > stack[ply - 2].eval);
-        bool non_pawn_material = multiple_bits(board->non_pawn_material(board->record[board->now].next_move));
+        bool non_pawn_material = multiple_bits(board->non_pawn_material(board->record.back().next_move));
 
         // Capture refutation from the null move, if relevant
         move_t refutation = EMPTY_MOVE;
@@ -565,14 +550,14 @@ namespace pvs {
 
             // Null move pruning
             int null_score = 0;
-            if (board->record[board->now].prev_move != EMPTY_MOVE && stack[ply].eval >= beta && non_pawn_material) {
+            if (board->record.back().prev_move != EMPTY_MOVE && stack[ply].eval >= beta && non_pawn_material) {
                 board->move(EMPTY_MOVE);
 
                 int R = 2 + depth / 4;
                 null_score = -search_zw(1 - beta, ply + 1, depth - R - 1, aborted);
 
                 tt::entry_t null_entry = {};
-                if (tt->probe(board->record[board->now].hash, null_entry)) {
+                if (tt->probe(board->record.back().hash, null_entry)) {
                     refutation = board->to_move(null_entry.info.move);
                 }
 
@@ -639,8 +624,8 @@ namespace pvs {
             searched++;
 
             // Prefetch
-            tt->prefetch(board->record[board->now].hash);
-            evaluator->prefetch(board->record[board->now].kp_hash);
+            tt->prefetch(board->record.back().hash);
+            evaluator->prefetch(board->record.back().kp_hash);
 
             // Check and castling extensions
             if (move_is_check) {
@@ -651,7 +636,7 @@ namespace pvs {
             if (depth >= 3 && searched > 1) {
                 // LMR
                 int R = 1 + depth / 8 + searched / 8 - improving;
-                if(stage == GEN_QUIETS && move_score < 0) R++;
+                if (stage == GEN_QUIETS && move_score < 0) R++;
                 if (R >= 1 && board->see(reverse(move)) < 0) R -= 2;
 
                 if (R > 0) {
@@ -673,7 +658,7 @@ namespace pvs {
                 best_move = move;
 
                 if (score >= beta) {
-                    tt->prefetch(board->record[board->now].hash);
+                    tt->prefetch(board->record.back().hash);
 
                     if (!move.info.is_capture) {
                         size_t n_prev_quiets;
@@ -687,8 +672,7 @@ namespace pvs {
                         heur.killers.update(move, ply);
                     }
 
-                    tt->save(tt::LOWER, board->record[board->now].hash, depth, ply,
-                             stack[ply].eval, score, best_move);
+                    tt->save(tt::LOWER, board->record.back().hash, depth, ply, stack[ply].eval, score, best_move);
 
                     return beta; // Fail hard
                 }
@@ -704,7 +688,7 @@ namespace pvs {
         }
 
         if (excluded == EMPTY_MOVE) {
-            tt->save(tt::UPPER, board->record[board->now].hash, depth, ply, stack[ply].eval, beta - 1, best_move);
+            tt->save(tt::UPPER, board->record.back().hash, depth, ply, stack[ply].eval, beta - 1, best_move);
         }
 
         return beta - 1;

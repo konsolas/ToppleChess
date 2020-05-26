@@ -7,115 +7,158 @@
 #include <algorithm>
 
 #include "search.h"
-#include "move.h"
-#include "pvs.h"
 
 #include "syzygy/tbprobe.h"
 #include "syzygy/tbresolve.h"
 
-search_t::search_t(board_t board, tt::hash_t *tt, const processed_params_t &params, const search_limits_t &limits)
-        : board(board), tt(tt), params(params), limits(limits), boards(limits.threads, board), contexts() {
-    move_t buf[192];
-    movegen_t gen(board);
-    int pseudo_legal = gen.gen_normal(buf);
-
-    // Copy legal moves to root_moves
-    std::copy_if(buf, buf + pseudo_legal, std::back_inserter(root_moves),
-                 [board](move_t move) { return board.is_legal(move); });
+search_t::search_t(tt::hash_t *tt, const processed_params_t &params, int threads, bool silent)
+        : tt(tt), params(params), limits(nullptr), silent(silent) {
 
     // Create an evaluator for each thread
-    for (size_t i = 0; i < limits.threads; i++) {
-        evaluators.emplace_back(params, 8 * MB);
-    }
 
-    // Find intersection of root moves with UCI searchmoves
-    if (!limits.search_moves.empty()) {
-        root_moves.erase(std::remove_if(root_moves.begin(), root_moves.end(),[limits](move_t move) {
-            return std::find(limits.search_moves.begin(), limits.search_moves.end(), move) == limits.search_moves.end();
-        }), root_moves.end());
+    std::function<void(worker_t*)> worker_loop = [this] (worker_t *worker) {
+        while (!worker->terminated) {
+            std::unique_lock<std::mutex> lock(worker->mutex);
+            worker->cv.wait(lock, [worker] () { return worker->searching || worker->terminated; });
+            if (worker->terminated) break;
+            thread_start(worker->context, *worker->aborted, worker);
+            worker->searching = false;
+            worker->promise.set_value();
+        }
+    };
+
+    for (size_t i = 0; i < threads; i++) {
+        workers.emplace_back(std::make_unique<worker_t>(i, std::ref(params), 8 * MB, std::ref(worker_loop)));
     }
 }
 
-search_result_t search_t::think(std::atomic_bool &aborted) {
+search_t::~search_t() {
+    for (auto &worker : workers) {
+        {
+            std::lock_guard<std::mutex> lock(worker->mutex);
+            worker->terminated = true;
+        }
+        worker->cv.notify_one();
+    }
+
+    for (auto &worker : workers) {
+        worker->thread.join();
+    }
+}
+
+search_result_t search_t::think(board_t &board, const search_limits_t &search_limits, std::atomic_bool &aborted) {
     start = engine_clock::now();
+    this->limits = &search_limits;
 
-    if (limits.threads > 0) {
-        // Probe tablebases at root if no root moves specified
-        int use_tb = TBlargest;
-        int tb_wdl = 0;
+    // Initialise root moves
+    root_moves.clear();
+    {
+        move_t buf[192];
+        movegen_t gen(board);
+        int pseudo_legal = gen.gen_normal(buf);
 
-        // the UCI searchmoves option overrides tablebase root move filtering
-        if (limits.search_moves.empty() && pop_count(board.bb_all) <= TBlargest) {
-            std::vector<move_t> tb_root_moves = root_probe(board, tb_wdl);
+        // Copy legal moves to root_moves
+        std::copy_if(buf, buf + pseudo_legal, std::back_inserter(root_moves),
+                     [board](move_t move) { return board.is_legal(move); });
+
+        // Find intersection of root moves with UCI searchmoves
+        if (!search_limits.search_moves.empty()) {
+            root_moves.erase(std::remove_if(root_moves.begin(), root_moves.end(), [&search_limits] (move_t move) {
+                return std::find(search_limits.search_moves.begin(), search_limits.search_moves.end(), move) ==
+                       search_limits.search_moves.end();
+            }), root_moves.end());
+        }
+    }
+
+    // Probe tablebases at root if no root moves specified
+    int use_tb = TBlargest;
+    int tb_wdl = 0;
+
+    // the UCI searchmoves option overrides tablebase root move filtering
+    if (search_limits.search_moves.empty() && pop_count(board.bb_all) <= TBlargest) {
+        std::vector<move_t> tb_root_moves = root_probe(board, tb_wdl);
+
+        if (!tb_root_moves.empty()) {
+            // DTZ tablebases available: set root moves and don't use tablebases during search.
+            root_moves = std::move(tb_root_moves);
+            use_tb = 0;
+        } else {
+            tb_root_moves = root_probe_wdl(board, tb_wdl);
 
             if (!tb_root_moves.empty()) {
-                // DTZ tablebases available: set root moves and don't use tablebases during search.
+                // WDL tablebases available: set root moves and only use tablebases during search if we're winning.
                 root_moves = std::move(tb_root_moves);
-                use_tb = 0;
-            } else {
-                tb_root_moves = root_probe_wdl(board, tb_wdl);
-
-                if (!tb_root_moves.empty()) {
-                    // WDL tablebases available: set root moves and only use tablebases during search if we're winning.
-                    root_moves = std::move(tb_root_moves);
-                    if (tb_wdl <= 0) {
-                        use_tb = 0;
-                    }
+                if (tb_wdl <= 0) {
+                    use_tb = 0;
                 }
             }
         }
-
-        if (root_moves.empty()) {
-            std::cerr << "warn: no legal moves found at the root position" << std::endl;
-            return {EMPTY_MOVE, EMPTY_MOVE};
-        }
-
-        // Instantly exit if there is only one legal move
-        if (limits.game_situation && root_moves.size() == 1) {
-            // Try to obtain a ponder move from the transposition table
-            board.move(root_moves[0]);
-
-            tt::entry_t h = {};
-            move_t ponder_move = EMPTY_MOVE;
-            if (tt->probe(board.record[board.now].hash, h)) {
-                ponder_move = board.to_move(h.info.move);
-            }
-
-            board.unmove();
-
-            return {root_moves[0], ponder_move};
-        }
-
-        // Start threads
-        for (size_t tid = 0; tid < limits.threads; tid++) {
-            contexts.emplace_back(&boards[tid], &evaluators[tid], tt, use_tb);
-        }
-
-        // Start all the threads
-        std::vector<std::future<void>> futures;
-        futures.reserve(limits.threads);
-        for (size_t tid = 0; tid < limits.threads; tid++) {
-            futures.push_back(std::async(std::launch::async, &search_t::thread_start,
-                                         this, std::ref(contexts[tid]), std::ref(aborted), tid));
-        }
-
-        // Wait for the main thread to exit.
-        futures[0].wait();
-
-        // Then abort and wait for all the helper threads
-        aborted = true;
-
-        for (size_t tid = 1; tid < limits.threads; tid++) {
-            futures[tid].wait();
-        }
-    } else {
-        throw std::invalid_argument("threads cannot be 0");
     }
 
+    // Check for nonsense
+    if (root_moves.empty()) {
+        std::cerr << "warn: no legal moves found at the root position" << std::endl;
+        return {EMPTY_MOVE, EMPTY_MOVE};
+    }
+
+    // Instantly exit if there is only one legal move in a game
+    if (limits->game_situation && root_moves.size() == 1) {
+        // Try to obtain a ponder move from the transposition table
+        board.move(root_moves[0]);
+
+        tt::entry_t h = {};
+        move_t ponder_move = EMPTY_MOVE;
+        if (tt->probe(board.record.back().hash, h)) {
+            ponder_move = board.to_move(h.info.move);
+        }
+
+        board.unmove();
+
+        return {root_moves[0], ponder_move};
+    }
+
+    // Start workers
+    std::vector<std::future<void>> futures;
+    for (auto &worker : workers) {
+        // Initialise worker
+        worker->board = board;
+        worker->context = pvs::context_t(&worker->board, &worker->evaluator, tt, use_tb);
+        worker->aborted = &aborted;
+
+        std::promise<void> promise = std::promise<void>();
+        futures.push_back(promise.get_future());
+        worker->promise = std::move(promise);
+
+        // Notify worker thread
+        {
+            std::lock_guard<std::mutex> lock(worker->mutex);
+            worker->searching = true;
+        }
+        worker->cv.notify_one();
+    }
+
+    // Make sure the timer has started for ponder
     wait_for_timer();
 
-    std::vector<move_t> pv = contexts[0].get_saved_pv();
+    // Limit time for main thread
+#ifdef TOPPLE_TUNE
+    futures[0].wait();
+#else
+    if (futures[0].wait_for(std::chrono::milliseconds(search_limits.hard_time_limit)) !=
+        std::future_status::ready) {
+        aborted = true;
+        futures[0].wait();
+    }
+#endif
 
+    // Then abort and wait for all the helper threads
+    aborted = true;
+    for (size_t tid = 1; tid < workers.size(); tid++) {
+        futures[tid].wait();
+    }
+
+    // Read the PV
+    std::vector<move_t> pv = workers[0]->context.get_saved_pv();
     if (pv.empty()) {
         std::cerr << "warn: insufficient time to search to depth 1" << std::endl;
         return {EMPTY_MOVE, EMPTY_MOVE};
@@ -127,7 +170,7 @@ search_result_t search_t::think(std::atomic_bool &aborted) {
 
         tt::entry_t h = {};
         move_t ponder_move = EMPTY_MOVE;
-        if (tt->probe(board.record[board.now].hash, h)) {
+        if (tt->probe(board.record.back().hash, h)) {
             ponder_move = board.to_move(h.info.move);
         }
 
@@ -153,22 +196,26 @@ void search_t::wait_for_timer() {
     while (!timer_started) timer_cnd.wait(lock);
 }
 
-void search_t::thread_start(pvs::context_t &context, const std::atomic_bool &aborted, const size_t tid) {
+void search_t::reset_timer() {
+    timer_started = false;
+}
+
+void search_t::thread_start(pvs::context_t &context, const std::atomic_bool &aborted, worker_t *worker) {
     int prev_score = 0;
 
     // Check if this is the main thread
-    if (tid == 0) {
+    if (worker->tid == 0) {
         // Scale search time based on the complexity of the position
-        double tapering_factor = evaluators[0].game_phase(*context.get_board());
+        double tapering_factor = worker->evaluator.game_phase(*context.get_board());
         double complexity = std::clamp(root_moves.size() / 30.0, 0.5, 8.0) * tapering_factor + (1 - tapering_factor);
-        int adjusted_suggestion = static_cast<int>(complexity * limits.suggested_time_limit);
+        int adjusted_suggestion = static_cast<int>(complexity * limits->suggested_time_limit);
 
-        for (int depth = 1; depth <= MAX_PLY && (tid != 0 || keep_searching(depth)); depth++) {
-            int score = search_aspiration(context, prev_score, depth, aborted, tid);
+        for (int depth = 1; depth <= MAX_PLY && (worker->tid != 0 || keep_searching(depth)); depth++) {
+            int score = search_aspiration(context, prev_score, depth, aborted, worker->tid);
             if (aborted) break;
 
             // If in game situation, try and manage time
-            if (limits.game_situation && timer_started) {
+            if (limits->game_situation && timer_started) {
                 auto elapsed = CHRONO_DIFF(timer_start, engine_clock::now());
 
                 // See if we can justify ending the search early, as long as we're not doing badly
@@ -184,14 +231,15 @@ void search_t::thread_start(pvs::context_t &context, const std::atomic_bool &abo
         }
     } else {
         for (int depth = 1; depth <= MAX_PLY; depth++) {
-            int score = search_aspiration(context, prev_score, depth, aborted, tid);
+            int score = search_aspiration(context, prev_score, depth, aborted, worker->tid);
             if (aborted) break;
             prev_score = score;
         }
     }
 }
 
-int search_t::search_aspiration(pvs::context_t &context, int prev_score, int depth, const std::atomic_bool &aborted, size_t tid) {
+int search_t::search_aspiration(pvs::context_t &context, int prev_score, int depth, const std::atomic_bool &aborted,
+                                size_t tid) {
     const int ASPIRATION_DELTA = 15;
 
     int alpha, beta, delta = ASPIRATION_DELTA;
@@ -210,10 +258,12 @@ int search_t::search_aspiration(pvs::context_t &context, int prev_score, int dep
 
     // Check if we need to search again
     while (true) {
-        if (tid == 0 && time > 1000) {
+        assert(alpha <= beta);
+
+        if (!silent && tid == 0 && time > 1000) {
             score = context.search_root(root_moves,
-                                        [this, tid, depth, &aborted](int score) {
-                                            print_stats(boards[tid], score, depth, tt::EXACT, aborted);
+                                        [this, &context, tid, depth, &aborted](int score) {
+                                            print_stats(*context.get_board(), score, depth, tt::EXACT, aborted);
                                         },
                                         [](int num, move_t move) {
                                             std::cout << "info currmove " << move << " currmovenumber " << num
@@ -229,13 +279,13 @@ int search_t::search_aspiration(pvs::context_t &context, int prev_score, int dep
         // Only save the principal variation if the bound is LOWER or EXACT
         if (score >= beta) {
             context.save_pv();
-            if (tid == 0) {
-                print_stats(boards[tid], score, depth, tt::LOWER, aborted);
+            if (!silent && tid == 0) {
+                print_stats(*context.get_board(), score, depth, tt::LOWER, aborted);
             }
             beta = std::min(INF, beta + delta);
         } else if (score <= alpha) {
-            if (tid == 0) {
-                print_stats(boards[tid], score, depth, tt::UPPER, aborted);
+            if (!silent && tid == 0) {
+                print_stats(*context.get_board(), score, depth, tt::UPPER, aborted);
             }
             beta = (alpha + beta) / 2;
             alpha = std::max(-INF, alpha - delta);
@@ -247,23 +297,24 @@ int search_t::search_aspiration(pvs::context_t &context, int prev_score, int dep
         delta = delta + delta / 2;
     }
 
-    if (tid == 0) {
-        print_stats(boards[tid], score, depth, tt::EXACT, aborted);
+    if (!silent && tid == 0) {
+        print_stats(*context.get_board(), score, depth, tt::EXACT, aborted);
     }
 
     return score;
 }
 
 bool search_t::keep_searching(int depth) {
-    return ((limits.node_limit == UINT64_MAX || count_nodes() <= limits.node_limit)
-            && depth <= limits.depth_limit
-            && (!timer_started || CHRONO_DIFF(timer_start, engine_clock::now()) <= limits.hard_time_limit));
+    return workers[0]->context.get_saved_pv().empty()
+            || ((limits->node_limit == UINT64_MAX || count_nodes() <= limits->node_limit)
+            && depth <= limits->depth_limit
+            && (!timer_started || CHRONO_DIFF(timer_start, engine_clock::now()) <= limits->hard_time_limit));
 }
 
 U64 search_t::count_nodes() {
     U64 total_nodes = 0;
-    for (size_t tid = 0; tid < limits.threads; tid++) {
-        total_nodes += contexts[tid].get_nodes();
+    for (auto &worker : workers) {
+        total_nodes += worker->context.get_nodes();
     }
 
     return total_nodes;
@@ -271,8 +322,8 @@ U64 search_t::count_nodes() {
 
 U64 search_t::count_tb_hits() {
     U64 total_tb_hits = 0;
-    for (size_t tid = 0; tid < limits.threads; tid++) {
-        total_tb_hits += contexts[tid].get_tb_hits();
+    for (auto &worker : workers) {
+        total_tb_hits += worker->context.get_tb_hits();
     }
 
     return total_tb_hits;
@@ -283,12 +334,12 @@ void search_t::print_stats(board_t &pos, int score, int depth, tt::Bound bound, 
     auto time = CHRONO_DIFF(start, engine_clock::now());
 
     // Get an appropriate PV
-    std::vector<move_t> pv = bound == tt::EXACT ? contexts[0].get_current_pv() : contexts[0].get_saved_pv();
+    std::vector<move_t> pv = bound == tt::EXACT ? workers[0]->context.get_current_pv() : workers[0]->context.get_saved_pv();
 
     // Try syzygy resolution
-    auto sel_depth = size_t(contexts[0].get_sel_depth());
-    if (limits.syzygy_resolve > 0) {
-        resolve_pv(pos, evaluators[0], pv, score, limits.syzygy_resolve, aborted);
+    auto sel_depth = size_t(workers[0]->context.get_sel_depth());
+    if (limits->syzygy_resolve > 0) {
+        resolve_pv(pos, workers[0]->evaluator, pv, score, limits->syzygy_resolve, aborted);
         sel_depth = std::max(pv.size(), sel_depth);
     }
 

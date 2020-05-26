@@ -7,7 +7,7 @@
 #include <fstream>
 
 #include "../board.h"
-#include "tuner.h"
+#include "texel.h"
 #include "../endgame.h"
 
 #define TOPPLE_TUNE_VER "0.0.2"
@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
 
     std::cout << "loaded " << boards.size() << " positions" << std::endl;
 
-    tuner_t tuner = tuner_t(4, boards.size(), boards, results);
+    texel_t tuner = texel_t(4, boards.size(), boards, results);
 
     while (true) {
         std::string input;

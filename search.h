@@ -60,9 +60,6 @@ struct search_limits_t {
     int depth_limit;
     U64 node_limit;
     std::vector<move_t> search_moves;
-
-    // Resource limits
-    size_t threads = 1;
     size_t syzygy_resolve = 512;
 };
 
@@ -72,14 +69,40 @@ struct search_result_t {
 };
 
 class search_t {
-public:
-    explicit search_t(board_t board, tt::hash_t *tt, const processed_params_t &params, const search_limits_t &limits);
+    struct worker_t {
+        size_t tid;
+        evaluator_t evaluator;
 
-    search_result_t think(std::atomic_bool &aborted);
+        board_t board;
+        pvs::context_t context;
+        std::atomic_bool *aborted = nullptr;
+
+        std::thread thread;
+        std::promise<void> promise;
+
+        bool searching = false;
+        bool terminated = false;
+        std::mutex mutex;
+        std::condition_variable cv;
+
+        worker_t(size_t tid, const processed_params_t &eval_params, size_t pawn_hash_size, const std::function<void(worker_t*)>& runnable) :
+            tid(tid), evaluator(eval_params, pawn_hash_size) {
+            thread = std::thread(runnable, this);
+        }
+        worker_t(const worker_t &) = delete;
+    };
+public:
+    explicit search_t(tt::hash_t *tt, const processed_params_t &params, int threads, bool silent = false);
+    ~search_t();
+    search_t(const search_t&) = delete;
+    search_t(const search_t&&) = delete;
+
+    search_result_t think(board_t &board, const search_limits_t &limits, std::atomic_bool &aborted);
     void enable_timer();
     void wait_for_timer();
+    void reset_timer();
 private:
-    void thread_start(pvs::context_t &context, const std::atomic_bool &aborted, size_t tid);
+    void thread_start(pvs::context_t &context, const std::atomic_bool &aborted, worker_t *worker);
     int search_aspiration(pvs::context_t &context, int prev_score, int depth, const std::atomic_bool &aborted, size_t tid);
 
     bool keep_searching(int depth);
@@ -88,20 +111,16 @@ private:
     U64 count_tb_hits();
     void print_stats(board_t &board, int score, int depth, tt::Bound bound, const std::atomic_bool &aborted);
 
-    board_t board;
+    bool silent;
 
     // Shared structures
     tt::hash_t *tt;
     const processed_params_t &params;
-    const search_limits_t &limits;
-
-    // Threads
-    std::vector<evaluator_t> evaluators;
-    std::vector<board_t> boards;
-    std::vector<pvs::context_t> contexts;
-
-    // Root moves
+    search_limits_t const *limits;
     std::vector<move_t> root_moves;
+
+    // Workers
+    std::vector<std::unique_ptr<worker_t>> workers;
 
     // Timing
     std::mutex timer_mtx;

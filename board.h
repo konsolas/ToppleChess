@@ -82,22 +82,19 @@ struct alignas(64) board_t {
     sq_data_t sq_data[64] = {{}};
 
     /* Game history */
-    int now = 0; // Index for record array
-#ifdef TOPPLE_TUNE
-    game_record_t record[4] = {{}}; // Shortened record to save memory while tuning
-#else
-    game_record_t record[4096] = {{}}; // Record (supporting games of up to 4096 moves)
-#endif
+    std::vector<game_record_t> record;
 
     /* Internal methods */
     template<bool HASH>
     void switch_piece(Team side, Piece piece, uint8_t sq);
+
+    void print();
 };
 
 inline std::ostream &operator<<(std::ostream &stream, const board_t &board) {
     stream << std::endl;
 
-    for (int i = 1; i <= board.now; i++) {
+    for (int i = 1; i <= board.record.size(); i++) {
         if (i % 2 != 0) {
             stream << " " << ((i + 1) / 2) << ". ";
         }

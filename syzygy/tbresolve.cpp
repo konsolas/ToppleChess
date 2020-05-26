@@ -20,7 +20,7 @@ bool resolve_pv(board_t &pos, evaluator_t &evaluator, std::vector<move_t> &pv,
 
     // Play out the PV
     for(auto it = pv.begin(); it < pv.end(); it++) {
-        int cnt50 = pos.record[pos.now].halfmove_clock;
+        int cnt50 = pos.record.back().halfmove_clock;
 
         pos.move(*it);
         int new_dtz = -probe_dtz(pos, &success);
@@ -70,7 +70,7 @@ bool resolve_pv(board_t &pos, evaluator_t &evaluator, std::vector<move_t> &pv,
                 }
             }
             if (!v) {
-                if (pos.record[pos.now].halfmove_clock != 0) {
+                if (pos.record.back().halfmove_clock != 0) {
                     v = -probe_dtz(pos, &success);
                     if (v > 0) v++;
                     else if (v < 0) v--;

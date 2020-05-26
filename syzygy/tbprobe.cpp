@@ -42,12 +42,12 @@ static void prt_str(board_t& pos, char *str, int mirror)
 
     color = !mirror ? WHITE : BLACK;
     for (pt = KING; pt >= PAWN; pt--)
-        for (i = pos.record[pos.now].material.info.count(color, Piece(pt)); i > 0; i--)
+        for (i = pos.record.back().material.info.count(color, Piece(pt)); i > 0; i--)
             *str++ = pchr[5 - pt];
     *str++ = 'v';
     color = Team(!color);
     for (pt = KING; pt >= PAWN; pt--)
-        for (i = pos.record[pos.now].material.info.count(color, Piece(pt)); i > 0; i--)
+        for (i = pos.record.back().material.info.count(color, Piece(pt)); i > 0; i--)
             *str++ = pchr[5 - pt];
     *str++ = 0;
 }
@@ -64,11 +64,11 @@ static uint64 calc_key(board_t& pos, int mirror)
 
     color = !mirror ? WHITE : BLACK;
     for (pt = PAWN; pt <= KING; pt++)
-        for (i = pos.record[pos.now].material.info.count(color, Piece(pt)); i > 0; i--)
+        for (i = pos.record.back().material.info.count(color, Piece(pt)); i > 0; i--)
             key ^= zobrist::squares[i - 1][WHITE][pt];
     color = Team(!color);
     for (pt = PAWN; pt <= KING; pt++)
-        for (i = pos.record[pos.now].material.info.count(color, Piece(pt)); i > 0; i--)
+        for (i = pos.record.back().material.info.count(color, Piece(pt)); i > 0; i--)
             key ^= zobrist::squares[i - 1][BLACK][pt];
 
     return key;
@@ -150,14 +150,14 @@ static int probe_wdl_table(board_t& pos, int *success)
         if (key != ptr->key) {
             cmirror = 8;
             mirror = 0x38;
-            bside = (pos.record[pos.now].next_move == WHITE);
+            bside = (pos.record.back().next_move == WHITE);
         } else {
             cmirror = mirror = 0;
-            bside = !(pos.record[pos.now].next_move == WHITE);
+            bside = !(pos.record.back().next_move == WHITE);
         }
     } else {
-        cmirror = pos.record[pos.now].next_move == WHITE ? 0 : 8;
-        mirror = pos.record[pos.now].next_move == WHITE ? 0 : 0x38;
+        cmirror = pos.record.back().next_move == WHITE ? 0 : 8;
+        mirror = pos.record.back().next_move == WHITE ? 0 : 0x38;
         bside = 0;
     }
 
@@ -252,14 +252,14 @@ static int probe_dtz_table(board_t& pos, int wdl, int *success)
         if (key != ptr->key) {
             cmirror = 8;
             mirror = 0x38;
-            bside = (pos.record[pos.now].next_move == WHITE);
+            bside = (pos.record.back().next_move == WHITE);
         } else {
             cmirror = mirror = 0;
-            bside = !(pos.record[pos.now].next_move == WHITE);
+            bside = !(pos.record.back().next_move == WHITE);
         }
     } else {
-        cmirror = pos.record[pos.now].next_move == WHITE ? 0 : 8;
-        mirror = pos.record[pos.now].next_move == WHITE ? 0 : 0x38;
+        cmirror = pos.record.back().next_move == WHITE ? 0 : 8;
+        mirror = pos.record.back().next_move == WHITE ? 0 : 0x38;
         bside = 0;
     }
 
@@ -659,7 +659,7 @@ std::vector<move_t> root_probe(board_t& pos, int &wdl)
                 v = 1;
         }
         if (!v) {
-            if (pos.record[pos.now].halfmove_clock != 0) {
+            if (pos.record.back().halfmove_clock != 0) {
                 v = -probe_dtz(pos, &success);
                 if (v > 0) v++;
                 else if (v < 0) v--;
@@ -674,7 +674,7 @@ std::vector<move_t> root_probe(board_t& pos, int &wdl)
     }
 
     // Obtain 50-move counter for the root position.
-    int cnt50 = pos.record[pos.now].halfmove_clock;
+    int cnt50 = pos.record.back().halfmove_clock;
 
     // Use 50-move counter to determine whether the root position is
     // won, lost or drawn.

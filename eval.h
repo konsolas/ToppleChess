@@ -164,10 +164,9 @@ struct eval_params_t {
     int kat_attack_weight[5] = {8, 15, 11, 9, 11};
     int kat_defence_weight[5] = {8, 4, 4, 2, 1};
 
-    int kat_table_scale = 23;
+    int kat_table_scale = 45;
     int kat_table_translate = 77;
     int kat_table_max = 430;
-    int kat_table_offset = 10;
 
     /// Threats
     int undefended_mg[5] = {-9, -17, -13, -3, -12}; // [¬KING]
@@ -208,12 +207,14 @@ struct processed_params_t : public eval_params_t {
 };
 
 class alignas(64) evaluator_t {
+    pawns::structure_t *pawn_hash_table;
     size_t pawn_hash_entries;
-    std::vector<pawns::structure_t> pawn_hash_table;
 
     const processed_params_t &params;
 public:
     evaluator_t(const processed_params_t &params, size_t pawn_hash_size);
+    ~evaluator_t();
+    evaluator_t(const evaluator_t &) = delete;
 
     int evaluate(const board_t &board);
     void prefetch(U64 pawn_hash);

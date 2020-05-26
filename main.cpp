@@ -31,19 +31,20 @@ int main(int argc, char *argv[]) {
     std::mutex tt_memory_mtx;
     tt = new tt::hash_t(hash_size * MB);
 
+    // Evaluation
+    processed_params_t params = processed_params_t(eval_params_t());
+
     // Search
-    std::unique_ptr<search_t> search = nullptr;
+    std::unique_ptr<search_t> search = std::make_unique<search_t>(tt, params, 1);
     std::atomic_bool search_abort;
     std::future<void> future;
+    bool search_active;
 
     // Parameters
     size_t threads = 1;
     int move_overhead = 50;
     size_t syzygy_resolve = 512;
     std::string tb_path;
-
-    // Evaluation
-    processed_params_t params = processed_params_t(eval_params_t());
 
     // Startup
     std::cout << "Topple " << TOPPLE_VER << " (c) Vincent Tang 2019" << std::endl;
@@ -73,7 +74,7 @@ int main(int argc, char *argv[]) {
 
                 std::cout << "uciok" << std::endl;
             } else if (cmd == "setoption") {
-                if (search) {
+                if (search_active) {
                     std::cerr << "warn: setoption command rejected as search is in progress" << std::endl;
                 } else {
                     std::string name;
@@ -93,6 +94,9 @@ int main(int argc, char *argv[]) {
                             delete tt;
                             tt = new tt::hash_t(hash_size * MB);
                         }
+
+                        // Recreate search
+                        search = std::make_unique<search_t>(tt, params, threads);
                     } else if (name == "MoveOverhead") {
                         std::string value;
                         iss >> value;
@@ -101,6 +105,8 @@ int main(int argc, char *argv[]) {
                         std::string value;
                         iss >> value; // Skip value
                         iss >> threads;
+
+                        search = std::make_unique<search_t>(tt, params, threads);
                     } else if (name == "SyzygyPath") {
                         std::string value;
                         iss >> value; // Skip value
@@ -125,7 +131,7 @@ int main(int argc, char *argv[]) {
             } else if (cmd == "isready") {
                 std::cout << "readyok" << std::endl;
             } else if (cmd == "stop") {
-                if (search) {
+                if (search_active) {
                     // Cancel waiting for ponderhit by enabling the search timer, and then hard-aborting.
                     search->enable_timer();
                     search_abort = true;
@@ -171,7 +177,7 @@ int main(int argc, char *argv[]) {
                     }
                 }
             } else if (cmd == "go") {
-                if (search) {
+                if (search_active) {
                     std::cerr << "warn: go command received, but search already in progress" << std::endl;
                 } else if (board) {
                     // Parse parameters
@@ -211,22 +217,22 @@ int main(int argc, char *argv[]) {
                             }
                         } else if (param == "wtime") {
                             time_control.enabled = true;
-                            if (board->record[board->now].next_move == WHITE) {
+                            if (board->record.back().next_move == WHITE) {
                                 iss >> time_control.time;
                             }
                         } else if (param == "btime") {
                             time_control.enabled = true;
-                            if (board->record[board->now].next_move == BLACK) {
+                            if (board->record.back().next_move == BLACK) {
                                 iss >> time_control.time;
                             }
                         } else if (param == "winc") {
                             time_control.enabled = true;
-                            if (board->record[board->now].next_move == WHITE) {
+                            if (board->record.back().next_move == WHITE) {
                                 iss >> time_control.inc;
                             }
                         } else if (param == "binc") {
                             time_control.enabled = true;
-                            if (board->record[board->now].next_move == BLACK) {
+                            if (board->record.back().next_move == BLACK) {
                                 iss >> time_control.inc;
                             }
                         } else if (param == "movestogo") {
@@ -238,6 +244,7 @@ int main(int argc, char *argv[]) {
                     }
 
                     // Setup
+                    search_active = true;
                     search_abort = false;
 
                     search_limits_t limits = time_control.enabled ?
@@ -245,42 +252,23 @@ int main(int argc, char *argv[]) {
                                                              time_control.inc, time_control.moves) :
                                              search_limits_t(max_time, max_depth, max_nodes, root_moves);
 
-                    limits.threads = threads;
                     limits.syzygy_resolve = syzygy_resolve;
-
-                    search = std::make_unique<search_t>(*board, tt, params, limits);
 
                     if (!ponder) search->enable_timer();
 
                     // Start search
                     future = std::async(std::launch::async,
-                                        [&tt, &search, ponder, &search_abort, &tt_memory_mtx, limits] {
-                                            std::future<search_result_t> bm = std::async(std::launch::async,
-                                                                                         &search_t::think,
-                                                                                         search.get(),
-                                                                                         std::ref(search_abort));
-                                            search_result_t result;
-
-                                            // Wait for actual search to start
-                                            if (ponder) {
-                                                search->wait_for_timer();
-                                            }
-
-                                            if (bm.wait_for(std::chrono::milliseconds(limits.hard_time_limit)) ==
-                                                std::future_status::ready) {
-                                                result = bm.get();
-                                            } else {
-                                                search_abort = true;
-                                                result = bm.get();
-                                            }
-
-                                            search = nullptr;
+                                        [&tt, &search, &board, &search_active, ponder, &search_abort, &tt_memory_mtx, limits] {
+                                            search_result_t result = search->think(*board, limits, search_abort);
 
                                             std::cout << "bestmove " << result.best_move;
                                             if (result.ponder != EMPTY_MOVE) {
                                                 std::cout << " ponder " << result.ponder;
                                             }
                                             std::cout << std::endl;
+
+                                            search_active = false;
+                                            search->reset_timer();
 
                                             // Age the transposition table
                                             {
@@ -293,20 +281,24 @@ int main(int argc, char *argv[]) {
                     std::cerr << "warn: search command received, but no position specified" << std::endl;
                 }
             } else if (cmd == "ponderhit") {
-                if (search) {
+                if (search_active) {
                     search->enable_timer();
                 } else {
                     std::cerr << "warn: ponderhit command received, but no search in progress" << std::endl;
                 }
             } else if (cmd == "ucinewgame") {
-                if (search) {
+                if (search_active) {
                     std::cerr << "warn: ucinewgame command received, but search is in progress" << std::endl;
                 } else {
                     {
+                        // Recreate hash table
                         std::lock_guard<std::mutex> lock(tt_memory_mtx);
                         delete tt;
                         tt = new tt::hash_t(hash_size * MB);
                     }
+
+                    // Recreate search
+                    search = std::make_unique<search_t>(tt, params, threads);
                 }
             } else if (cmd == "mirror") {
                 if (board) {
@@ -326,7 +318,7 @@ int main(int argc, char *argv[]) {
                         int dtz = probe_dtz(*board, &success);
 
                         if (success) {
-                            int cnt50 = board->record[board->now].halfmove_clock;
+                            int cnt50 = board->record.back().halfmove_clock;
                             int wdl = 0;
                             if (dtz > 0)
                                 wdl = (dtz + cnt50 <= 100) ? 2 : 1;

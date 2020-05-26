@@ -25,7 +25,12 @@ set(TEST_FILES testing/catch.hpp testing/runner.cpp testing/util.h testing/util.
         testing/tests/test_perft.cpp
         testing/tests/test_see.cpp
         testing/tests/test_hash.cpp)
-set(TUNE_FILES tuning/tunemain.cpp tuning/tuner.cpp tuning/tuner.h)
+set(TOPPLE_TUNE_FILES toppletuning/main.cpp
+        toppletuning/game.cpp toppletuning/game.h
+        toppletuning/toppletuner.cpp toppletuning/toppletuner.h
+        toppletuning/ctpl_stl.h)
+set(TEXEL_TUNE_FILES texeltuning/main.cpp
+        texeltuning/texel.cpp texeltuning/texel.h)
 
 # Add version definitions
 add_definitions(-DTOPPLE_VER="${TOPPLE_VERSION}")
@@ -33,7 +38,8 @@ add_definitions(-DTOPPLE_VER="${TOPPLE_VERSION}")
 add_executable(ToppleTest ${SOURCE_FILES} ${TEST_FILES})
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 add_executable(Topple ${SOURCE_FILES} main.cpp)
-add_executable(ToppleTune ${SOURCE_FILES} ${TUNE_FILES})
+add_executable(ToppleTune ${SOURCE_FILES} ${TOPPLE_TUNE_FILES})
+add_executable(ToppleTexelTune ${SOURCE_FILES} ${TEXEL_TUNE_FILES})
 
 # Link pthreads on linux
 set(THREADS_PREFER_PTHREAD_FLAG ON)
@@ -42,15 +48,11 @@ target_link_libraries(Topple Threads::Threads)
 target_link_libraries(ToppleTest Threads::Threads)
 target_link_libraries(ToppleTune Threads::Threads)
 
-# Need static compile for MinGW on windows, but cannot compile statically on unix.
-if (MINGW)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static")
-endif ()
-
 # Set -march for the Topple target
 target_compile_options(ToppleTest PUBLIC -march=native -O3)
 target_compile_options(Topple PUBLIC -march=native -O3 -DNDEBUG) # NDEBUG to disable asserts
 target_compile_options(ToppleTune PUBLIC -DTOPPLE_TUNE -O3 -march=native -DNDEBUG)
+target_compile_options(ToppleTexelTune PUBLIC -DTEXEL_TUNE -O3 -march=native -DNDEBUG)
 
 # Configure the "Release" target
 if (CMAKE_BUILD_TYPE STREQUAL "Release")

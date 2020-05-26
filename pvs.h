@@ -24,8 +24,8 @@ namespace pvs {
     public:
         // Constructor
         context_t(board_t *board, evaluator_t *evaluator, tt::hash_t *tt, int use_tb)
-                : board(board), evaluator(evaluator), tt(tt), use_tb(use_tb) {
-        }
+                : board(board), evaluator(evaluator), tt(tt), use_tb(use_tb) {}
+        context_t() = default;
 
         // Search
         int search_root(std::vector<move_t> root_moves,

@@ -9,24 +9,22 @@
 #include <cstring>
 
 #include "board.h"
-#include "testing/catch.hpp"
 #include "move.h"
 #include "hash.h"
 
 void board_t::move(move_t move) {
-    // Copy the record
-    memcpy(&record[now + 1], &record[now], sizeof(game_record_t));
-    now += 1;
-    record[now].prev_move = move;
+    // Insert a new record
+    record.push_back(record.back());
+    record.back().prev_move = move;
 
     // Update side hash
-    record[now].next_move = (Team) !record[now].next_move;
-    record[now].hash ^= zobrist::side;
+    record.back().next_move = (Team) !record.back().next_move;
+    record.back().hash ^= zobrist::side;
 
     // Update ep hash
-    if (record[now - 1].ep_square != 0) {
-        record[now].ep_square = 0;
-        record[now].hash ^= zobrist::ep[record[now - 1].ep_square];
+    if (record.crbegin()[1].ep_square != 0) {
+        record.back().ep_square = 0;
+        record.back().hash ^= zobrist::ep[record.crbegin()[1].ep_square];
     }
 
     if (move != EMPTY_MOVE) {
@@ -35,18 +33,18 @@ void board_t::move(move_t move) {
 
         // Update halfmove clock
         if (move.info.piece == PAWN || move.info.is_capture) {
-            record[now].halfmove_clock = 0;
+            record.back().halfmove_clock = 0;
         } else {
-            record[now].halfmove_clock++;
+            record.back().halfmove_clock++;
         }
 
         if (move.info.is_capture && move.info.captured_type == ROOK) {
-            if (move.info.to == (x_team ? H8 : H1) && record[now].castle[x_team][0]) {
-                record[now].castle[x_team][0] = false;
-                record[now].hash ^= zobrist::castle[x_team][0];
-            } else if (move.info.to == (x_team ? A8 : A1) && record[now].castle[x_team][1]) {
-                record[now].castle[x_team][1] = false;
-                record[now].hash ^= zobrist::castle[x_team][1];
+            if (move.info.to == (x_team ? H8 : H1) && record.back().castle[x_team][0]) {
+                record.back().castle[x_team][0] = false;
+                record.back().hash ^= zobrist::castle[x_team][0];
+            } else if (move.info.to == (x_team ? A8 : A1) && record.back().castle[x_team][1]) {
+                record.back().castle[x_team][1] = false;
+                record.back().hash ^= zobrist::castle[x_team][1];
             }
         }
 
@@ -68,38 +66,38 @@ void board_t::move(move_t move) {
 
             // Update en-passant square
             if (team ? move.info.to - move.info.from == -16 : move.info.to - move.info.from == 16) {
-                record[now].ep_square = team ? move.info.to + uint8_t(8) : move.info.to - uint8_t(8);
-                record[now].hash ^= zobrist::ep[record[now].ep_square];
+                record.back().ep_square = team ? move.info.to + uint8_t(8) : move.info.to - uint8_t(8);
+                record.back().hash ^= zobrist::ep[record.back().ep_square];
             }
         } else {
             // Update castling hashes for moving rook
             if (move.info.piece == ROOK) {
                 if (team) {
-                    if (move.info.from == H8 && record[now].castle[team][0]) {
-                        record[now].hash ^= zobrist::castle[team][0];
-                        record[now].castle[team][0] = false;
-                    } else if (move.info.from == A8 && record[now].castle[team][1]) {
-                        record[now].hash ^= zobrist::castle[team][1];
-                        record[now].castle[team][1] = false;
+                    if (move.info.from == H8 && record.back().castle[team][0]) {
+                        record.back().hash ^= zobrist::castle[team][0];
+                        record.back().castle[team][0] = false;
+                    } else if (move.info.from == A8 && record.back().castle[team][1]) {
+                        record.back().hash ^= zobrist::castle[team][1];
+                        record.back().castle[team][1] = false;
                     }
                 } else {
-                    if (move.info.from == H1 && record[now].castle[team][0]) {
-                        record[now].hash ^= zobrist::castle[team][0];
-                        record[now].castle[team][0] = false;
-                    } else if (move.info.from == A1 && record[now].castle[team][1]) {
-                        record[now].hash ^= zobrist::castle[team][1];
-                        record[now].castle[team][1] = false;
+                    if (move.info.from == H1 && record.back().castle[team][0]) {
+                        record.back().hash ^= zobrist::castle[team][0];
+                        record.back().castle[team][0] = false;
+                    } else if (move.info.from == A1 && record.back().castle[team][1]) {
+                        record.back().hash ^= zobrist::castle[team][1];
+                        record.back().castle[team][1] = false;
                     }
                 }
             } else if (move.info.piece == KING) {
                 // Update castling hashes
-                if (record[now].castle[team][0]) {
-                    record[now].hash ^= zobrist::castle[team][0];
-                    record[now].castle[team][0] = false;
+                if (record.back().castle[team][0]) {
+                    record.back().hash ^= zobrist::castle[team][0];
+                    record.back().castle[team][0] = false;
                 }
-                if (record[now].castle[team][1]) {
-                    record[now].hash ^= zobrist::castle[team][1];
-                    record[now].castle[team][1] = false;
+                if (record.back().castle[team][1]) {
+                    record.back().hash ^= zobrist::castle[team][1];
+                    record.back().castle[team][1] = false;
                 }
 
                 if (move.info.castle) {
@@ -121,8 +119,8 @@ void board_t::move(move_t move) {
 }
 
 void board_t::unmove() {
-    move_t move = record[now].prev_move;
-    now -= 1;
+    move_t move = record.back().prev_move;
+    record.pop_back();
 
     if (move != EMPTY_MOVE) {
         if (move.info.piece == PAWN) {
@@ -168,6 +166,8 @@ board_t::board_t(const std::string &fen) {
         throw std::runtime_error(
                 std::string("FEN: ") + std::to_string(split.size()) + std::string(" components, 4-6 expected"));
     }
+
+    record.emplace_back();
 
     // Parse board
     uint8_t file = 0, rank = 7;
@@ -348,15 +348,15 @@ move_t board_t::to_move(packed_move_t packed_move) const {
     }
 
     // EP
-    move.info.is_capture |= move.info.is_ep = static_cast<uint16_t>(record[now].ep_square != 0
+    move.info.is_capture |= move.info.is_ep = static_cast<uint16_t>(record.back().ep_square != 0
                                             && move.info.piece == PAWN
-                                            && move.info.to == record[now].ep_square);
+                                            && move.info.to == record.back().ep_square);
 
     return move;
 }
 
 bool board_t::is_illegal() const {
-    Team side = record[now].next_move;
+    Team side = record.back().next_move;
     uint8_t king_square = bit_scan(bb_pieces[!side][KING]);
 
     return is_attacked(king_square, side);
@@ -364,7 +364,7 @@ bool board_t::is_illegal() const {
 
 
 bool board_t::is_incheck() const {
-    Team side = record[now].next_move;
+    Team side = record.back().next_move;
     uint8_t king_square = bit_scan(bb_pieces[side][KING]);
 
     return is_attacked(king_square, Team(!side));
@@ -388,10 +388,10 @@ void board_t::switch_piece(Team side, Piece piece, uint8_t sq) {
 
     if (HASH) { // Update hash
         U64 square_hash = zobrist::squares[sq][side][piece];
-        record[now].hash ^= square_hash;
-        if(piece == PAWN || piece == KING) record[now].kp_hash ^= square_hash;
-        if(sq_data[sq].occupied) record[now].material.info.inc(side, piece);
-        else record[now].material.info.dec(side, piece);
+        record.back().hash ^= square_hash;
+        if(piece == PAWN || piece == KING) record.back().kp_hash ^= square_hash;
+        if(sq_data[sq].occupied) record.back().material.info.inc(side, piece);
+        else record.back().material.info.dec(side, piece);
     }
 }
 
@@ -430,10 +430,10 @@ bool board_t::is_pseudo_legal(move_t move) const {
     auto team = Team(move.info.team);
     auto x_team = Team(!move.info.team);
 
-    if (record[now].next_move != team) return false;
+    if (record.back().next_move != team) return false;
 
     if (move.info.castle) {
-        if (record[now].castle[move.info.team][move.info.castle_side] == 0) return false;
+        if (record.back().castle[move.info.team][move.info.castle_side] == 0) return false;
         if (move.info.castle_side == 0) {
             return (bb_all & bits_between(team ? E8 : E1, team ? H8 : H1)) == 0 &&
                    !is_attacked(team ? E8 : E1, x_team) &&
@@ -454,7 +454,7 @@ bool board_t::is_pseudo_legal(move_t move) const {
     }
 
     if(move.info.is_ep) {
-        if(record[now].ep_square == 0 || move.info.to != record[now].ep_square) {
+        if(record.back().ep_square == 0 || move.info.to != record.back().ep_square) {
             return false;
         }
     } else {
@@ -559,10 +559,10 @@ bool board_t::gives_check(move_t move) const {
 bool board_t::is_repetition_draw(int search_ply) const {
     int rep = 1;
 
-    int max = record[now].halfmove_clock;
+    int max = record.back().halfmove_clock;
 
     for (int i = 2; i <= max; i += 2) {
-        if (record[now - i].hash == record[now].hash) rep++;
+        if (record.crbegin()[i].hash == record.back().hash) rep++;
         if (rep >= 3) return true;
         if (rep >= 2 && i < search_ply) return true;
     }
@@ -571,38 +571,38 @@ bool board_t::is_repetition_draw(int search_ply) const {
 }
 
 bool board_t::is_material_draw() const {
-    if(record[now].material.info.w_pawns || record[now].material.info.b_pawns ||
-             record[now].material.info.w_queens || record[now].material.info.b_queens ||
-             record[now].material.info.w_rooks || record[now].material.info.b_rooks) {
+    if(record.back().material.info.w_pawns || record.back().material.info.b_pawns ||
+             record.back().material.info.w_queens || record.back().material.info.b_queens ||
+             record.back().material.info.w_rooks || record.back().material.info.b_rooks) {
         return false;
     } else {
-        return record[now].material.info.w_bishops + record[now].material.info.b_bishops
-               + record[now].material.info.w_knights + record[now].material.info.b_knights <= 1;
+        return record.back().material.info.w_bishops + record.back().material.info.b_bishops
+               + record.back().material.info.w_knights + record.back().material.info.b_knights <= 1;
     }
 }
 
 void board_t::mirror() {
     // Mirror side
-    record[now].next_move = (Team) !record[now].next_move;
-    record[now].hash ^= zobrist::side;
+    record.back().next_move = (Team) !record.back().next_move;
+    record.back().hash ^= zobrist::side;
 
     // Mirror en-passant
-    if (record[now].ep_square != 0) {
-        record[now].hash ^= zobrist::ep[record[now].ep_square];
-        record[now].ep_square = MIRROR_TABLE[record[now].ep_square];
-        record[now].hash ^= zobrist::ep[record[now].ep_square];
+    if (record.back().ep_square != 0) {
+        record.back().hash ^= zobrist::ep[record.back().ep_square];
+        record.back().ep_square = MIRROR_TABLE[record.back().ep_square];
+        record.back().hash ^= zobrist::ep[record.back().ep_square];
     }
 
     // Mirror castling rights
-    if(record[now].castle[0][0] != record[now].castle[1][0]) {
-        record[now].hash ^= zobrist::castle[0][0];
-        record[now].hash ^= zobrist::castle[1][0];
-        std::swap(record[now].castle[0][0], record[now].castle[1][0]);
+    if(record.back().castle[0][0] != record.back().castle[1][0]) {
+        record.back().hash ^= zobrist::castle[0][0];
+        record.back().hash ^= zobrist::castle[1][0];
+        std::swap(record.back().castle[0][0], record.back().castle[1][0]);
     }
-    if(record[now].castle[0][1] != record[now].castle[1][1]) {
-        record[now].hash ^= zobrist::castle[0][1];
-        record[now].hash ^= zobrist::castle[1][1];
-        std::swap(record[now].castle[0][1], record[now].castle[1][1]);
+    if(record.back().castle[0][1] != record.back().castle[1][1]) {
+        record.back().hash ^= zobrist::castle[0][1];
+        record.back().hash ^= zobrist::castle[1][1];
+        std::swap(record.back().castle[0][1], record.back().castle[1][1]);
     }
 
     // Mirror pieces
@@ -709,4 +709,8 @@ int board_t::see(move_t move) const {
 
 U64 board_t::non_pawn_material(Team side) const {
     return (bb_side[side] ^ bb_pieces[side][PAWN] ^ bb_pieces[side][KING]);
+}
+
+void board_t::print() {
+    std::cout << *this;
 }

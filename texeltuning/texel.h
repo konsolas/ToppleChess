@@ -2,15 +2,15 @@
 // Created by Vincent Tang on 2019-01-04.
 //
 
-#ifndef TOPPLE_TUNER_H
-#define TOPPLE_TUNER_H
+#ifndef TOPPLE_TEXEL_H
+#define TOPPLE_TEXEL_H
 
 #include <vector>
 
 #include "../board.h"
 #include "../eval.h"
 
-class tuner_t {
+class texel_t {
     eval_params_t current_params;
     int scaling_constant = 130;
 
@@ -21,7 +21,7 @@ class tuner_t {
 
     double current_error;
 public:
-    tuner_t(unsigned int threads, size_t entries, std::vector<board_t> &positions, std::vector<double> &results);
+    texel_t(unsigned int threads, size_t entries, std::vector<board_t> &positions, std::vector<double> &results);
 
     eval_params_t* get_current_params() { return &current_params; }
     void print_params();
@@ -37,4 +37,4 @@ private:
 };
 
 
-#endif //TOPPLE_TUNER_H
+#endif //TOPPLE_TEXEL_H

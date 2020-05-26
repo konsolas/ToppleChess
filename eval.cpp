@@ -97,7 +97,7 @@ processed_params_t::processed_params_t(const eval_params_t &params)
     for(int i = 0; i < 128; i++) {
         // Translated + scaled sigmoid function
         kat_table[i] = (int) (double(params.kat_table_max) /
-                              (1 + exp((params.kat_table_translate - i) / double(params.kat_table_scale)))) - params.kat_table_offset;
+                              (1 + exp((params.kat_table_translate - i) * double(params.kat_table_scale) / 1024.0)));
     }
 }
 
@@ -109,12 +109,16 @@ evaluator_t::evaluator_t(const processed_params_t &params, size_t pawn_hash_size
     // Set up pawn hash table
     pawn_hash_size /= sizeof(pawns::structure_t);
     this->pawn_hash_entries = tt::lower_power_of_2(pawn_hash_size) - 1;
-    pawn_hash_table = std::vector<pawns::structure_t>(pawn_hash_entries + 1);
+    pawn_hash_table = new pawns::structure_t[pawn_hash_entries + 1]();
+}
+
+evaluator_t::~evaluator_t() {
+    delete[] pawn_hash_table;
 }
 
 void evaluator_t::prefetch(U64 pawn_hash) {
     size_t index = (pawn_hash & pawn_hash_entries);
-    pawns::structure_t *bucket = pawn_hash_table.data() + index;
+    pawns::structure_t *bucket = pawn_hash_table + index;
 
 #if defined(__GNUC__)
     __builtin_prefetch(bucket);
@@ -150,11 +154,11 @@ int evaluator_t::evaluate(const board_t &board) {
     // Interpolate between middlegame and endgame scores
     auto total = int(phase * mg + (1 - phase) * eg);
 
-    return board.record[board.now].next_move ? -total : total;
+    return board.record.back().next_move ? -total : total;
 }
 
 double evaluator_t::game_phase(const board_t &board) const {
-    material_data_t material = board.record[board.now].material;
+    material_data_t material = board.record.back().material;
 
     const int mat_w = params.mat_exch_knight * (material.info.w_knights)
                       + params.mat_exch_bishop * (material.info.w_bishops)
@@ -211,9 +215,9 @@ void evaluator_t::eval_pieces(const board_t &board, int &mg, int &eg, eval_data_
 }
 
 void evaluator_t::eval_pawns(const board_t &board, int &mg, int &eg, eval_data_t &data) {
-    U64 pawn_hash = board.record[board.now].kp_hash;
+    U64 pawn_hash = board.record.back().kp_hash;
     size_t index = (pawn_hash & pawn_hash_entries);
-    pawns::structure_t *entry = pawn_hash_table.data() + index;
+    pawns::structure_t *entry = pawn_hash_table + index;
     if(entry->get_hash() != pawn_hash) {
         *entry = pawns::structure_t(params, pawn_hash,
                                     board.bb_pieces[WHITE][PAWN], board.bb_pieces[BLACK][PAWN],
@@ -384,12 +388,12 @@ void evaluator_t::eval_threats(const board_t &board, int &mg, int &eg, eval_data
 }
 
 void evaluator_t::eval_positional(const board_t &board, int &mg, int &eg, eval_data_t &data) {
-    if(board.record[board.now].material.info.w_bishops >= 2) {
+    if(board.record.back().material.info.w_bishops >= 2) {
         mg += params.pos_bishop_pair_mg;
         eg += params.pos_bishop_pair_eg;
     }
 
-    if(board.record[board.now].material.info.b_bishops >= 2) {
+    if(board.record.back().material.info.b_bishops >= 2) {
         mg -= params.pos_bishop_pair_mg;
         eg -= params.pos_bishop_pair_eg;
     }
@@ -398,7 +402,7 @@ void evaluator_t::eval_positional(const board_t &board, int &mg, int &eg, eval_d
     bool opposite_coloured_bishops = board.bb_pieces[WHITE][BISHOP] && board.bb_pieces[BLACK][BISHOP]
                                      && !multiple_bits(board.bb_pieces[WHITE][BISHOP]) && !multiple_bits(board.bb_pieces[BLACK][BISHOP])
                                      && !same_colour(bit_scan(board.bb_pieces[WHITE][BISHOP]), bit_scan(board.bb_pieces[BLACK][BISHOP]));
-    const int pawn_balance = board.record[board.now].material.info.w_pawns - board.record[board.now].material.info.b_pawns;
+    const int pawn_balance = board.record.back().material.info.w_pawns - board.record.back().material.info.b_pawns;
 
     if(opposite_coloured_bishops) {
         if(pawn_balance > 0) {

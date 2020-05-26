@@ -11,8 +11,8 @@ constexpr U64 PROMOTING[2] = {
 };
 
 movegen_t::movegen_t(const board_t &board) : board(board) {
-    team = board.record[board.now].next_move;
-    x_team = Team(!board.record[board.now].next_move);
+    team = board.record.back().next_move;
+    x_team = Team(!board.record.back().next_move);
 }
 
 int movegen_t::gen_normal(move_t *buf) {
@@ -67,7 +67,7 @@ int movegen_t::gen_castling(move_t *buf) {
     move_t move{};
 
     // Generate castling kingside
-    if (board.record[board.now].castle[team][0]) {
+    if (board.record.back().castle[team][0]) {
         if ((board.bb_all & bits_between(team ? E8 : E1, team ? H8 : H1)) == 0 &&
             !board.is_attacked(team ? E8 : E1, x_team) &&
             !board.is_attacked(team ? F8 : F1, x_team) &&
@@ -85,7 +85,7 @@ int movegen_t::gen_castling(move_t *buf) {
     }
 
     // Generate castling queenside
-    if (board.record[board.now].castle[team][1]) {
+    if (board.record.back().castle[team][1]) {
         if ((board.bb_all & bits_between(team ? E8 : E1, team ? A8 : A1)) == 0 &&
             !board.is_attacked(team ? E8 : E1, x_team) &&
             !board.is_attacked(team ? D8 : D1, x_team) &&
@@ -168,15 +168,15 @@ int movegen_t::gen_ep(move_t *buf) {
     move.info.team = team;
 
     // Generate en-passant capture
-    if (board.record[board.now].ep_square != 0) {
-        U64 ep_attacks = pawn_caps(x_team, board.record[board.now].ep_square) & board.bb_pieces[team][PAWN];
+    if (board.record.back().ep_square != 0) {
+        U64 ep_attacks = pawn_caps(x_team, board.record.back().ep_square) & board.bb_pieces[team][PAWN];
 
         while (ep_attacks) {
             uint8_t from = pop_bit(ep_attacks);
 
             move.info.from = from;
             move.info.piece = PAWN;
-            move.info.to = board.record[board.now].ep_square;
+            move.info.to = board.record.back().ep_square;
             move.info.is_ep = 1;
             move.info.is_capture = 1;
             move.info.captured_type = PAWN;
