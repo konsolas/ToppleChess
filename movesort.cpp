@@ -86,7 +86,7 @@ move_t movesort_t::next(GenStage &stage, int &score, bool skip_quiets) {
                     } else {
                         main_scores[i] = heur.history.get(main_buf[i]);
                         if (refutation.info.is_capture && main_buf[i].info.from == refutation.info.to) {
-                            main_scores[i] += 100;
+                            main_scores[i] += 800;
                         }
                     }
                 }

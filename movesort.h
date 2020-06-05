@@ -24,7 +24,7 @@ class history_heur_t {
 public:
     void update(move_t move, int bonus) {
         table[move.info.team][move.info.from][move.info.to] +=
-                bonus - table[move.info.team][move.info.from][move.info.to] * abs(bonus) / 2048;
+                bonus - table[move.info.team][move.info.from][move.info.to] * abs(bonus) / 16384;
     }
 
     int get(move_t move) const {
@@ -32,7 +32,7 @@ public:
     }
 private:
     // Indexed by [TEAM][FROM][TO]
-    int table[2][64][64] = {};
+    int16_t table[2][64][64] = {};
 };
 
 // Killer heuristic

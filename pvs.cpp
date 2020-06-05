@@ -260,7 +260,7 @@ namespace pvs {
                     && (h_bound == tt::LOWER || h_bound == tt::EXACT)
                     && h.depth() >= depth - 2) {
                     int reduced_beta = (h.value(ply)) - depth;
-                    score = search_zw(reduced_beta, ply, depth / 2, aborted);
+                    score = search_zw(reduced_beta, ply, depth / 2, aborted, move);
                     if (aborted) return TIMEOUT;
 
                     if (score < reduced_beta) {
