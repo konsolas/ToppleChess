@@ -134,50 +134,61 @@ namespace tt {
         return size;
     }
 
-    struct entry_t { // 16 bytes
-        U64 coded_hash; // 8 bytes
-        union {
-            struct {
-                packed_move_t move;
-                int16_t static_eval;
-                int16_t internal_value;
-                uint16_t about; // 6G 8D 2B
-            } info;
+    class entry_t { // 8 bytes
+    private:
+        uint16_t hash2;
+        int16_t value2;
+        uint16_t meta2;
+        packed_move_t move2;
+    public:
+        entry_t() = default;
+        entry_t(Bound bound, U64 hash, int depth, int ply, int score, move_t move, unsigned gen) :
+                hash2(hash >> 48u), value2(score >= MINCHECKMATE ? score + ply : (score <= -MINCHECKMATE ? score - ply : score)),
+                meta2(uint16_t(bound) | (uint16_t(depth) << 2u) | (uint16_t(gen) << 10u)), move2(compress(move)) {}
 
-            U64 data;
-        };
+        uint16_t hash16() {
+            return hash2;
+        }
 
         int value(int ply) const {
-            if (info.internal_value >= MINCHECKMATE) {
-                return info.internal_value - ply;
-            } else if (info.internal_value <= -MINCHECKMATE) {
-                return info.internal_value + ply;
+            if (value2 >= MINCHECKMATE) {
+                return value2 - ply;
+            } else if (value2 <= -MINCHECKMATE) {
+                return value2 + ply;
             } else {
-                return info.internal_value;
+                return value2;
             }
         }
 
-        inline Bound bound() {
-            return Bound(info.about & 3u);
+        Bound bound() const {
+            return Bound(meta2 & 3u);
         }
 
-        inline int depth() {
-            return (info.about >> 2u) & 255u;
+        int depth() const {
+            return (int) ((meta2 >> 2u) & 255u);
         }
 
-        inline unsigned generation() {
-            return info.about >> 10u;
+        unsigned generation() const {
+            return meta2 >> 10u;
         }
 
-        void refresh(unsigned gen) {
-            U64 original = coded_hash ^ data;
-            info.about = uint16_t((info.about & 1023u) | (gen << 10u));
-            coded_hash = original ^ data;
+        unsigned utility() const {
+            return meta2;
+        }
+
+        void reset_gen() {
+            meta2 &= 0x3FFu;
+        }
+
+        packed_move_t move() const {
+            return move2;
         }
     };
 
+    static_assert(sizeof(entry_t) == 8);
+
     class hash_t {
-        static constexpr size_t bucket_size = 4;
+        static constexpr size_t bucket_size = 2;
     public:
         explicit hash_t(size_t size);
         ~hash_t();
@@ -194,7 +205,7 @@ namespace tt {
         }
 
         bool probe(U64 hash, entry_t &entry);
-        void save(Bound bound, U64 hash, int depth, int ply, int static_eval, int score, move_t move);
+        void save(Bound bound, U64 hash, int depth, int ply, int score, move_t move);
         void age();
         size_t hash_full();
     private:

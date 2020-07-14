@@ -33,15 +33,11 @@ namespace pvs {
 
         // Probe transposition table
         tt::entry_t h = {};
-        tt::Bound h_bound = tt::NONE;
         move_t tt_move = EMPTY_MOVE;
         if (tt->probe(board->record.back().hash, h)) {
-            stack[0].eval = h.info.static_eval;
-            h_bound = h.bound();
-            tt_move = board->to_move(h.info.move);
-        } else {
-            stack[0].eval = evaluator->evaluate(*board);
+            tt_move = board->to_move(h.move());
         }
+        stack[0].eval = evaluator->evaluate(*board);
 
         std::vector<pv_move_t> move_list;
         move_list.reserve(64);
@@ -87,7 +83,7 @@ namespace pvs {
                     alpha = score;
                     update_pv(0, move_list[0].move);
                     if (score >= beta) {
-                        tt->save(tt::LOWER, board->record.back().hash, depth, 0, stack[0].eval, score, best_move);
+                        tt->save(tt::LOWER, board->record.back().hash, depth, 0, score, best_move);
 
                         if (!move_list[0].move.info.is_capture) {
                             heur.history.update(move_list[0].move, depth * depth);
@@ -148,10 +144,10 @@ namespace pvs {
         }
 
         if (alpha > old_alpha) {
-            tt->save(tt::EXACT, board->record.back().hash, depth, 0, stack[0].eval, alpha, best_move);
+            tt->save(tt::EXACT, board->record.back().hash, depth, 0, alpha, best_move);
             if (!best_move.info.is_capture) heur.history.update(best_move, depth * depth);
         } else {
-            tt->save(tt::UPPER, board->record.back().hash, depth, 0, stack[0].eval, alpha, best_move);
+            tt->save(tt::UPPER, board->record.back().hash, depth, 0, alpha, best_move);
         }
 
         return alpha;
@@ -186,15 +182,11 @@ namespace pvs {
 
         // Probe transposition table
         tt::entry_t h = {};
-        tt::Bound h_bound = tt::NONE;
         move_t tt_move = EMPTY_MOVE;
         if (tt->probe(board->record.back().hash, h)) {
-            stack[ply].eval = h.info.static_eval;
-            h_bound = h.bound();
-            tt_move = board->to_move(h.info.move);
-        } else {
-            stack[ply].eval = evaluator->evaluate(*board);
+            tt_move = board->to_move(h.move());
         }
+        stack[ply].eval = evaluator->evaluate(*board);
 
         bool in_check = board->is_incheck();
         bool improving = !in_check && (ply <= 1 || stack[ply].eval > stack[ply - 2].eval);
@@ -219,7 +211,7 @@ namespace pvs {
                 if (bound == tt::EXACT
                     || (bound == tt::LOWER && value >= beta)
                     || (bound == tt::UPPER && value <= alpha)) {
-                    tt->save(bound, board->record.back().hash, MAX_PLY, ply, stack[ply].eval, value, EMPTY_MOVE);
+                    tt->save(bound, board->record.back().hash, MAX_PLY, ply, value, EMPTY_MOVE);
                     return value;
                 }
 
@@ -233,9 +225,7 @@ namespace pvs {
             search_pv(alpha, beta, ply, depth - 6, aborted);
             if (aborted) return TIMEOUT;
             if (tt->probe(board->record.back().hash, h)) {
-                stack[ply].eval = h.info.static_eval;
-                h_bound = h.bound();
-                tt_move = board->to_move(h.info.move);
+                tt_move = board->to_move(h.move());
             }
         }
 
@@ -257,7 +247,7 @@ namespace pvs {
 
                 // Singular extension
                 if (depth >= 8 && move == tt_move
-                    && (h_bound == tt::LOWER || h_bound == tt::EXACT)
+                    && (h.bound() == tt::LOWER || h.bound() == tt::EXACT)
                     && h.depth() >= depth - 2) {
                     int reduced_beta = (h.value(ply)) - depth;
                     score = search_zw(reduced_beta, ply, depth / 2, aborted, move);
@@ -298,7 +288,7 @@ namespace pvs {
                     update_pv(ply, move_list[0].move);
 
                     if (score >= beta) {
-                        tt->save(tt::LOWER, board->record.back().hash, depth, ply, stack[ply].eval, score, best_move);
+                        tt->save(tt::LOWER, board->record.back().hash, depth, ply, score, best_move);
 
                         if (!move_list[0].move.info.is_capture) {
                             heur.history.update(move_list[0].move, depth * depth);
@@ -350,10 +340,10 @@ namespace pvs {
         }
 
         if (alpha > old_alpha) {
-            tt->save(tt::EXACT, board->record.back().hash, depth, ply, stack[ply].eval, alpha, best_move);
+            tt->save(tt::EXACT, board->record.back().hash, depth, ply, alpha, best_move);
             if (!best_move.info.is_capture) heur.history.update(best_move, depth * depth);
         } else {
-            tt->save(tt::UPPER, board->record.back().hash, depth, ply, stack[ply].eval, alpha, best_move);
+            tt->save(tt::UPPER, board->record.back().hash, depth, ply, alpha, best_move);
         }
 
         return alpha;
@@ -380,15 +370,11 @@ namespace pvs {
         tt::entry_t h = {};
         if (tt->probe(board->record.back().hash, h)) {
             int score = h.value(ply);
-            stack[ply].eval = h.info.static_eval;
-            tt::Bound h_bound = h.bound();
-
-            if (h_bound == tt::LOWER && score >= beta) return score;
-            if (h_bound == tt::UPPER && score <= alpha) return score;
-            if (h_bound == tt::EXACT) return score;
-        } else {
-            stack[ply].eval = evaluator->evaluate(*board);
+            if (h.bound() == tt::LOWER && score >= beta) return score;
+            if (h.bound() == tt::UPPER && score <= alpha) return score;
+            if (h.bound() == tt::EXACT) return score;
         }
+        stack[ply].eval = evaluator->evaluate(*board);
 
         // Probe endgame tablebases
         if (ply && board->record.back().halfmove_clock == 0 && pop_count(board->bb_all) <= use_tb) {
@@ -410,8 +396,7 @@ namespace pvs {
                 if (bound == tt::EXACT
                     || (bound == tt::LOWER && value >= beta)
                     || (bound == tt::UPPER && value <= alpha)) {
-                    tt->save(bound, board->record.back().hash, MAX_PLY - 1, ply, stack[ply].eval, value,
-                             EMPTY_MOVE);
+                    tt->save(bound, board->record.back().hash, MAX_PLY - 1, ply, value, EMPTY_MOVE);
                     return value;
                 }
             }
@@ -482,25 +467,21 @@ namespace pvs {
         if (std::max(-TO_MATE_SCORE(ply), beta - 1) >= beta) return beta;
 
         // Probe transposition table
-        tt::entry_t h = {0};
-        tt::Bound h_bound = tt::NONE;
+        tt::entry_t h = {};
         move_t tt_move = EMPTY_MOVE;
         if (excluded == EMPTY_MOVE && tt->probe(board->record.back().hash, h)) {
             score = h.value(ply);
-            stack[ply].eval = h.info.static_eval;
-            h_bound = h.bound();
 
             if (h.depth() >= depth) {
-                if (h_bound == tt::LOWER && score >= beta) return beta;
-                if (h_bound == tt::UPPER && score <= beta - 1) return beta - 1;
-                if (h_bound == tt::EXACT) return std::clamp(score, beta - 1, beta);
+                if (h.bound() == tt::LOWER && score >= beta) return beta;
+                if (h.bound() == tt::UPPER && score <= beta - 1) return beta - 1;
+                if (h.bound() == tt::EXACT) return std::clamp(score, beta - 1, beta);
             }
 
-            tt_move = board->to_move(h.info.move);
-        } else {
-            score = -INF;
-            stack[ply].eval = evaluator->evaluate(*board);
+            tt_move = board->to_move(h.move());
         }
+        score = -INF;
+        stack[ply].eval = evaluator->evaluate(*board);
 
         // Probe endgame tablebases
         if (ply && board->record.back().halfmove_clock == 0 && pop_count(board->bb_all) <= use_tb) {
@@ -522,8 +503,7 @@ namespace pvs {
                 if (bound == tt::EXACT
                     || (bound == tt::LOWER && value >= beta)
                     || (bound == tt::UPPER && value <= beta - 1)) {
-                    tt->save(bound, board->record.back().hash, MAX_PLY - 1, ply, stack[ply].eval, value,
-                             EMPTY_MOVE);
+                    tt->save(bound, board->record.back().hash, MAX_PLY - 1, ply, value, EMPTY_MOVE);
                     return value;
                 }
             }
@@ -558,7 +538,7 @@ namespace pvs {
 
                 tt::entry_t null_entry = {};
                 if (tt->probe(board->record.back().hash, null_entry)) {
-                    refutation = board->to_move(null_entry.info.move);
+                    refutation = board->to_move(null_entry.move());
                 }
 
                 board->unmove();
@@ -608,7 +588,7 @@ namespace pvs {
 
             // Singular extension
             if (depth >= 8 && move == tt_move
-                && (h_bound == tt::LOWER || h_bound == tt::EXACT)
+                && (h.bound() == tt::LOWER || h.bound() == tt::EXACT)
                 && excluded == EMPTY_MOVE
                 && h.depth() >= depth - 2) {
                 int reduced_beta = (h.value(ply)) - depth;
@@ -672,7 +652,7 @@ namespace pvs {
                         heur.killers.update(move, ply);
                     }
 
-                    tt->save(tt::LOWER, board->record.back().hash, depth, ply, stack[ply].eval, score, best_move);
+                    tt->save(tt::LOWER, board->record.back().hash, depth, ply, score, best_move);
 
                     return beta; // Fail hard
                 }
@@ -688,7 +668,7 @@ namespace pvs {
         }
 
         if (excluded == EMPTY_MOVE) {
-            tt->save(tt::UPPER, board->record.back().hash, depth, ply, stack[ply].eval, beta - 1, best_move);
+            tt->save(tt::UPPER, board->record.back().hash, depth, ply, beta - 1, best_move);
         }
 
         return beta - 1;

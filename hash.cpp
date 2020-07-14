@@ -52,58 +52,36 @@ tt::hash_t::~hash_t() {
 
 bool tt::hash_t::probe(U64 hash, tt::entry_t &entry) {
     const size_t index = (hash & num_entries) * bucket_size;
+    uint16_t hash16 = hash >> 48u;
     tt::entry_t *bucket = table + index;
 
-    if((bucket->coded_hash ^ bucket->data) == hash) {
-        bucket->refresh(generation);
-        entry = *bucket;
-        return true;
-    }
-
-    for(size_t i = 1; i < bucket_size; i++) {
-        if(((bucket + i)->coded_hash ^ (bucket + i)->data) == hash) {
-            (bucket + i)->refresh(generation);
-            entry = *(bucket + i);
+    for (size_t i = 0; i < bucket_size; i++) {
+        if (bucket[i].hash16() == hash16) {
+            entry = bucket[i];
             return true;
         }
     }
+
     return false;
 }
 
-void tt::hash_t::save(Bound bound, U64 hash, int depth, int ply, int static_eval, int score, move_t move) {
+void tt::hash_t::save(Bound bound, U64 hash, int depth, int ply, int score, move_t move) {
     const size_t index = (hash & num_entries) * bucket_size;
+    uint16_t hash16 = hash >> 48u;
     tt::entry_t *bucket = table + index;
 
-    if (score >= MINCHECKMATE) score += ply;
-    if (score <= -MINCHECKMATE) score -= ply;
-
-    tt::entry_t updated = {};
-    updated.info.move = compress(move);
-    updated.info.static_eval = static_cast<int16_t>(static_eval);
-    updated.info.internal_value = static_cast<int16_t>(score);
-    updated.info.about = uint16_t(bound) | (uint16_t(depth) << 2u) | (generation << 10u);
-    updated.coded_hash = hash ^ updated.data;
-
-    if((bucket->coded_hash ^ bucket->data) == hash) {
-        if(bound == EXACT || depth >= bucket->depth() - 2) {
-            *bucket = updated;
-        }
-        return;
-    }
+    tt::entry_t updated = {bound, hash, depth, ply, score, move, generation};
 
     tt::entry_t *replace = bucket;
-    for(size_t i = 1; i < bucket_size; i++) {
-        if(((bucket + i)->coded_hash ^ (bucket + i)->data) == hash) {
-            if(bound == EXACT || depth >= bucket->depth() - 2) {
-                *(bucket + i) = updated;
-            }
+    for (size_t i = 0; i < bucket_size; i++) {
+        if (bucket[i].hash16() == hash16) {
+            if (bound == EXACT || depth >= bucket[i].depth() - 2) bucket[i] = updated;
             return;
-        } else if((bucket + i)->info.about < replace->info.about) {
-            replace = (bucket + i);
+        } else if (bucket[i].utility() < replace->utility()) {
+            replace = bucket + i;
         }
     }
 
-    // Replace best candidate
     *replace = updated;
 }
 
@@ -114,7 +92,7 @@ void tt::hash_t::age() {
 
         // Clear up hash
         for (size_t i = 0; i < num_entries * bucket_size; i++) {
-            table[i].refresh(0);
+            table[i].reset_gen();
         }
     }
 }

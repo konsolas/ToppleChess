@@ -109,7 +109,7 @@ search_result_t search_t::think(board_t &board, const search_limits_t &search_li
         tt::entry_t h = {};
         move_t ponder_move = EMPTY_MOVE;
         if (tt->probe(board.record.back().hash, h)) {
-            ponder_move = board.to_move(h.info.move);
+            ponder_move = board.to_move(h.move());
         }
 
         board.unmove();
@@ -171,7 +171,7 @@ search_result_t search_t::think(board_t &board, const search_limits_t &search_li
         tt::entry_t h = {};
         move_t ponder_move = EMPTY_MOVE;
         if (tt->probe(board.record.back().hash, h)) {
-            ponder_move = board.to_move(h.info.move);
+            ponder_move = board.to_move(h.move());
         }
 
         board.unmove();
