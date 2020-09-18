@@ -2,9 +2,9 @@
 // Created by Vincent on 23/09/2017.
 //
 
+#include <algorithm>
 #include <random>
 #include <memory>
-#include <cstring>
 #include "hash.h"
 
 namespace zobrist {
@@ -36,26 +36,22 @@ namespace zobrist {
 
 tt::hash_t::hash_t(size_t size) {
     // Divide size by the sizeof an entry
-    size /= (sizeof(tt::entry_t) * bucket_size);
-    size = lower_power_of_2(size);
-    if (size < sizeof(tt::entry_t)) {
-        num_entries = 0;
-    } else {
-        num_entries = size - 1;
-        table = new tt::entry_t[num_entries * bucket_size + bucket_size]();
-    }
+    num_buckets = lower_power_of_2(size / BUCKET_MEMORY) - 1;
+    if (num_buckets <= 0) throw std::invalid_argument("not enough memory to create transposition table");
+    table = static_cast<tt::entry_t*>(std::aligned_alloc(BUCKET_MEMORY, num_buckets * BUCKET_MEMORY));
+    std::fill(table, table + num_buckets * BUCKET_SIZE, entry_t());
 }
 
 tt::hash_t::~hash_t() {
-    delete[] table;
+    std::free(table);
 }
 
 bool tt::hash_t::probe(U64 hash, tt::entry_t &entry) {
-    const size_t index = (hash & num_entries) * bucket_size;
+    const size_t index = (hash & num_buckets) * BUCKET_SIZE;
     uint16_t hash16 = hash >> 48u;
     tt::entry_t *bucket = table + index;
 
-    for (size_t i = 0; i < bucket_size; i++) {
+    for (size_t i = 0; i < BUCKET_SIZE; i++) {
         if (bucket[i].hash16() == hash16) {
             entry = bucket[i];
             return true;
@@ -66,14 +62,14 @@ bool tt::hash_t::probe(U64 hash, tt::entry_t &entry) {
 }
 
 void tt::hash_t::save(Bound bound, U64 hash, int depth, int ply, int score, move_t move) {
-    const size_t index = (hash & num_entries) * bucket_size;
+    const size_t index = (hash & num_buckets) * BUCKET_SIZE;
     uint16_t hash16 = hash >> 48u;
     tt::entry_t *bucket = table + index;
 
     tt::entry_t updated = {bound, hash, depth, ply, score, move, generation};
 
     tt::entry_t *replace = bucket;
-    for (size_t i = 0; i < bucket_size; i++) {
+    for (size_t i = 0; i < BUCKET_SIZE; i++) {
         if (bucket[i].hash16() == hash16) {
             if (bound == EXACT || depth >= bucket[i].depth() - 2) bucket[i] = updated;
             return;
@@ -91,7 +87,7 @@ void tt::hash_t::age() {
         generation = 1;
 
         // Clear up hash
-        for (size_t i = 0; i < num_entries * bucket_size; i++) {
+        for (size_t i = 0; i < num_buckets * BUCKET_SIZE; i++) {
             table[i].reset_gen();
         }
     }
@@ -101,7 +97,7 @@ size_t tt::hash_t::hash_full() {
     constexpr size_t sample_size = 4000;
     constexpr size_t divisor = sample_size / 1000;
 
-    assert(num_entries * bucket_size > sample_size);
+    assert(num_buckets * BUCKET_SIZE > sample_size);
 
     size_t cnt = 0;
     for (size_t i = 0; i < sample_size; i++) {

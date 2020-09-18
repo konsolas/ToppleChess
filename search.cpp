@@ -240,11 +240,12 @@ void search_t::thread_start(pvs::context_t &context, const std::atomic_bool &abo
 
 int search_t::search_aspiration(pvs::context_t &context, int prev_score, int depth, const std::atomic_bool &aborted,
                                 size_t tid) {
-    const int ASPIRATION_DELTA = 15;
+    constexpr int ASPIRATION_DELTA = 15;
+    constexpr int OPEN_THRESHOLD = 1000;
 
     int alpha, beta, delta = ASPIRATION_DELTA;
 
-    if (depth >= 6) {
+    if (depth >= 6 && abs(prev_score) < OPEN_THRESHOLD) {
         alpha = std::max(-INF, prev_score - delta);
         beta = std::min(INF, prev_score + delta);
     } else {
@@ -283,12 +284,14 @@ int search_t::search_aspiration(pvs::context_t &context, int prev_score, int dep
                 print_stats(*context.get_board(), score, depth, tt::LOWER, aborted);
             }
             beta = std::min(INF, beta + delta);
+            if (beta >= OPEN_THRESHOLD) beta = INF;
         } else if (score <= alpha) {
             if (!silent && tid == 0) {
                 print_stats(*context.get_board(), score, depth, tt::UPPER, aborted);
             }
             beta = (alpha + beta) / 2;
             alpha = std::max(-INF, alpha - delta);
+            if (alpha <= -OPEN_THRESHOLD) alpha = -INF;
         } else {
             context.save_pv();
             break;

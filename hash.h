@@ -188,13 +188,14 @@ namespace tt {
     static_assert(sizeof(entry_t) == 8);
 
     class hash_t {
-        static constexpr size_t bucket_size = 2;
+        static constexpr size_t BUCKET_SIZE = 8;
+        static constexpr size_t BUCKET_MEMORY = BUCKET_SIZE * sizeof(tt::entry_t);
     public:
         explicit hash_t(size_t size);
         ~hash_t();
 
         inline void prefetch(U64 hash) {
-            const size_t index = (hash & num_entries) * bucket_size;
+            const size_t index = (hash & num_buckets) * BUCKET_SIZE;
             tt::entry_t *bucket = table + index;
 
 #if defined(__GNUC__)
@@ -209,7 +210,7 @@ namespace tt {
         void age();
         size_t hash_full();
     private:
-        size_t num_entries;
+        size_t num_buckets;
         unsigned generation = 1;
         entry_t *table;
     };
