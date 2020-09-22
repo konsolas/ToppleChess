@@ -54,6 +54,7 @@ bool tt::hash_t::probe(U64 hash, tt::entry_t &entry) {
     for (size_t i = 0; i < BUCKET_SIZE; i++) {
         if (bucket[i].hash16() == hash16) {
             entry = bucket[i];
+            if(bucket[i].generation() != generation) bucket[i].reset_gen(generation);
             return true;
         }
     }

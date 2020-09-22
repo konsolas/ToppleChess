@@ -176,12 +176,13 @@ namespace tt {
             return meta2;
         }
 
-        void reset_gen() {
-            meta2 &= 0x3FFu;
-        }
-
         packed_move_t move() const {
             return move2;
+        }
+
+        void reset_gen(unsigned gen = 0) {
+            meta2 &= 0x3FFu;
+            if (gen) meta2 |= gen >> 10u;
         }
     };
 
