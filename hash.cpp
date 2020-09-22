@@ -8,15 +8,13 @@
 #include "hash.h"
 
 namespace zobrist {
-    const U64 seed = 0xBEEF;
-
     U64 squares[64][2][6];
     U64 side;
     U64 ep[64];
     U64 castle[2][2];
 
     void init_hashes() {
-        std::mt19937_64 gen(seed);
+        std::mt19937 gen(0);
         std::uniform_int_distribution<U64> dist;
 
         side = dist(gen);
@@ -52,9 +50,13 @@ bool tt::hash_t::probe(U64 hash, tt::entry_t &entry) {
     tt::entry_t *bucket = table + index;
 
     for (size_t i = 0; i < BUCKET_SIZE; i++) {
-        if (bucket[i].hash16() == hash16) {
-            entry = bucket[i];
-            if(bucket[i].generation() != generation) bucket[i].reset_gen(generation);
+        tt::entry_t candidate = bucket[i];
+        if (candidate.hash16() == hash16) {
+            entry = candidate;
+            if(candidate.generation() != generation) {
+                candidate.reset_gen(generation);
+                bucket[i] = candidate;
+            }
             return true;
         }
     }
