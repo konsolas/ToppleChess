@@ -10,7 +10,7 @@
 #include "texel.h"
 #include "../endgame.h"
 
-#define TOPPLE_TUNE_VER "0.0.2"
+#define TOPPLE_TUNE_VER "0.1.0"
 
 double get_result(const std::string &result) {
     if(result == "1-0") {
@@ -32,10 +32,10 @@ int main(int argc, char *argv[]) {
     eg_init();
 
     // Startup
-    std::cout << "ToppleTune v" << TOPPLE_TUNE_VER << " (c) Vincent Tang 2019" << std::endl;
+    std::cout << "ToppleTexelTune v" << TOPPLE_TUNE_VER << " (c) Vincent Tang 2020" << std::endl;
 
     if(argc != 2) {
-        std::cerr << "Usage: ToppleTune <epd file>" << std::endl;
+        std::cerr << "Usage: ToppleTexelTune <epd file>" << std::endl;
         return 1;
     }
 
@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
 
                 int times = std::stoi(parameter);
                 for(int i = 0; i < times; i++) {
-                    tuner.random_optimise(reinterpret_cast<int*> (tuner.get_current_params()->undefended_mg), 50, n_iter);
+                    //tuner.random_optimise(reinterpret_cast<int*> (tuner.get_current_params()->undefended_mg), 50, n_iter);
                 }
 
                 tuner.print_params();

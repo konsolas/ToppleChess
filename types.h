@@ -9,6 +9,7 @@
 #include <chrono>
 #include <new>
 #include <algorithm>
+#include <iostream>
 
 #define INF 32767
 #define TO_MATE_SCORE(ply) (INF - (ply))
@@ -22,15 +23,20 @@ const int TIMEOUT = -INF * 2;
 
 constexpr unsigned int MB = 1048576;
 
-/**
- * BitBoard type.
- */
+// Bitboard
 typedef uint64_t U64;
+constexpr U64 ONES = ~U64(0);
+
+// Timing
 typedef std::chrono::steady_clock engine_clock;
-
-const U64 ONES = ~U64(0);
-
 #define CHRONO_DIFF(start, finish) std::chrono::duration_cast<std::chrono::milliseconds>((finish) - (start)).count()
+
+// Evaluation parameter: {mgc, mgo, egc, ego}
+typedef int32_t v4si_t __attribute__ ((vector_size (16))); // vector of 4 ints - gcc extension
+inline std::ostream& operator<<(std::ostream& os, v4si_t v4si) {
+    os << "{" << v4si[0] << "," << v4si[1] << "," << v4si[2] << "," << v4si[3] << "}";
+    return os;
+}
 
 enum Piece {
     PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING

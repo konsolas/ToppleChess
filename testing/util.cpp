@@ -17,7 +17,7 @@ std::string u64_to_string(U64 v) {
         if (v & single_bit(uint8_t(i))) boardc[i] = '1';
         else boardc[i] = '.';
     }
-    
+
     std::ostringstream os;
 
     os << " " << std::endl;

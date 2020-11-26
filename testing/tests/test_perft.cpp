@@ -18,14 +18,15 @@ const bool operator==(const board_t& lhs, const board_t& rhs) {
         }
     }
 
-    return lhs.record[lhs.now].hash == rhs.record[rhs.now].hash;
+    return lhs.record.back().hash == rhs.record.back().hash;
 }
 
 const bool operator!=(const board_t& lhs, const board_t& rhs) {
     return !(lhs == rhs);
 }
 
-evaluator_t evaluator(processed_params_t(eval_params_t()), 1 * MB);
+processed_params_t params = processed_params_t(eval_params_t());
+evaluator_t evaluator(params, 1 * MB);
 
 const void consistency_check(board_t &board) {
     int score = evaluator.evaluate(board);
@@ -48,20 +49,20 @@ const void hash_check(const board_t &board) {
         }
     }
 
-    if(board.record[board.now].next_move) hash ^= zobrist::side;
+    if(board.record.back().next_move) hash ^= zobrist::side;
 
     for(int i = 0; i < 2; i++) {
         for(int j = 0; j < 2; j++) {
-            if(board.record[board.now].castle[i][j]) hash ^= zobrist::castle[i][j];
+            if(board.record.back().castle[i][j]) hash ^= zobrist::castle[i][j];
         }
     }
 
-    if(board.record[board.now].ep_square != 0) {
-        hash ^= zobrist::ep[board.record[board.now].ep_square];
+    if(board.record.back().ep_square != 0) {
+        hash ^= zobrist::ep[board.record.back().ep_square];
     }
 
     //INFO("position: " << board << " lastmove: " << board.record[board.now].prev_move);
-    REQUIRE(hash == board.record[board.now].hash);
+    REQUIRE(hash == board.record.back().hash);
 }
 
 U64 perft(board_t &board, int depth) {
@@ -102,8 +103,8 @@ U64 perft(board_t &board, int depth) {
         board.unmove();
 
         if(board != snapshot 
-            || board.record[board.now].hash != snapshot.record[snapshot.now].hash
-            || board.record[board.now].kp_hash != snapshot.record[snapshot.now].kp_hash) {
+            || board.record.back().hash != snapshot.record.back().hash
+            || board.record.back().kp_hash != snapshot.record.back().kp_hash) {
             FAIL("Unmake move failed at position: " << board
                                                     << "expecting " << snapshot
                                                     << " move=" << from_sq(next.info.from) << from_sq(next.info.to));

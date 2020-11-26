@@ -206,9 +206,9 @@ void search_t::thread_start(pvs::context_t &context, const std::atomic_bool &abo
     // Check if this is the main thread
     if (worker->tid == 0) {
         // Scale search time based on the complexity of the position
-        double tapering_factor = worker->evaluator.game_phase(*context.get_board());
-        double complexity = std::clamp(root_moves.size() / 30.0, 0.5, 8.0) * tapering_factor + (1 - tapering_factor);
-        int adjusted_suggestion = static_cast<int>(complexity * limits->suggested_time_limit);
+        float tapering_factor = worker->evaluator.game_phase(*context.get_board());
+        float complexity = std::clamp(root_moves.size() / 30.0F, 0.5F, 8.0F) * tapering_factor + (1 - tapering_factor);
+        int adjusted_suggestion = static_cast<int>(complexity * (float) limits->suggested_time_limit);
 
         for (int depth = 1; depth <= MAX_PLY && (worker->tid != 0 || keep_searching(depth)); depth++) {
             int score = search_aspiration(context, prev_score, depth, aborted, worker->tid);

@@ -47,6 +47,7 @@ find_package(Threads REQUIRED)
 target_link_libraries(Topple Threads::Threads)
 target_link_libraries(ToppleTest Threads::Threads)
 target_link_libraries(ToppleTune Threads::Threads)
+target_link_libraries(ToppleTexelTune Threads::Threads)
 
 # Set -march for the Topple target
 target_compile_options(ToppleTest PUBLIC -march=native -O3)

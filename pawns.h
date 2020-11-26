@@ -210,12 +210,19 @@ namespace pawns {
         inline int32_t get_eval_eg() const {
             return eval_eg;
         }
+
+        inline float get_taper() const {
+            return taper;
+        }
     private:
         U64 hash = 0;
 
-        int32_t eval_mg = 0;
-        int32_t eval_eg = 0;
+        int16_t eval_mg = 0;
+        int16_t eval_eg = 0;
+        float taper = 0;
     };
+
+    static_assert(sizeof(structure_t) == 16);
 }
 
 

@@ -45,7 +45,7 @@ double texel_t::mean_evaluation_error() {
             double total_squared_error = 0;
             for(size_t i = start; i < end; i++) {
                 int raw_eval = local_evaluator.evaluate(positions[i]);
-                if (positions[i].record[positions[i].now].next_move) raw_eval = -raw_eval;
+                if (positions[i].record.back().next_move) raw_eval = -raw_eval;
                 double eval = sigmoid((double) raw_eval);
                 double error = eval - results[i];
                 total_squared_error += error * error;
@@ -60,7 +60,7 @@ double texel_t::mean_evaluation_error() {
     // Add on the missing bits (up to 3)
     for(size_t i = section_size * threads; i < entries; i++) {
         int raw_eval = evaluator.evaluate(positions[i]);
-        if (positions[i].record[positions[i].now].next_move) raw_eval = -raw_eval;
+        if (positions[i].record.back().next_move) raw_eval = -raw_eval;
         double eval = sigmoid((double) raw_eval);
         double error = eval - results[i];
         total_squared_error += error * error;
@@ -181,338 +181,201 @@ void texel_t::anneal(int *parameter, size_t count, double base_temp, double hc_f
 }
 
 void texel_t::print_params() {
-    std::cout << "  mat_exch_knight " << current_params.mat_exch_knight << std::endl;
-    std::cout << "  mat_exch_bishop " << current_params.mat_exch_bishop << std::endl;
-    std::cout << "  mat_exch_rook " << current_params.mat_exch_rook << std::endl;
-    std::cout << "  mat_exch_queen " << current_params.mat_exch_queen << std::endl;
+    std::cout << "int mat_exch_knight " << current_params.mat_exch_knight << ";" << std::endl;
+    std::cout << "int mat_exch_bishop " << current_params.mat_exch_bishop << ";" << std::endl;
+    std::cout << "int mat_exch_rook " << current_params.mat_exch_rook << ";" << std::endl;
+    std::cout << "int mat_exch_queen " << current_params.mat_exch_queen << ";" << std::endl;
 
-    std::cout << "  n_pst_mg ";
-    for (int param : current_params.n_pst_mg) {
-        std::cout << param << ", ";
+    std::cout << "v4si_t n_pst[16] = {";
+    for (const auto &param : current_params.n_pst) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  n_pst_eg ";
-    for (int param : current_params.n_pst_eg) {
-        std::cout << param << ", ";
+    std::cout << "v4si_t q_pst[16] = {";
+    for (const auto &param : current_params.q_pst) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  q_pst_mg ";
-    for (int param : current_params.q_pst_mg) {
-        std::cout << param << ", ";
+    std::cout << "v4si_t b_pst[16] = {";
+    for (const auto &param : current_params.b_pst) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  q_pst_eg ";
-    for (int param : current_params.q_pst_eg) {
-        std::cout << param << ", ";
+
+    std::cout << "v4si_t r_pst[16] = {";
+    for (const auto &param : current_params.r_pst) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  b_pst_mg ";
-    for (int param : current_params.b_pst_mg) {
-        std::cout << param << ", ";
+    std::cout << "v4si_t p_pst[16] = {";
+    for (const auto &param : current_params.p_pst) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  b_pst_eg ";
-    for (int param : current_params.b_pst_eg) {
-        std::cout << param << ", ";
+    std::cout << "v4si_t k_pst[16] = {";
+    for (const auto &param : current_params.k_pst) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  r_pst_mg ";
-    for (int param : current_params.r_pst_mg) {
-        std::cout << param << ", ";
+    std::cout << "v4si_t isolated[2] = {";
+    for (const auto &param : current_params.isolated) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  r_pst_eg ";
-    for (int param : current_params.r_pst_eg) {
-        std::cout << param << ", ";
+    std::cout << "v4si_t backwards[2] = {";
+    for (const auto &param : current_params.backwards) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  p_pst_mg ";
-    for (int param : current_params.p_pst_mg) {
-        std::cout << param << ", ";
+    std::cout << "v4si_t semi_backwards[2] = {";
+    for (const auto &param : current_params.semi_backwards) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  p_pst_eg ";
-    for (int param : current_params.p_pst_eg) {
-        std::cout << param << ", ";
+    std::cout << "v4si_t paired[2] = {";
+    for (const auto &param : current_params.paired) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  k_pst_mg ";
-    for (int param : current_params.k_pst_mg) {
-        std::cout << param << ", ";
+    std::cout << "v4si_t detached[2] = {";
+    for (const auto &param : current_params.detached) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  k_pst_eg ";
-    for (int param : current_params.k_pst_eg) {
-        std::cout << param << ", ";
+    std::cout << "v4si_t doubled[2] = {";
+    for (const auto &param : current_params.doubled) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  isolated_mg ";
-    for (int param : current_params.isolated_mg) {
-        std::cout << param << ", ";
+    std::cout << "v4si_t chain[5] = {";
+    for (const auto &param : current_params.chain) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  isolated_eg ";
-    for (int param : current_params.isolated_eg) {
-        std::cout << param << ", ";
+    std::cout << "v4si_t passed[6] = {";
+    for (const auto &param : current_params.passed) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  backwards_mg ";
-    for (int param : current_params.backwards_mg) {
-        std::cout << param << ", ";
+    std::cout << "v4si_t candidate[4] = {";
+    for (const auto &param : current_params.candidate) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  backward_eg ";
-    for (int param : current_params.backwards_eg) {
-        std::cout << param << ", ";
+    std::cout << "v4si_t king_tropism[2] = {";
+    for (const auto &param : current_params.king_tropism) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  semi_backwards_mg ";
-    for (int param : current_params.semi_backwards_mg) {
-        std::cout << param << ", ";
+    std::cout << "v4si_t passer_tropism[2] = {";
+    for (const auto &param : current_params.passer_tropism) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  semi_backward_eg ";
-    for (int param : current_params.semi_backwards_eg) {
-        std::cout << param << ", ";
+    std::cout << "v4si_t blocked[2] = {";
+    for (const auto &param : current_params.blocked) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  paired_mg ";
-    for (int param : current_params.paired_mg) {
-        std::cout << param << ", ";
+    std::cout << "v4si_t pos_r_open_file " << current_params.pos_r_open_file << ";" << std::endl;
+    std::cout << "v4si_t pos_r_own_half_open_file " << current_params.pos_r_own_half_open_file << ";" << std::endl;
+    std::cout << "v4si_t pos_r_other_half_open_file " << current_params.pos_r_other_half_open_file << ";" << std::endl;
+
+    std::cout << "v4si_t outpost[2] = {";
+    for (auto param : current_params.outpost) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  paired_eg ";
-    for (int param : current_params.paired_eg) {
-        std::cout << param << ", ";
+    std::cout << "v4si_t outpost_hole[2] = {";
+    for (auto param : current_params.outpost_hole) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  detached_mg ";
-    for (int param : current_params.detached_mg) {
-        std::cout << param << ", ";
+    std::cout << "v4si_t outpost_half[2] = {";
+    for (auto param : current_params.outpost_half) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  detached_eg ";
-    for (int param : current_params.detached_eg) {
-        std::cout << param << ", ";
+    std::cout << "v4si_t ks_pawn_shield[4] = {";
+    for (const auto &param : current_params.ks_pawn_shield) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  doubled_mg ";
-    for (int param : current_params.doubled_mg) {
-        std::cout << param << ", ";
+    std::cout << "int kat_zero " << current_params.kat_zero << ";" << std::endl;
+    std::cout << "int kat_open_file " << current_params.kat_open_file << ";" << std::endl;
+    std::cout << "int kat_own_half_open_file " << current_params.kat_own_half_open_file << ";" << std::endl;
+    std::cout << "int kat_other_half_open_file " << current_params.kat_other_half_open_file << ";" << std::endl;
+
+    std::cout << "int kat_attack_weight[5] = {";
+    for (const auto &param : current_params.kat_attack_weight) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  doubled_eg ";
-    for (int param : current_params.doubled_eg) {
-        std::cout << param << ", ";
+    std::cout << "int kat_defence_weight[5] = {";
+    for (const auto &param : current_params.kat_defence_weight) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  chain_mg ";
-    for (int param : current_params.chain_mg) {
-        std::cout << param << ", ";
+    std::cout << "int kat_table_scale " << current_params.kat_table_scale << ";" << std::endl;
+    std::cout << "int kat_table_translate " << current_params.kat_table_translate << ";" << std::endl;
+    std::cout << "v4si_t kat_table_max " << current_params.kat_table_max << ";" << std::endl;
+
+    std::cout << "v4si_t undefended[5] = {";
+    for (const auto &param : current_params.undefended) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 
-    std::cout << "  chain_eg ";
-    for (int param : current_params.chain_eg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  passed_mg ";
-    for (int param : current_params.passed_mg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  passed_eg ";
-    for (int param : current_params.passed_eg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  candidate_mg ";
-    for (int param : current_params.candidate_mg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  candidate_eg ";
-    for (int param : current_params.candidate_eg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  king_tropism_eg ";
-    for (int param : current_params.king_tropism_eg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  passer_tropism_eg ";
-    for (int param : current_params.passer_tropism_eg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  blocked_mg ";
-    for (int param : current_params.blocked_mg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  blocked_eg ";
-    for (int param : current_params.blocked_eg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  pos_r_open_file_mg " << current_params.pos_r_open_file_mg << std::endl;
-    std::cout << "  pos_r_open_file_eg " << current_params.pos_r_open_file_eg << std::endl;
-    std::cout << "  pos_r_own_half_open_file_mg " << current_params.pos_r_own_half_open_file_mg << std::endl;
-    std::cout << "  pos_r_own_half_open_file_eg " << current_params.pos_r_own_half_open_file_eg << std::endl;
-    std::cout << "  pos_r_other_half_open_file_mg " << current_params.pos_r_other_half_open_file_mg << std::endl;
-    std::cout << "  pos_r_other_half_open_file_eg " << current_params.pos_r_other_half_open_file_eg << std::endl;
-
-    std::cout << "  outpost_mg ";
-    for (auto param : current_params.outpost_mg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  outpost_eg ";
-    for (auto param : current_params.outpost_eg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  outpost_hole_mg ";
-    for (auto param : current_params.outpost_hole_mg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  outpost_hole_eg ";
-    for (auto param : current_params.outpost_hole_eg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  outpost_half_mg ";
-    for (auto param : current_params.outpost_half_mg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  outpost_half_eg ";
-    for (auto param : current_params.outpost_half_eg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  ks_pawn_shield ";
-    for (int param : current_params.ks_pawn_shield) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  kat_zero " << current_params.kat_zero << std::endl;
-    std::cout << "  kat_open_file " << current_params.kat_open_file << std::endl;
-    std::cout << "  kat_own_half_open_file " << current_params.kat_own_half_open_file << std::endl;
-    std::cout << "  kat_other_half_open_file " << current_params.kat_other_half_open_file << std::endl;
-
-    std::cout << "  kat_attack_weight ";
-    for (int param : current_params.kat_attack_weight) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  kat_defence_weight ";
-    for (int param : current_params.kat_defence_weight) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  kat_table_scale " << current_params.kat_table_scale << std::endl;
-    std::cout << "  kat_table_translate " << current_params.kat_table_translate << std::endl;
-    std::cout << "  kat_table_max " << current_params.kat_table_max << std::endl;
-    std::cout << "  kat_table_offset " << current_params.kat_table_offset << std::endl;
-
-    std::cout << "  undefended_mg ";
-    for (int param : current_params.undefended_mg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  undefended_eg ";
-    for (int param : current_params.undefended_eg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << " threat_matrix_mg" << std::endl;
-    for(auto &param : current_params.threat_matrix_mg) {
+    std::cout << "v4si_t threat_matrix[4][5] = {" << std::endl;
+    for(auto &param : current_params.threat_matrix) {
         std::cout << "  {";
         for(auto param2 : param) {
-            std::cout << param2 << ", ";
+            std::cout << param2 << ",";
         }
         std::cout << "}, " << std::endl;
     }
-    std::cout << " threat_matrix_eg" << std::endl;
-    for(auto &param : current_params.threat_matrix_eg) {
-        std::cout << "  {";
-        for(auto param2 : param) {
-            std::cout << param2 << ", ";
-        }
-        std::cout << "}, " << std::endl;
+    std::cout << "};" << std::endl;
+
+    std::cout << "v4si_t pos_bishop_pair " << current_params.pos_bishop_pair << ";" << std::endl;
+
+    std::cout << "v4si_t mat_opp_bishop[3] = {";
+    for (const auto &param : current_params.mat_opp_bishop) {
+        std::cout << param << ",";
     }
+    std::cout << "};" << std::endl;
 
-    std::cout << "  pos_bishop_pair_mg " << current_params.pos_bishop_pair_mg << std::endl;
-    std::cout << "  pos_bishop_pair_eg " << current_params.pos_bishop_pair_eg << std::endl;
+    std::cout << "v4si_t pos_r_trapped " << current_params.pos_r_trapped << ";" << std::endl;
+    std::cout << "v4si_t pos_r_behind_own_passer " << current_params.pos_r_behind_own_passer << ";" << std::endl;
+    std::cout << "v4si_t pos_r_behind_enemy_passer " << current_params.pos_r_behind_enemy_passer << ";" << std::endl;
 
-    std::cout << "  mat_opp_bishop ";
-    for (int param : current_params.mat_opp_bishop) {
-        std::cout << param << ", ";
+    std::cout << "v4si_t pos_mob_mg[4] = {";
+    for (const auto &param : current_params.pos_mob) {
+        std::cout << param << ",";
     }
-    std::cout << std::endl;
-
-    std::cout << "  pos_r_trapped_mg " << current_params.pos_r_trapped_mg << std::endl;
-    std::cout << "  pos_r_behind_own_passer_eg " << current_params.pos_r_behind_own_passer_eg << std::endl;
-    std::cout << "  pos_r_behind_enemy_passer_eg " << current_params.pos_r_behind_enemy_passer_eg << std::endl;
-
-    std::cout << "  pos_mob_mg ";
-    for (int param : current_params.pos_mob_mg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "  pos_mob_eg ";
-    for (int param : current_params.pos_mob_eg) {
-        std::cout << param << ", ";
-    }
-    std::cout << std::endl;
+    std::cout << "};" << std::endl;
 }
 
