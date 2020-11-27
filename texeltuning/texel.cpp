@@ -80,19 +80,19 @@ double texel_t::momentum_optimise(int *parameter, double current_mea, int max_it
     double adjusted_mea;
     *parameter = original + step;
     if ((adjusted_mea = mean_evaluation_error()) < current_mea) {
-        std::cout << "optimising parameter (increasing): " << *parameter << std::endl;
+        std::cout << "p+: " << *parameter << " ";
 
         while (adjusted_mea < current_mea && abs(*parameter - original) <= max_iter) {
             current_mea = adjusted_mea;
             *parameter += step;
             adjusted_mea = mean_evaluation_error();
 
-            std::cout << " : parameter: " << *parameter << " -> " << adjusted_mea << std::endl;
+            std::cout << *parameter << " ";
         }
 
         *parameter -= step;
     } else {
-        std::cout << "optimising parameter (decreasing): " << *parameter << std::endl;
+        std::cout << "p-: " << *parameter << " ";
 
         *parameter = original - step;
         adjusted_mea = mean_evaluation_error();
@@ -101,21 +101,22 @@ double texel_t::momentum_optimise(int *parameter, double current_mea, int max_it
             *parameter -= step;
             adjusted_mea = mean_evaluation_error();
 
-            std::cout << " : parameter: " << *parameter << " -> " << adjusted_mea << std::endl;
+            std::cout << *parameter << " ";
         }
 
         *parameter += step;
     }
 
-    std::cout << "parameter optimised: " << *parameter << " -> " << current_mea << std::endl;
+    std::cout << *parameter << " -> " << current_mea << std::endl;
 
     return current_mea;
 }
 
 void texel_t::optimise(int *parameter, size_t count, int max_iter) {
     for (size_t i = 0; i < count; i++) {
-        std::cout << "parameter " << i << " of " << count << std::endl;
+        std::cout << "parameter " << i << " of " << count << ": ";
         current_error = momentum_optimise(parameter + i, current_error, max_iter, 5);
+        std::cout << "parameter " << i << " of " << count << ": ";
         current_error = momentum_optimise(parameter + i, current_error, max_iter, 1);
     }
 
@@ -139,8 +140,9 @@ void texel_t::random_optimise(int *parameter, size_t count, int max_iter) {
     std::shuffle(indices.begin(), indices.end(), std::mt19937(std::random_device()()));
 
     for(size_t i = 0; i < count; i++) {
-        std::cout << "parameter " << i << " of " << count << std::endl;
+        std::cout << "parameter " << i << " of " << count << ": ";
         current_error = momentum_optimise(parameter + indices[i], current_error, max_iter, 5);
+        std::cout << "parameter " << i << " of " << count << ": ";
         current_error = momentum_optimise(parameter + indices[i], current_error, max_iter, 1);
     }
 }
@@ -181,10 +183,10 @@ void texel_t::anneal(int *parameter, size_t count, double base_temp, double hc_f
 }
 
 void texel_t::print_params() {
-    std::cout << "int mat_exch_knight " << current_params.mat_exch_knight << ";" << std::endl;
-    std::cout << "int mat_exch_bishop " << current_params.mat_exch_bishop << ";" << std::endl;
-    std::cout << "int mat_exch_rook " << current_params.mat_exch_rook << ";" << std::endl;
-    std::cout << "int mat_exch_queen " << current_params.mat_exch_queen << ";" << std::endl;
+    std::cout << "int mat_exch_knight = " << current_params.mat_exch_knight << ";" << std::endl;
+    std::cout << "int mat_exch_bishop = " << current_params.mat_exch_bishop << ";" << std::endl;
+    std::cout << "int mat_exch_rook = " << current_params.mat_exch_rook << ";" << std::endl;
+    std::cout << "int mat_exch_queen = " << current_params.mat_exch_queen << ";" << std::endl;
 
     std::cout << "v4si_t n_pst[16] = {";
     for (const auto &param : current_params.n_pst) {
@@ -211,7 +213,7 @@ void texel_t::print_params() {
     }
     std::cout << "};" << std::endl;
 
-    std::cout << "v4si_t p_pst[16] = {";
+    std::cout << "v4si_t p_pst[24] = {";
     for (const auto &param : current_params.p_pst) {
         std::cout << param << ",";
     }
@@ -295,9 +297,9 @@ void texel_t::print_params() {
     }
     std::cout << "};" << std::endl;
 
-    std::cout << "v4si_t pos_r_open_file " << current_params.pos_r_open_file << ";" << std::endl;
-    std::cout << "v4si_t pos_r_own_half_open_file " << current_params.pos_r_own_half_open_file << ";" << std::endl;
-    std::cout << "v4si_t pos_r_other_half_open_file " << current_params.pos_r_other_half_open_file << ";" << std::endl;
+    std::cout << "v4si_t pos_r_open_file = " << current_params.pos_r_open_file << ";" << std::endl;
+    std::cout << "v4si_t pos_r_own_half_open_file = " << current_params.pos_r_own_half_open_file << ";" << std::endl;
+    std::cout << "v4si_t pos_r_other_half_open_file = " << current_params.pos_r_other_half_open_file << ";" << std::endl;
 
     std::cout << "v4si_t outpost[2] = {";
     for (auto param : current_params.outpost) {
@@ -323,10 +325,10 @@ void texel_t::print_params() {
     }
     std::cout << "};" << std::endl;
 
-    std::cout << "int kat_zero " << current_params.kat_zero << ";" << std::endl;
-    std::cout << "int kat_open_file " << current_params.kat_open_file << ";" << std::endl;
-    std::cout << "int kat_own_half_open_file " << current_params.kat_own_half_open_file << ";" << std::endl;
-    std::cout << "int kat_other_half_open_file " << current_params.kat_other_half_open_file << ";" << std::endl;
+    std::cout << "int kat_zero = " << current_params.kat_zero << ";" << std::endl;
+    std::cout << "int kat_open_file = " << current_params.kat_open_file << ";" << std::endl;
+    std::cout << "int kat_own_half_open_file = " << current_params.kat_own_half_open_file << ";" << std::endl;
+    std::cout << "int kat_other_half_open_file = " << current_params.kat_other_half_open_file << ";" << std::endl;
 
     std::cout << "int kat_attack_weight[5] = {";
     for (const auto &param : current_params.kat_attack_weight) {
@@ -340,9 +342,9 @@ void texel_t::print_params() {
     }
     std::cout << "};" << std::endl;
 
-    std::cout << "int kat_table_scale " << current_params.kat_table_scale << ";" << std::endl;
-    std::cout << "int kat_table_translate " << current_params.kat_table_translate << ";" << std::endl;
-    std::cout << "v4si_t kat_table_max " << current_params.kat_table_max << ";" << std::endl;
+    std::cout << "int kat_table_scale = " << current_params.kat_table_scale << ";" << std::endl;
+    std::cout << "int kat_table_translate = " << current_params.kat_table_translate << ";" << std::endl;
+    std::cout << "v4si_t kat_table_max = " << current_params.kat_table_max << ";" << std::endl;
 
     std::cout << "v4si_t undefended[5] = {";
     for (const auto &param : current_params.undefended) {
@@ -368,11 +370,11 @@ void texel_t::print_params() {
     }
     std::cout << "};" << std::endl;
 
-    std::cout << "v4si_t pos_r_trapped " << current_params.pos_r_trapped << ";" << std::endl;
-    std::cout << "v4si_t pos_r_behind_own_passer " << current_params.pos_r_behind_own_passer << ";" << std::endl;
-    std::cout << "v4si_t pos_r_behind_enemy_passer " << current_params.pos_r_behind_enemy_passer << ";" << std::endl;
+    std::cout << "v4si_t pos_r_trapped = " << current_params.pos_r_trapped << ";" << std::endl;
+    std::cout << "v4si_t pos_r_behind_own_passer = " << current_params.pos_r_behind_own_passer << ";" << std::endl;
+    std::cout << "v4si_t pos_r_behind_enemy_passer = " << current_params.pos_r_behind_enemy_passer << ";" << std::endl;
 
-    std::cout << "v4si_t pos_mob_mg[4] = {";
+    std::cout << "v4si_t pos_mob[4] = {";
     for (const auto &param : current_params.pos_mob) {
         std::cout << param << ",";
     }

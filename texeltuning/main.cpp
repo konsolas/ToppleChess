@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
 
     std::cout << "loaded " << boards.size() << " positions" << std::endl;
 
-    texel_t tuner = texel_t(4, boards.size(), boards, results);
+    texel_t tuner = texel_t(8, boards.size(), boards, results);
 
     while (true) {
         std::string input;
