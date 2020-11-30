@@ -1,14 +1,11 @@
 #include <memory>
 #include <iostream>
 #include <sstream>
-#include <iomanip>
 #include <future>
 #include <climits>
 
 #include "board.h"
-#include "movegen.h"
 #include "search.h"
-#include "eval.h"
 #include "endgame.h"
 
 #include "syzygy/tbprobe.h"
@@ -47,7 +44,7 @@ int main(int argc, char *argv[]) {
     std::string tb_path;
 
     // Startup
-    std::cout << "Topple " << TOPPLE_VER << " (c) Vincent Tang 2019" << std::endl;
+    std::cout << "Topple " << TOPPLE_VER << " (c) Vincent Tang 2020" << std::endl;
 
     while (true) {
         std::string input;

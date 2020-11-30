@@ -7,7 +7,9 @@
 
 pawns::structure_t::structure_t(const processed_params_t &params, U64 kp_hash, U64 w_pawns, U64 b_pawns, U64 w_king,
                                 U64 b_king)
-        : hash(kp_hash), eval_mg(0), eval_eg(0) {
+        : hash(kp_hash) {
+    v4si_t score = {0, 0, 0, 0};
+    
     // Find pawns
     U64 open[2] = {pawns::open_pawns<WHITE>(w_pawns, b_pawns), pawns::open_pawns<BLACK>(b_pawns, w_pawns)};
     U64 isolated[2] = {pawns::isolated(w_pawns), pawns::isolated(b_pawns)};
@@ -48,64 +50,48 @@ pawns::structure_t::structure_t(const processed_params_t &params, U64 kp_hash, U
     }; // [TEAM][OPEN]
 
     // Add to the scores
-    eval_mg += (isolated_counts[WHITE][0] - isolated_counts[BLACK][0]) * params.isolated_mg[0];
-    eval_mg += (isolated_counts[WHITE][1] - isolated_counts[BLACK][1]) * params.isolated_mg[1];
-    eval_eg += (isolated_counts[WHITE][0] - isolated_counts[BLACK][0]) * params.isolated_eg[0];
-    eval_eg += (isolated_counts[WHITE][1] - isolated_counts[BLACK][1]) * params.isolated_eg[1];
+    score += (isolated_counts[WHITE][0] - isolated_counts[BLACK][0]) * params.isolated[0];
+    score += (isolated_counts[WHITE][1] - isolated_counts[BLACK][1]) * params.isolated[1];
 
-    eval_mg += (backwards_counts[WHITE][0] - backwards_counts[BLACK][0]) * params.backwards_mg[0];
-    eval_mg += (backwards_counts[WHITE][1] - backwards_counts[BLACK][1]) * params.backwards_mg[1];
-    eval_eg += (backwards_counts[WHITE][0] - backwards_counts[BLACK][0]) * params.backwards_eg[0];
-    eval_eg += (backwards_counts[WHITE][1] - backwards_counts[BLACK][1]) * params.backwards_eg[1];
+    score += (backwards_counts[WHITE][0] - backwards_counts[BLACK][0]) * params.backwards[0];
+    score += (backwards_counts[WHITE][1] - backwards_counts[BLACK][1]) * params.backwards[1];
 
-    eval_mg += (semi_backwards_counts[WHITE][0] - semi_backwards_counts[BLACK][0]) * params.semi_backwards_mg[0];
-    eval_mg += (semi_backwards_counts[WHITE][1] - semi_backwards_counts[BLACK][1]) * params.semi_backwards_mg[1];
-    eval_eg += (semi_backwards_counts[WHITE][0] - semi_backwards_counts[BLACK][0]) * params.semi_backwards_eg[0];
-    eval_eg += (semi_backwards_counts[WHITE][1] - semi_backwards_counts[BLACK][1]) * params.semi_backwards_eg[1];
+    score += (semi_backwards_counts[WHITE][0] - semi_backwards_counts[BLACK][0]) * params.semi_backwards[0];
+    score += (semi_backwards_counts[WHITE][1] - semi_backwards_counts[BLACK][1]) * params.semi_backwards[1];
 
-    eval_mg += (paired_counts[WHITE][0] - paired_counts[BLACK][0]) * params.paired_mg[0];
-    eval_mg += (paired_counts[WHITE][1] - paired_counts[BLACK][1]) * params.paired_mg[1];
-    eval_eg += (paired_counts[WHITE][0] - paired_counts[BLACK][0]) * params.paired_eg[0];
-    eval_eg += (paired_counts[WHITE][1] - paired_counts[BLACK][1]) * params.paired_eg[1];
+    score += (paired_counts[WHITE][0] - paired_counts[BLACK][0]) * params.paired[0];
+    score += (paired_counts[WHITE][1] - paired_counts[BLACK][1]) * params.paired[1];
 
-    eval_mg += (detached_counts[WHITE][0] - detached_counts[BLACK][0]) * params.detached_mg[0];
-    eval_mg += (detached_counts[WHITE][1] - detached_counts[BLACK][1]) * params.detached_mg[1];
-    eval_eg += (detached_counts[WHITE][0] - detached_counts[BLACK][0]) * params.detached_eg[0];
-    eval_eg += (detached_counts[WHITE][1] - detached_counts[BLACK][1]) * params.detached_eg[1];
+    score += (detached_counts[WHITE][0] - detached_counts[BLACK][0]) * params.detached[0];
+    score += (detached_counts[WHITE][1] - detached_counts[BLACK][1]) * params.detached[1];
 
-    eval_mg += (doubled_counts[WHITE][0] - doubled_counts[BLACK][0]) * params.doubled_mg[0];
-    eval_mg += (doubled_counts[WHITE][1] - doubled_counts[BLACK][1]) * params.doubled_mg[1];
-    eval_eg += (doubled_counts[WHITE][0] - doubled_counts[BLACK][0]) * params.doubled_eg[0];
-    eval_eg += (doubled_counts[WHITE][1] - doubled_counts[BLACK][1]) * params.doubled_eg[1];
+    score += (doubled_counts[WHITE][0] - doubled_counts[BLACK][0]) * params.doubled[0];
+    score += (doubled_counts[WHITE][1] - doubled_counts[BLACK][1]) * params.doubled[1];
 
     U64 bb;
 
     // King PST
     int king_loc[2] = {bit_scan(w_king), bit_scan(b_king)};
-    eval_mg += params.pst[WHITE][KING][king_loc[WHITE]][MG];
-    eval_eg += params.pst[WHITE][KING][king_loc[WHITE]][EG];
-    eval_mg -= params.pst[BLACK][KING][king_loc[BLACK]][MG];
-    eval_eg -= params.pst[BLACK][KING][king_loc[BLACK]][EG];
+    score += params.pst[WHITE][KING][king_loc[WHITE]];
+    score -= params.pst[BLACK][KING][king_loc[BLACK]];
 
     // Pawn PST
     bb = w_pawns;
     while (bb) {
         uint8_t sq = pop_bit(bb);
-        eval_mg += params.pst[WHITE][PAWN][sq][MG];
-        eval_eg += params.pst[WHITE][PAWN][sq][EG];
+        score += params.pst[WHITE][PAWN][sq];
 
-        eval_eg += distance(king_loc[WHITE], sq) * params.king_tropism_eg[0];
-        eval_eg += distance(king_loc[BLACK], sq) * params.king_tropism_eg[1];
+        score += distance(king_loc[WHITE], sq) * params.king_tropism[0];
+        score += distance(king_loc[BLACK], sq) * params.king_tropism[1];
     }
 
     bb = b_pawns;
     while (bb) {
         uint8_t sq = pop_bit(bb);
-        eval_mg -= params.pst[BLACK][PAWN][sq][MG];
-        eval_eg -= params.pst[BLACK][PAWN][sq][EG];
+        score -= params.pst[BLACK][PAWN][sq];
 
-        eval_eg -= distance(king_loc[BLACK], sq) * params.king_tropism_eg[0];
-        eval_eg -= distance(king_loc[WHITE], sq) * params.king_tropism_eg[1];
+        score -= distance(king_loc[BLACK], sq) * params.king_tropism[0];
+        score -= distance(king_loc[WHITE], sq) * params.king_tropism[1];
     }
 
     // Chain
@@ -113,16 +99,14 @@ pawns::structure_t::structure_t(const processed_params_t &params, U64 kp_hash, U
     while (bb) {
         uint8_t sq = pop_bit(bb);
         uint8_t rank = rel_rank(WHITE, rank_index(sq));
-        eval_mg += params.chain_mg[rank - 2];
-        eval_eg += params.chain_eg[rank - 2];
+        score += params.chain[rank - 2];
     }
 
     bb = chain[BLACK];
     while (bb) {
         uint8_t sq = pop_bit(bb);
         uint8_t rank = rel_rank(BLACK, rank_index(sq));
-        eval_mg -= params.chain_mg[rank - 2];
-        eval_eg -= params.chain_eg[rank - 2];
+        score -= params.chain[rank - 2];
     }
 
     // Passed
@@ -130,22 +114,20 @@ pawns::structure_t::structure_t(const processed_params_t &params, U64 kp_hash, U
     while (bb) {
         uint8_t sq = pop_bit(bb);
         uint8_t rank = rel_rank(WHITE, rank_index(sq));
-        eval_mg += params.passed_mg[rank - 1];
-        eval_eg += params.passed_eg[rank - 1];
+        score += params.passed[rank - 1];
 
-        eval_eg += distance(king_loc[WHITE], sq) * params.passer_tropism_eg[0];
-        eval_eg += distance(king_loc[BLACK], sq) * params.passer_tropism_eg[1];
+        score += distance(king_loc[WHITE], sq) * params.passer_tropism[0];
+        score += distance(king_loc[BLACK], sq) * params.passer_tropism[1];
     }
 
     bb = passed[BLACK];
     while (bb) {
         uint8_t sq = pop_bit(bb);
         uint8_t rank = rel_rank(BLACK, rank_index(sq));
-        eval_mg -= params.passed_mg[rank - 1];
-        eval_eg -= params.passed_eg[rank - 1];
+        score -= params.passed[rank - 1];
 
-        eval_eg -= distance(king_loc[BLACK], sq) * params.passer_tropism_eg[0];
-        eval_eg -= distance(king_loc[WHITE], sq) * params.passer_tropism_eg[1];
+        score -= distance(king_loc[BLACK], sq) * params.passer_tropism[0];
+        score -= distance(king_loc[WHITE], sq) * params.passer_tropism[1];
     }
 
     // Candidates
@@ -153,15 +135,32 @@ pawns::structure_t::structure_t(const processed_params_t &params, U64 kp_hash, U
     while (bb) {
         uint8_t sq = pop_bit(bb);
         uint8_t rank = rel_rank(WHITE, rank_index(sq));
-        eval_mg += params.candidate_mg[rank - 1];
-        eval_eg += params.candidate_eg[rank - 1];
+        score += params.candidate[rank - 1];
     }
 
     bb = candidate[BLACK];
     while (bb) {
         uint8_t sq = pop_bit(bb);
         uint8_t rank = rel_rank(BLACK, rank_index(sq));
-        eval_mg -= params.candidate_mg[rank - 1];
-        eval_eg -= params.candidate_eg[rank - 1];
+        score -= params.candidate[rank - 1];
     }
+
+    // Calculate tapering factor
+    int accumulator = 0;
+
+    U64 blocked_b_pawns = pawns::stop_squares<WHITE>(w_pawns) & b_pawns;
+    for (int file = 0; file < 8; file++) {
+        U64 on_file = file_mask(file) & (w_pawns | b_pawns);
+        if (blocked_b_pawns & on_file) { // Blocked file
+            accumulator += params.pt_blocked_file[file_edge_distance(file)];
+        } else if (on_file && !multiple_bits(on_file)) { // Only one pawn - half open
+            accumulator += params.pt_half_open_file[file_edge_distance(file)];
+        } else if (!on_file) { // No pawns - open file
+            accumulator += params.pt_open_file[file_edge_distance(file)];
+        }
+    }
+    this->taper = (float) (std::clamp(accumulator, 0, 500) / 500.0);
+
+    this->eval_mg = taper * score[0] + (1 - taper) * score[1];
+    this->eval_eg = taper * score[2] + (1 - taper) * score[3];
 }

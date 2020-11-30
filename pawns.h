@@ -193,6 +193,11 @@ namespace pawns {
                 ((own_single_attacks & other_single_attacks) | (own_double_attacks & other_double_attacks));
     }
 
+    template<Team team>
+    constexpr U64 blocked(U64 own, U64 other) {
+        return own & stop_squares<Team(!team)>(other);
+    }
+
     // Represents a pawn structure
     class structure_t {
     public:
@@ -210,12 +215,19 @@ namespace pawns {
         inline int32_t get_eval_eg() const {
             return eval_eg;
         }
+
+        inline float get_taper() const {
+            return taper;
+        }
     private:
         U64 hash = 0;
 
-        int32_t eval_mg = 0;
-        int32_t eval_eg = 0;
+        int16_t eval_mg = 0;
+        int16_t eval_eg = 0;
+        float taper = 0;
     };
+
+    static_assert(sizeof(structure_t) == 16);
 }
 
 

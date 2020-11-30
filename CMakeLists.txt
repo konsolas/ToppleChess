@@ -47,10 +47,11 @@ find_package(Threads REQUIRED)
 target_link_libraries(Topple Threads::Threads)
 target_link_libraries(ToppleTest Threads::Threads)
 target_link_libraries(ToppleTune Threads::Threads)
+target_link_libraries(ToppleTexelTune Threads::Threads)
 
 # Set -march for the Topple target
 target_compile_options(ToppleTest PUBLIC -march=native -O3)
-target_compile_options(Topple PUBLIC -march=native -O3 -DNDEBUG) # NDEBUG to disable asserts
+target_compile_options(Topple PUBLIC -march=ivybridge -O3 -DNDEBUG) # NDEBUG to disable asserts
 target_compile_options(ToppleTune PUBLIC -DTOPPLE_TUNE -O3 -march=native -DNDEBUG)
 target_compile_options(ToppleTexelTune PUBLIC -DTEXEL_TUNE -O3 -march=native -DNDEBUG)
 

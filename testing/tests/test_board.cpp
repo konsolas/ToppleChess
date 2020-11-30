@@ -14,13 +14,13 @@ TEST_CASE("Board representation") {
     board_t board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
     SECTION("Initialised correctly") {
-        REQUIRE(board.record[board.now].next_move == WHITE);
-        REQUIRE(board.record[board.now].ep_square == 0);
-        REQUIRE(board.record[board.now].castle[0][0] == 1);
-        REQUIRE(board.record[board.now].castle[0][1] == 1);
-        REQUIRE(board.record[board.now].castle[1][0] == 1);
-        REQUIRE(board.record[board.now].castle[1][1] == 1);
-        REQUIRE(board.record[board.now].halfmove_clock == 0);
+        REQUIRE(board.record.back().next_move == WHITE);
+        REQUIRE(board.record.back().ep_square == 0);
+        REQUIRE(board.record.back().castle[0][0] == 1);
+        REQUIRE(board.record.back().castle[0][1] == 1);
+        REQUIRE(board.record.back().castle[1][0] == 1);
+        REQUIRE(board.record.back().castle[1][1] == 1);
+        REQUIRE(board.record.back().halfmove_clock == 0);
 
         expected = c_u64({1, 1, 1, 1, 1, 1, 1, 1,
                           1, 1, 1, 1, 1, 1, 1, 1,
@@ -181,13 +181,13 @@ TEST_CASE("Board representation") {
 
         board.move(move);
 
-        REQUIRE(board.record[board.now].next_move == BLACK);
-        REQUIRE(board.record[board.now].ep_square == E3);
-        REQUIRE(board.record[board.now].castle[0][0] == 1);
-        REQUIRE(board.record[board.now].castle[0][1] == 1);
-        REQUIRE(board.record[board.now].castle[1][0] == 1);
-        REQUIRE(board.record[board.now].castle[1][1] == 1);
-        REQUIRE(board.record[board.now].halfmove_clock == 0);
+        REQUIRE(board.record.back().next_move == BLACK);
+        REQUIRE(board.record.back().ep_square == E3);
+        REQUIRE(board.record.back().castle[0][0] == 1);
+        REQUIRE(board.record.back().castle[0][1] == 1);
+        REQUIRE(board.record.back().castle[1][0] == 1);
+        REQUIRE(board.record.back().castle[1][1] == 1);
+        REQUIRE(board.record.back().halfmove_clock == 0);
 
         expected = c_u64({1, 1, 1, 1, 1, 1, 1, 1,
                           1, 1, 1, 1, 1, 1, 1, 1,
@@ -204,13 +204,13 @@ TEST_CASE("Board representation") {
         board.unmove();
 
         // Recheck original position
-        REQUIRE(board.record[board.now].next_move == WHITE);
-        REQUIRE(board.record[board.now].ep_square == 0);
-        REQUIRE(board.record[board.now].castle[0][0] == 1);
-        REQUIRE(board.record[board.now].castle[0][1] == 1);
-        REQUIRE(board.record[board.now].castle[1][0] == 1);
-        REQUIRE(board.record[board.now].castle[1][1] == 1);
-        REQUIRE(board.record[board.now].halfmove_clock == 0);
+        REQUIRE(board.record.back().next_move == WHITE);
+        REQUIRE(board.record.back().ep_square == 0);
+        REQUIRE(board.record.back().castle[0][0] == 1);
+        REQUIRE(board.record.back().castle[0][1] == 1);
+        REQUIRE(board.record.back().castle[1][0] == 1);
+        REQUIRE(board.record.back().castle[1][1] == 1);
+        REQUIRE(board.record.back().halfmove_clock == 0);
 
         expected = c_u64({1, 1, 1, 1, 1, 1, 1, 1,
                           1, 1, 1, 1, 1, 1, 1, 1,
