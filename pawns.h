@@ -193,6 +193,11 @@ namespace pawns {
                 ((own_single_attacks & other_single_attacks) | (own_double_attacks & other_double_attacks));
     }
 
+    template<Team team>
+    constexpr U64 blocked(U64 own, U64 other) {
+        return own & stop_squares<Team(!team)>(other);
+    }
+
     // Represents a pawn structure
     class structure_t {
     public:

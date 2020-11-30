@@ -144,7 +144,7 @@ int main(int argc, char *argv[]) {
 
                 tuner.anneal(reinterpret_cast<int*> (tuner.get_current_params()), sizeof(eval_params_t) / sizeof(int), 
                         temp, hc_frac, n_iter);
-            } else if(cmd == "threats") {
+            } else if(cmd == "tapering") {
                 std::string parameter;
                 iss >> parameter;
 
@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
 
                 int times = std::stoi(parameter);
                 for(int i = 0; i < times; i++) {
-                    //tuner.random_optimise(reinterpret_cast<int*> (tuner.get_current_params()->undefended_mg), 50, n_iter);
+                    tuner.random_optimise(reinterpret_cast<int*> (tuner.get_current_params()->pt_blocked_file), 12, n_iter);
                 }
 
                 tuner.print_params();

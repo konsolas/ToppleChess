@@ -22,7 +22,7 @@ texel_t::texel_t(unsigned int threads, size_t entries, std::vector<board_t> &pos
     std::cout << "starting error: " << current_error << std::endl;
 
     // Pick scaling constant
-    current_error = momentum_optimise(&scaling_constant, current_error, 500, 1);
+    //current_error = momentum_optimise(&scaling_constant, current_error, 500, 1);
     std::cout << "scaling constant = " << scaling_constant << std::endl;
 }
 
@@ -187,6 +187,24 @@ void texel_t::print_params() {
     std::cout << "int mat_exch_bishop = " << current_params.mat_exch_bishop << ";" << std::endl;
     std::cout << "int mat_exch_rook = " << current_params.mat_exch_rook << ";" << std::endl;
     std::cout << "int mat_exch_queen = " << current_params.mat_exch_queen << ";" << std::endl;
+
+    std::cout << "int pt_blocked_file[4] = {";
+    for (const auto &param : current_params.pt_blocked_file) {
+        std::cout << param << ",";
+    }
+    std::cout << "};" << std::endl;
+
+    std::cout << "int pt_half_open_file[4] = {";
+    for (const auto &param : current_params.pt_half_open_file) {
+        std::cout << param << ",";
+    }
+    std::cout << "};" << std::endl;
+
+    std::cout << "int pt_open_file[4] = {";
+    for (const auto &param : current_params.pt_open_file) {
+        std::cout << param << ",";
+    }
+    std::cout << "};" << std::endl;
 
     std::cout << "v4si_t n_pst[16] = {";
     for (const auto &param : current_params.n_pst) {
