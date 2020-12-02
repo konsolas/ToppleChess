@@ -146,20 +146,19 @@ pawns::structure_t::structure_t(const processed_params_t &params, U64 kp_hash, U
     }
 
     // Calculate tapering factor
-    int accumulator = 0;
+    int accumulator = params.pt_island * (pawns::island_count(w_pawns) + pawns::island_count(b_pawns));
 
     U64 blocked_b_pawns = pawns::stop_squares<WHITE>(w_pawns) & b_pawns;
     for (int file = 0; file < 8; file++) {
         U64 on_file = file_mask(file) & (w_pawns | b_pawns);
         if (blocked_b_pawns & on_file) { // Blocked file
             accumulator += params.pt_blocked_file[file_edge_distance(file)];
-        } else if (on_file && !multiple_bits(on_file)) { // Only one pawn - half open
-            accumulator += params.pt_half_open_file[file_edge_distance(file)];
         } else if (!on_file) { // No pawns - open file
             accumulator += params.pt_open_file[file_edge_distance(file)];
         }
     }
-    this->taper = (float) (std::clamp(accumulator, 0, 500) / 500.0);
+
+    this->taper = (float) std::clamp(accumulator, 0, params.pt_max) / (float) params.pt_max;
 
     this->eval_mg = taper * score[0] + (1 - taper) * score[1];
     this->eval_eg = taper * score[2] + (1 - taper) * score[3];

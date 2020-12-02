@@ -154,7 +154,21 @@ int main(int argc, char *argv[]) {
 
                 int times = std::stoi(parameter);
                 for(int i = 0; i < times; i++) {
-                    tuner.random_optimise(reinterpret_cast<int*> (tuner.get_current_params()->pt_blocked_file), 12, n_iter);
+                    tuner.random_optimise(reinterpret_cast<int*> (tuner.get_current_params()->pt_blocked_file), 9, n_iter);
+                }
+
+                tuner.print_params();
+            } else if(cmd == "over") {
+                std::string parameter;
+                iss >> parameter;
+
+                std::string max_iter;
+                iss >> max_iter;
+                int n_iter = std::stoi(max_iter);
+
+                int times = std::stoi(parameter);
+                for(int i = 0; i < times; i++) {
+                    tuner.random_optimise(reinterpret_cast<int*> (&tuner.get_current_params()->overprotected), 20, n_iter);
                 }
 
                 tuner.print_params();

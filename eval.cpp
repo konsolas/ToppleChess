@@ -180,6 +180,9 @@ v4si_t evaluator_t::eval_pieces(const board_t &board, eval_data_t &data) {
     v4si_t score = {0, 0, 0, 0};
     U64 pieces;
     for (int type = KNIGHT; type < KING; type++) {
+        U64 cached_double_attack_mask[2] = {~data.double_attacks[WHITE] | data.double_attacks[BLACK],
+                                            ~data.double_attacks[BLACK] | data.double_attacks[WHITE]};
+
         pieces = board.bb_pieces[WHITE][type];
         while (pieces) {
             uint8_t sq = pop_bit(pieces);
@@ -189,11 +192,12 @@ v4si_t evaluator_t::eval_pieces(const board_t &board, eval_data_t &data) {
             data.king_danger[WHITE] -= pop_count(attacks & data.king_circle[WHITE]) * params.kat_defence_weight[type];
             data.king_danger[BLACK] += pop_count(attacks & data.king_circle[BLACK]) * params.kat_attack_weight[type];
             data.update_attacks(WHITE, Piece(type), attacks);
-            int mobility = pop_count(attacks & ~data.attacks[BLACK][PAWN] & ~board.bb_side[WHITE]);
+            int mobility = pop_count(attacks & ~data.attacks[BLACK][PAWN] & ~board.bb_side[WHITE] & cached_double_attack_mask[BLACK]);
             score += mobility * params.pos_mob[type - 1];
         }
 
         pieces = board.bb_pieces[BLACK][type];
+
         while (pieces) {
             uint8_t sq = pop_bit(pieces);
             score -= params.pst[BLACK][type][sq];
@@ -202,7 +206,7 @@ v4si_t evaluator_t::eval_pieces(const board_t &board, eval_data_t &data) {
             data.king_danger[BLACK] -= pop_count(attacks & data.king_circle[BLACK]) * params.kat_defence_weight[type];
             data.king_danger[WHITE] += pop_count(attacks & data.king_circle[WHITE]) * params.kat_attack_weight[type];
             data.update_attacks(BLACK, Piece(type), attacks);
-            int mobility = pop_count(attacks & ~data.attacks[WHITE][PAWN] & ~board.bb_side[BLACK]);
+            int mobility = pop_count(attacks & ~data.attacks[WHITE][PAWN] & ~board.bb_side[BLACK] & cached_double_attack_mask[WHITE]);
             score -= mobility * params.pos_mob[type - 1];
         }
     }
@@ -358,7 +362,10 @@ v4si_t evaluator_t::eval_threats(const board_t &board, eval_data_t &data) {
     for(int target = PAWN; target < KING; target++) {
         int undefended[2] = {pop_count(board.bb_pieces[WHITE][target] & ~data.team_attacks[WHITE]),
                              pop_count(board.bb_pieces[BLACK][target] & ~data.team_attacks[BLACK])};
+        int overprotected[2] = {pop_count(board.bb_pieces[WHITE][target] & data.double_attacks[WHITE] & ~data.double_attacks[BLACK]),
+                                pop_count(board.bb_pieces[BLACK][target] & data.double_attacks[BLACK] & ~data.double_attacks[WHITE])};
         score += (undefended[WHITE] - undefended[BLACK]) * params.undefended[target];
+        score += (overprotected[WHITE] - overprotected[BLACK]) * params.overprotected[target];
 
         for(int attacker = PAWN; attacker < QUEEN; attacker++) {
             int attacks[2] = {pop_count(board.bb_pieces[BLACK][target] & data.attacks[WHITE][attacker]),

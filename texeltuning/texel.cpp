@@ -82,9 +82,10 @@ double texel_t::momentum_optimise(int *parameter, double current_mea, int max_it
     if ((adjusted_mea = mean_evaluation_error()) < current_mea) {
         std::cout << "p+: " << *parameter << " ";
 
-        while (adjusted_mea < current_mea && abs(*parameter - original) <= max_iter) {
+        while (adjusted_mea < current_mea) {
             current_mea = adjusted_mea;
             *parameter += step;
+            if (abs(*parameter - original) > max_iter) break;
             adjusted_mea = mean_evaluation_error();
 
             std::cout << *parameter << " ";
@@ -96,9 +97,10 @@ double texel_t::momentum_optimise(int *parameter, double current_mea, int max_it
 
         *parameter = original - step;
         adjusted_mea = mean_evaluation_error();
-        while (adjusted_mea < current_mea && abs(*parameter - original) <= max_iter) {
+        while (adjusted_mea < current_mea) {
             current_mea = adjusted_mea;
             *parameter -= step;
+            if (abs(*parameter - original) > max_iter) break;
             adjusted_mea = mean_evaluation_error();
 
             std::cout << *parameter << " ";
@@ -183,6 +185,8 @@ void texel_t::anneal(int *parameter, size_t count, double base_temp, double hc_f
 }
 
 void texel_t::print_params() {
+    std::cout << "// Tapering parameters" << std::endl;
+
     std::cout << "int mat_exch_knight = " << current_params.mat_exch_knight << ";" << std::endl;
     std::cout << "int mat_exch_bishop = " << current_params.mat_exch_bishop << ";" << std::endl;
     std::cout << "int mat_exch_rook = " << current_params.mat_exch_rook << ";" << std::endl;
@@ -194,17 +198,22 @@ void texel_t::print_params() {
     }
     std::cout << "};" << std::endl;
 
-    std::cout << "int pt_half_open_file[4] = {";
-    for (const auto &param : current_params.pt_half_open_file) {
-        std::cout << param << ",";
-    }
-    std::cout << "};" << std::endl;
-
     std::cout << "int pt_open_file[4] = {";
     for (const auto &param : current_params.pt_open_file) {
         std::cout << param << ",";
     }
     std::cout << "};" << std::endl;
+
+    std::cout << "int pt_island = " << current_params.pt_island << ";" << std::endl;
+    std::cout << "int pt_max = " << current_params.pt_max << ";" << std::endl;
+
+    std::cout << "// Piece-square tables" << std::endl;
+    std::cout << "// 4x4 tables include the following squares, mirrored horizontally and vertically" << std::endl;
+    std::cout << "// A4, B4, C4, D4," << std::endl;
+    std::cout << "// A3, B3, C3, D3," << std::endl;
+    std::cout << "// A2, B2, C2, D2," << std::endl;
+    std::cout << "// A1, B1, C1, D1," << std::endl;
+    std::cout << "// Pawn tables are mirrored vertically only" << std::endl;
 
     std::cout << "v4si_t n_pst[16] = {";
     for (const auto &param : current_params.n_pst) {
@@ -242,6 +251,8 @@ void texel_t::print_params() {
         std::cout << param << ",";
     }
     std::cout << "};" << std::endl;
+
+    std::cout << "// Pawn structure" << std::endl;
 
     std::cout << "v4si_t isolated[2] = {";
     for (const auto &param : current_params.isolated) {
@@ -297,6 +308,8 @@ void texel_t::print_params() {
     }
     std::cout << "};" << std::endl;
 
+    std::cout << "// Interaction of pieces and pawn structure" << std::endl;
+
     std::cout << "v4si_t king_tropism[2] = {";
     for (const auto &param : current_params.king_tropism) {
         std::cout << param << ",";
@@ -343,6 +356,8 @@ void texel_t::print_params() {
     }
     std::cout << "};" << std::endl;
 
+    std::cout << "// King safety" << std::endl;
+
     std::cout << "int kat_zero = " << current_params.kat_zero << ";" << std::endl;
     std::cout << "int kat_open_file = " << current_params.kat_open_file << ";" << std::endl;
     std::cout << "int kat_own_half_open_file = " << current_params.kat_own_half_open_file << ";" << std::endl;
@@ -364,8 +379,16 @@ void texel_t::print_params() {
     std::cout << "int kat_table_translate = " << current_params.kat_table_translate << ";" << std::endl;
     std::cout << "v4si_t kat_table_max = " << current_params.kat_table_max << ";" << std::endl;
 
+    std::cout << "// Dynamic threats" << std::endl;
+
     std::cout << "v4si_t undefended[5] = {";
     for (const auto &param : current_params.undefended) {
+        std::cout << param << ",";
+    }
+    std::cout << "};" << std::endl;
+
+    std::cout << "v4si_t overprotected[5] = {";
+    for (const auto &param : current_params.overprotected) {
         std::cout << param << ",";
     }
     std::cout << "};" << std::endl;
@@ -379,6 +402,8 @@ void texel_t::print_params() {
         std::cout << "}, " << std::endl;
     }
     std::cout << "};" << std::endl;
+
+    std::cout << "// Other positional factors" << std::endl;
 
     std::cout << "v4si_t pos_bishop_pair " << current_params.pos_bishop_pair << ";" << std::endl;
 
