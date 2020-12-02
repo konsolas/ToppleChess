@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.9)
 project(Topple)
 
 set(CMAKE_CXX_STANDARD 17)
-set(TOPPLE_VERSION 0.7.5)
+set(TOPPLE_VERSION 0.8.0)
 
 # Source files for different targets
 set(SOURCE_FILES
@@ -51,19 +51,29 @@ target_link_libraries(ToppleTexelTune Threads::Threads)
 
 # Set -march for the Topple target
 target_compile_options(ToppleTest PUBLIC -march=native -O3)
-target_compile_options(Topple PUBLIC -march=ivybridge -O3 -DNDEBUG) # NDEBUG to disable asserts
+target_compile_options(Topple PUBLIC -march=native -O3 -DNDEBUG) # NDEBUG to disable asserts
 target_compile_options(ToppleTune PUBLIC -DTOPPLE_TUNE -O3 -march=native -DNDEBUG)
 target_compile_options(ToppleTexelTune PUBLIC -DTEXEL_TUNE -O3 -march=native -DNDEBUG)
 
 # Configure the "Release" target
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
+
     add_custom_target(Release)
     add_executable(Topple_${TOPPLE_VERSION}_legacy ${SOURCE_FILES} main.cpp)
-    target_compile_options(Topple_${TOPPLE_VERSION}_legacy PUBLIC -s)
+    target_link_libraries(Topple_${TOPPLE_VERSION}_legacy Threads::Threads)
+    target_compile_options(Topple_${TOPPLE_VERSION}_legacy PUBLIC -s -mmmx -msse -msse2)
     add_dependencies(Release Topple_${TOPPLE_VERSION}_legacy)
-    foreach(RELEASE_ARCH core2 nehalem westmere sandybridge ivybridge haswell broadwell skylake bdver4 znver1 znver2)
-        add_executable(Topple_${TOPPLE_VERSION}_${RELEASE_ARCH} ${SOURCE_FILES} main.cpp)
-        target_compile_options(Topple_${TOPPLE_VERSION}_${RELEASE_ARCH} PUBLIC -s -march=${RELEASE_ARCH})
-        add_dependencies(Release Topple_${TOPPLE_VERSION}_${RELEASE_ARCH})
-    endforeach(RELEASE_ARCH)
+
+    add_executable(Topple_${TOPPLE_VERSION}_popcnt ${SOURCE_FILES} main.cpp)
+    target_link_libraries(Topple_${TOPPLE_VERSION}_popcnt Threads::Threads)
+    target_compile_options(Topple_${TOPPLE_VERSION}_popcnt PUBLIC -s -mmmx -msse -msse2
+            -msse3 -mssse3 -msse4.1 -msse4.2 -mpopcnt)
+    add_dependencies(Release Topple_${TOPPLE_VERSION}_popcnt)
+
+    add_executable(Topple_${TOPPLE_VERSION}_modern ${SOURCE_FILES} main.cpp)
+    target_link_libraries(Topple_${TOPPLE_VERSION}_modern Threads::Threads)
+    target_compile_options(Topple_${TOPPLE_VERSION}_modern PUBLIC -s -mmmx -msse -msse2
+            -msse3 -mssse3 -msse4.1 -msse4.2 -mpopcnt -mavx -mavx2 -mbmi -mbmi2)
+    add_dependencies(Release Topple_${TOPPLE_VERSION}_modern)
 endif ()
