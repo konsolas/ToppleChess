@@ -3,7 +3,6 @@
 //
 
 #include "eval.h"
-#include "endgame.h"
 #include <algorithm>
 #include <cstring>
 #include <cmath>
@@ -126,14 +125,14 @@ int evaluator_t::evaluate(const board_t &board) {
     eval_data_t data = {};
 
     // Initialise king danger evaluation
-    data.king_pos[WHITE] = bit_scan(board.bb_pieces[WHITE][KING]);
-    data.king_pos[BLACK] = bit_scan(board.bb_pieces[BLACK][KING]);
+    data.king_pos[WHITE] = bit_scan(board.pieces(WHITE, KING));
+    data.king_pos[BLACK] = bit_scan(board.pieces(BLACK, KING));
     data.king_circle[WHITE] = BB_KING_CIRCLE[data.king_pos[WHITE]];
     data.king_circle[BLACK] = BB_KING_CIRCLE[data.king_pos[BLACK]];
     data.king_danger[WHITE] = params.kat_zero;
     data.king_danger[BLACK] = params.kat_zero;
-    data.update_attacks(WHITE, KING, find_moves<KING>(WHITE, data.king_pos[WHITE], board.bb_all));
-    data.update_attacks(BLACK, KING, find_moves<KING>(BLACK, data.king_pos[BLACK], board.bb_all));
+    data.update_attacks(WHITE, KING, find_moves<KING>(WHITE, data.king_pos[WHITE], board.all()));
+    data.update_attacks(BLACK, KING, find_moves<KING>(BLACK, data.king_pos[BLACK], board.all()));
 
     // Score accumulator
     v4si_t score = {0, 0, 0, 0};
@@ -151,11 +150,11 @@ int evaluator_t::evaluate(const board_t &board) {
     float eg = co_phase * score[2] + (1 - co_phase) * score[3];
     auto total = int(me_phase * mg + (1 - me_phase) * eg);
 
-    return board.record.back().next_move ? -total : total;
+    return board.now().next_move ? -total : total;
 }
 
 float evaluator_t::game_phase(const board_t &board) const {
-    material_data_t material = board.record.back().material;
+    material_data_t material = board.now().material;
 
     const int mat_w = params.mat_exch_knight * (material.info.w_knights)
                       + params.mat_exch_bishop * (material.info.w_bishops)
@@ -179,34 +178,34 @@ float evaluator_t::game_phase(const board_t &board) const {
 v4si_t evaluator_t::eval_pieces(const board_t &board, eval_data_t &data) {
     v4si_t score = {0, 0, 0, 0};
     U64 pieces;
-    for (int type = KNIGHT; type < KING; type++) {
+    for (Piece type = KNIGHT; type < KING; type++) {
         U64 cached_double_attack_mask[2] = {~data.double_attacks[WHITE] | data.double_attacks[BLACK],
                                             ~data.double_attacks[BLACK] | data.double_attacks[WHITE]};
 
-        pieces = board.bb_pieces[WHITE][type];
+        pieces = board.pieces(WHITE, type);
         while (pieces) {
             uint8_t sq = pop_bit(pieces);
             score += params.pst[WHITE][type][sq];
 
-            U64 attacks = find_moves(Piece(type), WHITE, sq, board.bb_all);
+            U64 attacks = find_moves(Piece(type), WHITE, sq, board.all());
             data.king_danger[WHITE] -= pop_count(attacks & data.king_circle[WHITE]) * params.kat_defence_weight[type];
             data.king_danger[BLACK] += pop_count(attacks & data.king_circle[BLACK]) * params.kat_attack_weight[type];
             data.update_attacks(WHITE, Piece(type), attacks);
-            int mobility = pop_count(attacks & ~data.attacks[BLACK][PAWN] & ~board.bb_side[WHITE] & cached_double_attack_mask[BLACK]);
+            int mobility = pop_count(attacks & ~data.attacks[BLACK][PAWN] & ~board.side(WHITE) & cached_double_attack_mask[BLACK]);
             score += mobility * params.pos_mob[type - 1];
         }
 
-        pieces = board.bb_pieces[BLACK][type];
+        pieces = board.pieces(BLACK, type);
 
         while (pieces) {
             uint8_t sq = pop_bit(pieces);
             score -= params.pst[BLACK][type][sq];
 
-            U64 attacks = find_moves(Piece(type), WHITE, sq, board.bb_all);
+            U64 attacks = find_moves(Piece(type), WHITE, sq, board.all());
             data.king_danger[BLACK] -= pop_count(attacks & data.king_circle[BLACK]) * params.kat_defence_weight[type];
             data.king_danger[WHITE] += pop_count(attacks & data.king_circle[WHITE]) * params.kat_attack_weight[type];
             data.update_attacks(BLACK, Piece(type), attacks);
-            int mobility = pop_count(attacks & ~data.attacks[WHITE][PAWN] & ~board.bb_side[BLACK] & cached_double_attack_mask[WHITE]);
+            int mobility = pop_count(attacks & ~data.attacks[WHITE][PAWN] & ~board.side(BLACK) & cached_double_attack_mask[WHITE]);
             score -= mobility * params.pos_mob[type - 1];
         }
     }
@@ -215,20 +214,20 @@ v4si_t evaluator_t::eval_pieces(const board_t &board, eval_data_t &data) {
 }
 
 v4si_t evaluator_t::eval_pawns(const board_t &board, eval_data_t &data, float &taper) {
-    U64 pawn_hash = board.record.back().kp_hash;
+    U64 pawn_hash = board.now().kp_hash;
     size_t index = (pawn_hash & pawn_hash_entries);
     pawns::structure_t *entry = pawn_hash_table + index;
     if(entry->get_hash() != pawn_hash) {
         *entry = pawns::structure_t(params, pawn_hash,
-                                    board.bb_pieces[WHITE][PAWN], board.bb_pieces[BLACK][PAWN],
-                                    board.bb_pieces[WHITE][KING], board.bb_pieces[BLACK][KING]);
+                                    board.pieces(WHITE, PAWN), board.pieces(BLACK, PAWN),
+                                    board.pieces(WHITE, KING), board.pieces(BLACK, KING));
     }
 
     v4si_t score = {entry->get_eval_mg(), entry->get_eval_mg(), entry->get_eval_eg(), entry->get_eval_eg()};
     taper = entry->get_taper();
 
-    U64 w_pawns = board.bb_pieces[WHITE][PAWN];
-    U64 b_pawns = board.bb_pieces[BLACK][PAWN];
+    U64 w_pawns = board.pieces(WHITE, PAWN);
+    U64 b_pawns = board.pieces(BLACK, PAWN);
 
     U64 open_files = pawns::open_files(w_pawns, b_pawns);
     U64 half_open_files[2] = {
@@ -239,24 +238,24 @@ v4si_t evaluator_t::eval_pawns(const board_t &board, eval_data_t &data, float &t
     // Blocked pawns
     U64 stop_squares[2] = {pawns::stop_squares<WHITE>(w_pawns), pawns::stop_squares<BLACK>(b_pawns)};
     int blocked_count[2][2] = {
-            {pop_count(stop_squares[WHITE] & board.bb_side[WHITE]),
-             pop_count(stop_squares[WHITE] & board.bb_side[BLACK])},
-            {pop_count(stop_squares[BLACK] & board.bb_side[BLACK]),
-             pop_count(stop_squares[BLACK] & board.bb_side[WHITE])}
+            {pop_count(stop_squares[WHITE] & board.side(WHITE)),
+             pop_count(stop_squares[WHITE] & board.side(BLACK))},
+            {pop_count(stop_squares[BLACK] & board.side(BLACK)),
+             pop_count(stop_squares[BLACK] & board.side(WHITE))}
     };
 
     // Rook on open files
     int open_file_count[2] = {
-            pop_count(open_files & board.bb_pieces[WHITE][ROOK]),
-            pop_count(open_files & board.bb_pieces[BLACK][ROOK])
+            pop_count(open_files & board.pieces(WHITE, ROOK)),
+            pop_count(open_files & board.pieces(BLACK, ROOK))
     };
     int own_half_open_file_count[2] = {
-            pop_count(half_open_files[WHITE] & board.bb_pieces[WHITE][ROOK]),
-            pop_count(half_open_files[BLACK] & board.bb_pieces[BLACK][ROOK])
+            pop_count(half_open_files[WHITE] & board.pieces(WHITE, ROOK)),
+            pop_count(half_open_files[BLACK] & board.pieces(BLACK, ROOK))
     };
     int other_half_open_file_count[2] = {
-            pop_count(half_open_files[BLACK] & board.bb_pieces[WHITE][ROOK]),
-            pop_count(half_open_files[WHITE] & board.bb_pieces[BLACK][ROOK])
+            pop_count(half_open_files[BLACK] & board.pieces(WHITE, ROOK)),
+            pop_count(half_open_files[WHITE] & board.pieces(BLACK, ROOK))
     };
 
     // Outposts
@@ -266,43 +265,43 @@ v4si_t evaluator_t::eval_pawns(const board_t &board, eval_data_t &data, float &t
     U64 holes_bb[2] = {pawns::holes<WHITE>(w_pawns), pawns::holes<BLACK>(b_pawns)};
 
     int outpost_count[2][2] = {
-            {pop_count(outpost_squares[WHITE] & board.bb_pieces[WHITE][KNIGHT]),
-             pop_count(outpost_squares[WHITE] & board.bb_pieces[WHITE][BISHOP])},
-            {pop_count(outpost_squares[BLACK] & board.bb_pieces[BLACK][KNIGHT]),
-             pop_count(outpost_squares[BLACK] & board.bb_pieces[BLACK][BISHOP])},
+            {pop_count(outpost_squares[WHITE] & board.pieces(WHITE, KNIGHT)),
+             pop_count(outpost_squares[WHITE] & board.pieces(WHITE, BISHOP))},
+            {pop_count(outpost_squares[BLACK] & board.pieces(BLACK, KNIGHT)),
+             pop_count(outpost_squares[BLACK] & board.pieces(BLACK, BISHOP))},
     };
     int outpost_hole_count[2][2] = {
-            {pop_count(outpost_squares[WHITE] & holes_bb[BLACK] & board.bb_pieces[WHITE][KNIGHT]),
-             pop_count(outpost_squares[WHITE] & holes_bb[BLACK] & board.bb_pieces[WHITE][BISHOP])},
-            {pop_count(outpost_squares[BLACK] & holes_bb[WHITE] & board.bb_pieces[BLACK][KNIGHT]),
-             pop_count(outpost_squares[BLACK] & holes_bb[WHITE] & board.bb_pieces[BLACK][BISHOP])},
+            {pop_count(outpost_squares[WHITE] & holes_bb[BLACK] & board.pieces(WHITE, KNIGHT)),
+             pop_count(outpost_squares[WHITE] & holes_bb[BLACK] & board.pieces(WHITE, BISHOP))},
+            {pop_count(outpost_squares[BLACK] & holes_bb[WHITE] & board.pieces(BLACK, KNIGHT)),
+             pop_count(outpost_squares[BLACK] & holes_bb[WHITE] & board.pieces(BLACK, BISHOP))},
     };
     int outpost_half_count[2][2] = {
-            {pop_count(outpost_squares[WHITE] & half_open_files[WHITE] & board.bb_pieces[WHITE][KNIGHT]),
-             pop_count(outpost_squares[WHITE] & half_open_files[WHITE] & board.bb_pieces[WHITE][BISHOP])},
-            {pop_count(outpost_squares[BLACK] & half_open_files[BLACK] & board.bb_pieces[BLACK][KNIGHT]),
-             pop_count(outpost_squares[BLACK] & half_open_files[BLACK] & board.bb_pieces[BLACK][BISHOP])},
+            {pop_count(outpost_squares[WHITE] & half_open_files[WHITE] & board.pieces(WHITE, KNIGHT)),
+             pop_count(outpost_squares[WHITE] & half_open_files[WHITE] & board.pieces(WHITE, BISHOP))},
+            {pop_count(outpost_squares[BLACK] & half_open_files[BLACK] & board.pieces(BLACK, KNIGHT)),
+             pop_count(outpost_squares[BLACK] & half_open_files[BLACK] & board.pieces(BLACK, BISHOP))},
     };
 
     // Rooks
     U64 passed[2] = {
-            pawns::passed<WHITE>(board.bb_pieces[WHITE][PAWN], board.bb_pieces[BLACK][PAWN]),
-            pawns::passed<BLACK>(board.bb_pieces[BLACK][PAWN], board.bb_pieces[WHITE][PAWN])
+            pawns::passed<WHITE>(board.pieces(WHITE, PAWN), board.pieces(BLACK, PAWN)),
+            pawns::passed<BLACK>(board.pieces(BLACK, PAWN), board.pieces(WHITE, PAWN))
     };
     U64 passed_rear[2] = {
-            bb_shifts::shift<D_S>(bb_shifts::fill_occluded<D_S>(passed[WHITE], ~board.bb_all)),
-            bb_shifts::shift<D_N>(bb_shifts::fill_occluded<D_N>(passed[BLACK], ~board.bb_all)),
+            bb_shifts::shift<D_S>(bb_shifts::fill_occluded<D_S>(passed[WHITE], ~board.all())),
+            bb_shifts::shift<D_N>(bb_shifts::fill_occluded<D_N>(passed[BLACK], ~board.all())),
     };
     int rook_behind[2][2] = {
-            {pop_count(board.bb_pieces[WHITE][ROOK] & passed_rear[WHITE]),
-                    pop_count(board.bb_pieces[WHITE][ROOK] & passed_rear[BLACK])},
-            {pop_count(board.bb_pieces[BLACK][ROOK] & passed_rear[BLACK]),
-                    pop_count(board.bb_pieces[BLACK][ROOK] & passed_rear[WHITE])},
+            {pop_count(board.pieces(WHITE, ROOK) & passed_rear[WHITE]),
+                    pop_count(board.pieces(WHITE, ROOK) & passed_rear[BLACK])},
+            {pop_count(board.pieces(BLACK, ROOK) & passed_rear[BLACK]),
+                    pop_count(board.pieces(BLACK, ROOK) & passed_rear[WHITE])},
     };
 
     // King shield
-    int pawn_shield_w = std::min(3, pop_count(BB_PAWN_SHIELD[data.king_pos[WHITE]] & board.bb_pieces[WHITE][PAWN]));
-    int pawn_shield_b = std::min(3, pop_count(BB_PAWN_SHIELD[data.king_pos[BLACK]] & board.bb_pieces[BLACK][PAWN]));
+    int pawn_shield_w = std::min(3, pop_count(BB_PAWN_SHIELD[data.king_pos[WHITE]] & board.pieces(WHITE, PAWN)));
+    int pawn_shield_b = std::min(3, pop_count(BB_PAWN_SHIELD[data.king_pos[BLACK]] & board.pieces(BLACK, PAWN)));
 
     score += (blocked_count[WHITE][0] - blocked_count[BLACK][0]) * params.blocked[0];
     score += (blocked_count[WHITE][1] - blocked_count[BLACK][1]) * params.blocked[1];
@@ -322,13 +321,13 @@ v4si_t evaluator_t::eval_pawns(const board_t &board, eval_data_t &data, float &t
     score += (rook_behind[WHITE][1] - rook_behind[BLACK][1]) * params.pos_r_behind_enemy_passer;
 
     // Update attacks
-    data.update_attacks(WHITE, PAWN, pawns::left_attacks<WHITE>(board.bb_pieces[WHITE][PAWN]));
-    data.update_attacks(WHITE, PAWN, pawns::right_attacks<WHITE>(board.bb_pieces[WHITE][PAWN]));
-    data.update_attacks(BLACK, PAWN, pawns::left_attacks<BLACK>(board.bb_pieces[BLACK][PAWN]));
-    data.update_attacks(BLACK, PAWN, pawns::right_attacks<BLACK>(board.bb_pieces[BLACK][PAWN]));
+    data.update_attacks(WHITE, PAWN, pawns::left_attacks<WHITE>(board.pieces(WHITE, PAWN)));
+    data.update_attacks(WHITE, PAWN, pawns::right_attacks<WHITE>(board.pieces(WHITE, PAWN)));
+    data.update_attacks(BLACK, PAWN, pawns::left_attacks<BLACK>(board.pieces(BLACK, PAWN)));
+    data.update_attacks(BLACK, PAWN, pawns::right_attacks<BLACK>(board.pieces(BLACK, PAWN)));
 
     // King safety
-    if(board.bb_pieces[BLACK][ROOK] || board.bb_pieces[BLACK][QUEEN]) {
+    if(board.pieces(BLACK, ROOK) || board.pieces(BLACK, QUEEN)) {
         if(data.king_circle[WHITE] & open_files) {
             data.king_danger[WHITE] += params.kat_open_file;
         } else if(data.king_circle[WHITE] & half_open_files[WHITE]) {
@@ -337,7 +336,7 @@ v4si_t evaluator_t::eval_pawns(const board_t &board, eval_data_t &data, float &t
             data.king_danger[WHITE] += params.kat_other_half_open_file;
         }
     }
-    if(board.bb_pieces[WHITE][ROOK] || board.bb_pieces[WHITE][QUEEN]) {
+    if(board.pieces(WHITE, ROOK) || board.pieces(WHITE, QUEEN)) {
         if(data.king_circle[BLACK] & open_files) {
             data.king_danger[BLACK] += params.kat_open_file;
         } else if(data.king_circle[BLACK] & half_open_files[BLACK]) {
@@ -359,17 +358,17 @@ v4si_t evaluator_t::eval_pawns(const board_t &board, eval_data_t &data, float &t
 
 v4si_t evaluator_t::eval_threats(const board_t &board, eval_data_t &data) {
     v4si_t score = {0, 0, 0, 0};
-    for(int target = PAWN; target < KING; target++) {
-        int undefended[2] = {pop_count(board.bb_pieces[WHITE][target] & ~data.team_attacks[WHITE]),
-                             pop_count(board.bb_pieces[BLACK][target] & ~data.team_attacks[BLACK])};
-        int overprotected[2] = {pop_count(board.bb_pieces[WHITE][target] & data.double_attacks[WHITE] & ~data.double_attacks[BLACK]),
-                                pop_count(board.bb_pieces[BLACK][target] & data.double_attacks[BLACK] & ~data.double_attacks[WHITE])};
+    for(Piece target = PAWN; target < KING; target++) {
+        int undefended[2] = {pop_count(board.pieces(WHITE, target) & ~data.team_attacks[WHITE]),
+                             pop_count(board.pieces(BLACK, target) & ~data.team_attacks[BLACK])};
+        int overprotected[2] = {pop_count(board.pieces(WHITE, target) & data.double_attacks[WHITE] & ~data.double_attacks[BLACK]),
+                                pop_count(board.pieces(BLACK, target) & data.double_attacks[BLACK] & ~data.double_attacks[WHITE])};
         score += (undefended[WHITE] - undefended[BLACK]) * params.undefended[target];
         score += (overprotected[WHITE] - overprotected[BLACK]) * params.overprotected[target];
 
         for(int attacker = PAWN; attacker < QUEEN; attacker++) {
-            int attacks[2] = {pop_count(board.bb_pieces[BLACK][target] & data.attacks[WHITE][attacker]),
-                           pop_count(board.bb_pieces[WHITE][target] & data.attacks[BLACK][attacker])};
+            int attacks[2] = {pop_count(board.pieces(BLACK, target) & data.attacks[WHITE][attacker]),
+                           pop_count(board.pieces(WHITE, target) & data.attacks[BLACK][attacker])};
             score += (attacks[WHITE] - attacks[BLACK]) * params.threat_matrix[attacker][target];
         }
     }
@@ -383,19 +382,19 @@ v4si_t evaluator_t::eval_threats(const board_t &board, eval_data_t &data) {
 v4si_t evaluator_t::eval_positional(const board_t &board, eval_data_t &data) {
     v4si_t score = {0, 0, 0, 0};
 
-    if(board.record.back().material.info.w_bishops >= 2) {
+    if(board.now().material.info.w_bishops >= 2) {
         score += params.pos_bishop_pair;
     }
 
-    if(board.record.back().material.info.b_bishops >= 2) {
+    if(board.now().material.info.b_bishops >= 2) {
         score -= params.pos_bishop_pair;
     }
 
     // Check for opposite coloured bishops
-    bool opposite_coloured_bishops = board.bb_pieces[WHITE][BISHOP] && board.bb_pieces[BLACK][BISHOP]
-                                     && !multiple_bits(board.bb_pieces[WHITE][BISHOP]) && !multiple_bits(board.bb_pieces[BLACK][BISHOP])
-                                     && !same_colour(bit_scan(board.bb_pieces[WHITE][BISHOP]), bit_scan(board.bb_pieces[BLACK][BISHOP]));
-    const int pawn_balance = board.record.back().material.info.w_pawns - board.record.back().material.info.b_pawns;
+    bool opposite_coloured_bishops = board.pieces(WHITE, BISHOP) && board.pieces(BLACK, BISHOP)
+                                     && !multiple_bits(board.pieces(WHITE, BISHOP)) && !multiple_bits(board.pieces(BLACK, BISHOP))
+                                     && !same_colour(bit_scan(board.pieces(WHITE, BISHOP)), bit_scan(board.pieces(BLACK, BISHOP)));
+    const int pawn_balance = board.now().material.info.w_pawns - board.now().material.info.b_pawns;
 
     if(opposite_coloured_bishops) {
         if(pawn_balance > 0) {
@@ -406,17 +405,17 @@ v4si_t evaluator_t::eval_positional(const board_t &board, eval_data_t &data) {
     }
 
     // Rook trapped without castling
-    if(((board.bb_pieces[WHITE][ROOK] & single_bit(rel_sq(WHITE, A1)))
-        && (board.bb_pieces[WHITE][KING] & (bits_between(rel_sq(WHITE, A1), rel_sq(WHITE, E1)))))
-       || ((board.bb_pieces[WHITE][ROOK] & single_bit(rel_sq(WHITE, H1)))
-       && (board.bb_pieces[WHITE][KING] & (bits_between(rel_sq(WHITE, E1), rel_sq(WHITE, H1)))))) {
+    if(((board.pieces(WHITE, ROOK) & single_bit(rel_sq(WHITE, A1)))
+        && (board.pieces(WHITE, KING) & (bits_between(rel_sq(WHITE, A1), rel_sq(WHITE, E1)))))
+       || ((board.pieces(WHITE, ROOK) & single_bit(rel_sq(WHITE, H1)))
+       && (board.pieces(WHITE, KING) & (bits_between(rel_sq(WHITE, E1), rel_sq(WHITE, H1)))))) {
         score += params.pos_r_trapped;
     }
 
-    if((((board.bb_pieces[BLACK][ROOK] & single_bit(rel_sq(BLACK, A1)))
-         && (board.bb_pieces[BLACK][KING] & (bits_between(rel_sq(BLACK, A1), rel_sq(BLACK, E1)))))
-        || ((board.bb_pieces[BLACK][ROOK] & single_bit(rel_sq(BLACK, H1)))
-            && (board.bb_pieces[BLACK][KING] & (bits_between(rel_sq(BLACK, E1), rel_sq(BLACK, H1)))))))  {
+    if((((board.pieces(BLACK, ROOK) & single_bit(rel_sq(BLACK, A1)))
+         && (board.pieces(BLACK, KING) & (bits_between(rel_sq(BLACK, A1), rel_sq(BLACK, E1)))))
+        || ((board.pieces(BLACK, ROOK) & single_bit(rel_sq(BLACK, H1)))
+            && (board.pieces(BLACK, KING) & (bits_between(rel_sq(BLACK, E1), rel_sq(BLACK, H1)))))))  {
         score -= params.pos_r_trapped;
     }
 

@@ -244,7 +244,6 @@ class alignas(64) evaluator_t {
     const processed_params_t &params;
 public:
     evaluator_t(const processed_params_t &params, size_t pawn_hash_size);
-
     ~evaluator_t();
 
     evaluator_t(const evaluator_t &) = delete;

@@ -321,12 +321,12 @@ move_t board_t::to_move(packed_move_t packed_move) const {
     move.info.to = static_cast<uint8_t>(packed_move.to);
     
     // Piece
-    move.info.team = sq_data[move.info.from].team;
-    move.info.piece = sq_data[move.info.from].piece;
+    move.info.team = sq_data[move.info.from].team();
+    move.info.piece = sq_data[move.info.from].piece();
 
     // Capture
-    move.info.is_capture = static_cast<uint16_t>(sq_data[move.info.to].occupied);
-    move.info.captured_type = sq_data[move.info.to].occupied ? sq_data[move.info.to].piece : 0;
+    move.info.is_capture = static_cast<uint16_t>(sq_data[move.info.to].occupied());
+    move.info.captured_type = sq_data[move.info.to].occupied() ? sq_data[move.info.to].piece() : 0;
 
     // Promotion
     move.info.is_promotion = static_cast<uint16_t>(packed_move.type != 0 && (move.info.to <= H1 || move.info.to >= A8));
@@ -375,9 +375,9 @@ void board_t::switch_piece(Team side, Piece piece, uint8_t sq) {
     const U64 bb_square = single_bit(sq);
 
     // Occupancy
-    sq_data[sq].occupied = !sq_data[sq].occupied;
-    sq_data[sq].piece = piece;
-    sq_data[sq].team = side;
+    sq_data[sq].occupied(!sq_data[sq].occupied());
+    sq_data[sq].piece(piece);
+    sq_data[sq].team(side);
 
     { // Update bitboards
         // No error checking! We assume that the piece exists
@@ -390,7 +390,7 @@ void board_t::switch_piece(Team side, Piece piece, uint8_t sq) {
         U64 square_hash = zobrist::squares[sq][side][piece];
         record.back().hash ^= square_hash;
         if(piece == PAWN || piece == KING) record.back().kp_hash ^= square_hash;
-        if(sq_data[sq].occupied) record.back().material.info.inc(side, piece);
+        if(sq_data[sq].occupied()) record.back().material.info.inc(side, piece);
         else record.back().material.info.dec(side, piece);
     }
 }
@@ -609,14 +609,15 @@ void board_t::mirror() {
     sq_data_t old_data[64];
     memcpy(old_data, sq_data, 64 * sizeof(sq_data_t));
     for (uint8_t sq = 0; sq < 64; sq++) {
-        if(old_data[sq].occupied) switch_piece<true>(old_data[sq].team, old_data[sq].piece, sq);
+        if(old_data[sq].occupied()) switch_piece<true>(old_data[sq].team(), old_data[sq].piece(), sq);
     }
     for (uint8_t sq = 0; sq < 64; sq++) {
-        if(old_data[sq].occupied) switch_piece<true>(Team(!old_data[sq].team), old_data[sq].piece, MIRROR_TABLE[sq]);
+        if(old_data[sq].occupied()) switch_piece<true>(Team(!old_data[sq].team()), old_data[sq].piece(), MIRROR_TABLE[sq]);
     }
 }
 
 int board_t::see(move_t move) const {
+    constexpr int VAL[] = {100, 300, 300, 500, 900, INF};
     if(move == EMPTY_MOVE || move.info.is_ep)
         return 0;
 
@@ -632,7 +633,7 @@ int board_t::see(move_t move) const {
     int material[32];
 
     // Eval move
-    material[num_capts] = sq_data[move.info.to].occupied ? VAL[sq_data[move.info.to].piece] : 0;
+    material[num_capts] = sq_data[move.info.to].occupied() ? VAL[sq_data[move.info.to].piece()] : 0;
     current_target_val = VAL[move.info.piece];
     if (prom_rank && move.info.piece == PAWN) {
         material[num_capts] += VAL[move.info.promotion_type] - VAL[PAWN];
@@ -676,8 +677,8 @@ int board_t::see(move_t move) const {
 
         // Eval move
         material[num_capts] = -material[num_capts - 1] + current_target_val;
-        current_target_val = VAL[sq_data[from].piece];
-        if (prom_rank && sq_data[from].piece == PAWN) {
+        current_target_val = VAL[sq_data[from].piece()];
+        if (prom_rank && sq_data[from].piece() == PAWN) {
             material[num_capts] += VAL[QUEEN] - VAL[PAWN];
             current_target_val = VAL[QUEEN] - VAL[PAWN];
         }

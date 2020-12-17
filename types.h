@@ -41,6 +41,12 @@ inline std::ostream& operator<<(std::ostream& os, v4si_t v4si) {
 enum Piece {
     PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING
 };
+inline Piece& operator++(Piece &p) {
+    return p = static_cast<Piece>(static_cast<int>(p) + 1);
+}
+inline Piece operator++(Piece &p, int) {
+    Piece tmp(p); ++p; return tmp;
+}
 
 enum Team {
     WHITE, BLACK

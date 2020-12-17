@@ -7,7 +7,6 @@ set(TOPPLE_VERSION 0.8.0)
 # Source files for different targets
 set(SOURCE_FILES
         board.h board.cpp
-        endgame.h endgame.cpp
         bb.h bb.cpp types.h
         hash.h hash.cpp
         movegen.h movegen.cpp
@@ -51,7 +50,7 @@ target_link_libraries(ToppleTexelTune Threads::Threads)
 
 # Set -march for the Topple target
 target_compile_options(ToppleTest PUBLIC -march=native -O3)
-target_compile_options(Topple PUBLIC -march=native -O3 -DNDEBUG) # NDEBUG to disable asserts
+target_compile_options(Topple PUBLIC -march=ivybridge -O3 -DNDEBUG) # NDEBUG to disable asserts
 target_compile_options(ToppleTune PUBLIC -DTOPPLE_TUNE -O3 -march=native -DNDEBUG)
 target_compile_options(ToppleTexelTune PUBLIC -DTEXEL_TUNE -O3 -march=native -DNDEBUG)
 

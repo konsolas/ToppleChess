@@ -75,7 +75,7 @@ search_result_t search_t::think(board_t &board, const search_limits_t &search_li
     int tb_wdl = 0;
 
     // the UCI searchmoves option overrides tablebase root move filtering
-    if (search_limits.search_moves.empty() && pop_count(board.bb_all) <= TBlargest) {
+    if (search_limits.search_moves.empty() && pop_count(board.all()) <= TBlargest) {
         std::vector<move_t> tb_root_moves = root_probe(board, tb_wdl);
 
         if (!tb_root_moves.empty()) {
@@ -108,7 +108,7 @@ search_result_t search_t::think(board_t &board, const search_limits_t &search_li
 
         tt::entry_t h = {};
         move_t ponder_move = EMPTY_MOVE;
-        if (tt->probe(board.record.back().hash, h)) {
+        if (tt->probe(board.now().hash, h)) {
             ponder_move = board.to_move(h.info.move);
         }
 
@@ -170,7 +170,7 @@ search_result_t search_t::think(board_t &board, const search_limits_t &search_li
 
         tt::entry_t h = {};
         move_t ponder_move = EMPTY_MOVE;
-        if (tt->probe(board.record.back().hash, h)) {
+        if (tt->probe(board.now().hash, h)) {
             ponder_move = board.to_move(h.info.move);
         }
 

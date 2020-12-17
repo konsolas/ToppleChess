@@ -29,6 +29,7 @@ movesort_t::movesort_t(GenMode mode,  const heuristic_set_t &heuristics, const b
 }
 
 move_t movesort_t::next(GenStage &stage, int &score, bool skip_quiets) {
+    constexpr int VAL[] = {100, 300, 300, 500, 900, INF};
     retry:
     switch (stage) {
         case GEN_NONE:

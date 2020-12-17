@@ -8,7 +8,6 @@
 
 #include "../board.h"
 #include "texel.h"
-#include "../endgame.h"
 
 #define TOPPLE_TUNE_VER "0.1.0"
 

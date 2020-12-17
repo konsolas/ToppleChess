@@ -6,7 +6,6 @@
 
 #include "board.h"
 #include "search.h"
-#include "endgame.h"
 
 #include "syzygy/tbprobe.h"
 
@@ -17,7 +16,6 @@ int main(int argc, char *argv[]) {
     init_tables();
     zobrist::init_hashes();
     evaluator_t::eval_init();
-    eg_init();
 
     // Board
     std::unique_ptr<board_t> board = nullptr;
@@ -214,22 +212,22 @@ int main(int argc, char *argv[]) {
                             }
                         } else if (param == "wtime") {
                             time_control.enabled = true;
-                            if (board->record.back().next_move == WHITE) {
+                            if (board->now().next_move == WHITE) {
                                 iss >> time_control.time;
                             }
                         } else if (param == "btime") {
                             time_control.enabled = true;
-                            if (board->record.back().next_move == BLACK) {
+                            if (board->now().next_move == BLACK) {
                                 iss >> time_control.time;
                             }
                         } else if (param == "winc") {
                             time_control.enabled = true;
-                            if (board->record.back().next_move == WHITE) {
+                            if (board->now().next_move == WHITE) {
                                 iss >> time_control.inc;
                             }
                         } else if (param == "binc") {
                             time_control.enabled = true;
-                            if (board->record.back().next_move == BLACK) {
+                            if (board->now().next_move == BLACK) {
                                 iss >> time_control.inc;
                             }
                         } else if (param == "movestogo") {
@@ -315,7 +313,7 @@ int main(int argc, char *argv[]) {
                         int dtz = probe_dtz(*board, &success);
 
                         if (success) {
-                            int cnt50 = board->record.back().halfmove_clock;
+                            int cnt50 = board->now().halfmove_clock;
                             int wdl = 0;
                             if (dtz > 0)
                                 wdl = (dtz + cnt50 <= 100) ? 2 : 1;

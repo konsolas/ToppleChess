@@ -35,7 +35,7 @@ union material_data_t {
                 b_rooks : 4,
                 b_queens : 4;
         
-        inline unsigned count(Team team, Piece piece) {
+        inline unsigned count(Team team, Piece piece) const {
             switch (team) {
                 case WHITE:
                     switch (piece) {

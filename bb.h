@@ -12,7 +12,7 @@
 #include <array>
 
 #ifdef __BMI2__
-#include <x86intrin.h>
+#include <x86intrin.h> // Use hardware PEXT/PDEP if available
 #endif
 
 /**
@@ -25,20 +25,22 @@ inline U64 single_bit(uint8_t square) {
     return 0x1ull << square;
 }
 
+/*
+ * Varions methods for shifting bitboards, without wrapping bits around edges
+ */
 namespace bb_shifts {
-    constexpr U64 not_A = 0xfefefefefefefefe; // ~0x0101010101010101
-    constexpr U64 not_H = 0x7f7f7f7f7f7f7f7f; // ~0x8080808080808080
+    constexpr U64 not_A = 0xfefefefefefefefe; // ~0x0101010101010101 : everything except the A-file
+    constexpr U64 not_H = 0x7f7f7f7f7f7f7f7f; // ~0x8080808080808080 : everything except the H-file
 
-    // Bitboard shifting
+    /**
+     * Shifts a given bitboard by 1 square in the given direction
+     *
+     * @tparam D direction to shift in
+     * @param bb bitboard to shift
+     * @return shifted bitboard
+     */
     template<Direction D>
     constexpr U64 shift(U64 bb);
-
-    // General utility
-    template<Team team> constexpr U64 fill_forward(U64 bb);
-
-    // Occluded fills with the Kogge-Stone algorithm
-    template<Direction D>
-    constexpr U64 fill_occluded(U64 bb, U64 open);
 
     template<>
     constexpr U64 shift<D_N>(U64 b) { return b << 8u; }
@@ -64,6 +66,16 @@ namespace bb_shifts {
     template<>
     constexpr U64 shift<D_NW>(U64 b) { return (b << 7u) & not_H; }
 
+    /**
+     * Fill a bitboard in the forward direction of a given team.
+     * Computes the union of bb with a forward shift of it until no further shifts are possible.
+     *
+     * @tparam team direction to use
+     * @param bb bitboard to fill
+     * @return
+     */
+    template<Team team> constexpr U64 fill_forward(U64 bb);
+
     template<> constexpr U64 fill_forward<WHITE>(U64 bb) {
         bb |= (bb << 8u);
         bb |= (bb << 16u);
@@ -77,6 +89,19 @@ namespace bb_shifts {
         bb |= (bb >> 32u);
         return bb;
     }
+
+    /**
+     * Fill a bitboard in a given direction, but only in a given open region.
+     * A '0' in the open region will not be crossed by the fill operation:
+     * {@code ~open} is therefore treated as occluding space for the operation
+     *
+     * @tparam D direction to use
+     * @param bb bitboard to fill
+     * @param open open space for filling
+     * @return filled bitboard
+     */
+    template<Direction D>
+    constexpr U64 fill_occluded(U64 bb, U64 open);
 
     template<>
     constexpr U64 fill_occluded<D_N>(U64 bb, U64 open) {
@@ -165,21 +190,54 @@ namespace bb_shifts {
     }
 }
 
+/*
+ * CPU operations with no suitable equivalent in the c++17 standard library
+ */
 namespace bb_intrin {
+    /**
+     * Returns the index of the least significant bit in a bitboard
+     *
+     * @param b bitboard to check (nonzero)
+     * @return index of the least significant bit
+     */
     inline uint8_t lsb(U64 b) {
         assert(b);
-        return Square(__builtin_ctzll(b));
+        return Square(__builtin_ctzll(b)); // 'count trailing zeroes long long'
     }
-
+    /**
+     * Returns the index of the most significant bit in a bitboard
+     *
+     * @param b bitboard to check (nonzero)
+     * @return index of the least significant bit
+     */
     inline uint8_t msb(U64 b) { // unused
         assert(b);
-        return Square(63 - __builtin_clzll(b));
+        return Square(63 - __builtin_clzll(b)); // 'count leading zeroes long long'
     }
 
+    /**
+     * Returns the number of set bits in the given bitboard
+     *
+     * @param b bitboard to check
+     * @return number of set bits
+     */
     inline int pop_count(U64 b) {
-        return __builtin_popcountll(b);
+        return __builtin_popcountll(b); // std::bitset<64>(b).count() might also be optimised to this
     }
 
+    /**
+     * Implements the parallel bits extract operation.
+     *
+     * Removes all bits in source that do not correspond to a set bit in mask,
+     * shifting other bits to fill the gap.
+     * Leaves those that do consecutively in the lower bits of the result.
+     *
+     * e.g. pext(01101010b, 01000110b) = 00000101b
+     *
+     * @param source
+     * @param mask
+     * @return result
+     */
     inline U64 pext(U64 source, U64 mask) { // unused
 #ifdef __BMI2__
         return _pext_u64(source, mask);
@@ -196,6 +254,18 @@ namespace bb_intrin {
 #endif
     }
 
+    /**
+     * Implements the parallel bits deposit operation.
+     *
+     * Takes the lower order bits of source and sequentially assigns them to
+     * bits in the result that correspond to set bits in mask, leaving zeroes in between.
+     *
+     * e.g. pdep(00000101b, 01000110b) = 01000010b
+     *
+     * @param source
+     * @param mask
+     * @return result
+     */
     inline U64 pdep(U64 source, U64 mask) {
 #ifdef __BMI2__
         return _pdep_u64(source, mask);
@@ -213,6 +283,10 @@ namespace bb_intrin {
     }
 }
 
+/*
+ * Lookup functions for sliding move generation.
+ * Uses fixed-shift magic bitboard lookups - see bb.cpp for computation of lookup table
+ */
 namespace bb_sliders {
     struct sq_entry_t {
         U64 mask;
@@ -223,30 +297,52 @@ namespace bb_sliders {
     extern sq_entry_t b_table[64];
     extern sq_entry_t r_table[64];
 
+    /**
+     * Compute the bitboard of squares that a bishop on sq can move to, if
+     * occupancy is the set of squares occupied by pieces. Includes captures.
+     *
+     * @param sq bishop square
+     * @param occupancy occupied squares on the board
+     * @return set of possible bishop moves
+     */
     inline U64 bishop_moves(uint8_t sq, U64 occupancy) {
         sq_entry_t entry = b_table[sq];
         return entry.base[((occupancy & entry.mask) * entry.magic) >> (64u - 9u)];
     }
 
+    /**
+     * Compute the bitboard of squares that a rook on sq can move to, if
+     * occupancy is the set of squares occupied by pieces. Includes captures.
+     *
+     * @param sq bishop square
+     * @param occupancy occupied squares on the board
+     * @return set of possible rook moves
+     */
     inline U64 rook_moves(uint8_t sq, U64 occupancy) {
         sq_entry_t entry = r_table[sq];
         return entry.base[((occupancy & entry.mask) * entry.magic) >> (64u - 12u)];
     }
 }
 
+/*
+ * Potentially useful bitboard lookup tables
+ */
 namespace bb_util {
-    extern U64 between[64][64];
-    extern U64 line[64][64];
-    extern U64 ray[64][64];
-    extern U64 file[8];
+    extern U64 between[64][64]; // between[a][b] is the bitboard between a and b, or 0 if they are unaligned
+    extern U64 line[64][64]; // line[a][b] is the bitboard of the line through a and b, or 0 if they are unaligned
+    extern U64 ray[64][64]; // ray[a][b] is the bitboard of the ray from a through b, or 0 if they are unaligned
+    extern U64 file[8]; // file[f] is the bitboard of file number f
 }
 
+/*
+ * Non-sliding move generation lookup tables
+ */
 namespace bb_normal_moves {
     extern U64 king_moves[64];
     extern U64 knight_moves[64];
-    extern U64 pawn_moves_x1[2][64];
-    extern U64 pawn_moves_x2[2][64];
-    extern U64 pawn_caps[2][64];
+    extern U64 pawn_moves_x1[2][64]; // Normal pawn advances
+    extern U64 pawn_moves_x2[2][64]; // Double pawn advances on the 2nd or 7th rank
+    extern U64 pawn_caps[2][64]; // Pawn captures
 }
 
 /**
@@ -266,7 +362,7 @@ void init_tables();
  *
  * The {@code side} parameter is irrelevant for all pieces apart from pawns.
  *
- * @param type piece type
+ * @tparam TYPE piece type
  * @param side side which owns the piece
  * @param square start square of piece
  * @param occupied bitboard of occupied squares
@@ -313,6 +409,16 @@ inline U64 find_moves<KING>(Team side, uint8_t square, U64 occupied) {
     return bb_normal_moves::king_moves[square];
 }
 
+/**
+ * A variant of find_moves where the piece is not a template parameter. This can be used in loops if necessary, but
+ * should be avoided if possible.
+ *
+ * @param type piece type
+ * @param side side which owns the piece
+ * @param square square start square of piece
+ * @param occupied bitboard of occupied squares
+ * @return possible moves of the piece
+ */
 inline U64 find_moves(Piece type, Team side, uint8_t square, U64 occupied) {
     switch (type) {
         case PAWN:
@@ -394,6 +500,13 @@ inline U64 ray(uint8_t origin, uint8_t direction) {
     return bb_util::ray[origin][direction];
 }
 
+/**
+ * Generates a bitboard representing all the squares in the file at the given file index
+ *
+ * @param file_index index of file
+ * @return bitboard of the file
+ */
+
 inline U64 file_mask(uint8_t file_index) {
     return bb_util::file[file_index];
 }
@@ -420,22 +533,39 @@ constexpr uint8_t square_index(uint8_t file, uint8_t rank) {
     return (rank << 3u) + file;
 }
 
-// Opposite of the above
-
+/**
+ * Extract a square's file index
+ *
+ * @param sq_index square
+ * @return file index
+ */
 constexpr uint8_t rank_index(uint8_t sq_index) {
     return sq_index >> 3u;
 }
 
+/**
+ * Extract a square's rank index
+ *
+ * @param sq_index square
+ * @return rank index
+ */
 constexpr uint8_t file_index(uint8_t sq_index) {
     return sq_index & 7u;
 }
 
+/**
+ * Get the distance of a file to the edge of the board
+ *
+ * @param file file index
+ * @return distance to the edge of the board
+ */
 constexpr uint8_t file_edge_distance(uint8_t file) {
     return file < 4 ? file : 7 - file;
 }
 
 /**
- * Find the distance (in king moves) between two squares
+ * Find the distance (in king moves) between two squares.
+ * This is the Chebyshev distance metric.
  *
  * @param a first square
  * @param b second square

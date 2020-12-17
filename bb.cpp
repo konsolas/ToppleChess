@@ -6,10 +6,11 @@
 
 #include "bb.h"
 
-/**
- * =====================================================================================================================
- * MAGIC MOVE BIT BOARD GENERATION
- * =====================================================================================================================
+/*
+ * Sliding move generation using 'magic' bitboards.
+ *
+ * This code uses kogge-stone shifts in namespace bb_shifts to initialise a lookup table.
+ * Lookup code is in namespace bb_sliders
  */
 namespace bb_sliders {
     constexpr U64 outer_files = 0x8181818181818181ull;
@@ -161,6 +162,7 @@ namespace bb_sliders {
 
     U64 attacks[88772];
 
+    // Use kogge-stone occluded shifts to (slowly) generate bishop moves for the lookup table
     U64 compute_bishop_moves(int sq, U64 occupancy) {
         U64 open = ~occupancy;
         return bb_shifts::shift<D_NE>(bb_shifts::fill_occluded<D_NE>(single_bit(sq), open))
@@ -169,6 +171,7 @@ namespace bb_sliders {
                | bb_shifts::shift<D_SW>(bb_shifts::fill_occluded<D_SW>(single_bit(sq), open));
     }
 
+    // Use kogge-stone occluded shifts to (slowly) generate rook moves for the lookup table
     U64 compute_rook_moves(int sq, U64 occupancy) {
         U64 open = ~occupancy;
         return bb_shifts::shift<D_N>(bb_shifts::fill_occluded<D_N>(single_bit(sq), open))
@@ -177,17 +180,21 @@ namespace bb_sliders {
                | bb_shifts::shift<D_W>(bb_shifts::fill_occluded<D_W>(single_bit(sq), open));
     }
 
+    // Squares that are relevant when looking up bishop moves
     U64 compute_bishop_mask(int sq) {
         return compute_bishop_moves(sq, 0) & ~edge;
     }
 
+    // Squares that are relevant when looking up rook moves
     U64 compute_rook_mask(int sq) {
+        // Can't use (compute_rook_moves(sq, 0) & ~edge) because rooks can be on the edge of the board
         return ((bb_shifts::shift<D_E>(bb_shifts::fill_occluded<D_E>(single_bit(sq), ~0ull))
                  | bb_shifts::shift<D_W>(bb_shifts::fill_occluded<D_W>(single_bit(sq), ~0ull))) & ~outer_files)
                | ((bb_shifts::shift<D_N>(bb_shifts::fill_occluded<D_N>(single_bit(sq), ~0ull))
                    | bb_shifts::shift<D_S>(bb_shifts::fill_occluded<D_S>(single_bit(sq), ~0ull))) & ~outer_ranks);
     }
 
+    // Initialisation code
     void init_sliders() {
         for (int sq = 0; sq < 64; sq++) {
             sq_entry_t entry = {};
@@ -196,7 +203,7 @@ namespace bb_sliders {
             entry = {compute_bishop_mask(sq), bishop_magics[sq].factor, attacks + bishop_magics[sq].position};
             bits = pop_count(entry.mask);
             for (U64 dense_occ = 0; dense_occ < (1u << bits); dense_occ++) {
-                U64 occ = bb_intrin::pdep(dense_occ, entry.mask);
+                U64 occ = bb_intrin::pdep(dense_occ, entry.mask); // pdep an incrementing bitfield for all relevant bitboards
                 entry.base[(occ * entry.magic) >> (64u - 9u)] = compute_bishop_moves(sq, occ);
             }
             b_table[sq] = entry;
@@ -212,10 +219,8 @@ namespace bb_sliders {
     }
 }
 
-/**
- * =====================================================================================================================
- * UTLITY BITBOARDS
- * =====================================================================================================================
+/*
+ * Initialisation of various utility bitboards
  */
 namespace bb_util {
     U64 between[64][64];
@@ -282,10 +287,12 @@ namespace bb_normal_moves {
     U64 pawn_moves_x2[2][64];
     U64 pawn_caps[2][64];
 
+    // We use this method (and signed integers) to not generate moves off the edge of the board (or which wrap around)
     inline bool valid_square(const int &file, const int &rank) {
         return file >= 0 && file < 8 && rank >= 0 && rank < 8;
     }
 
+    // Check if move is valid and add to lookup table if it is
     inline void update_array(U64 *arr, const uint8_t &file, const uint8_t &rank,
                              int file_offset, int rank_offset) {
         if (valid_square(file + file_offset, rank + rank_offset)) {
@@ -320,6 +327,7 @@ namespace bb_normal_moves {
                 update_array(pawn_moves_x1[WHITE], file_from, rank_from, 0, 1);
                 update_array(pawn_moves_x1[BLACK], file_from, rank_from, 0, -1);
 
+                // Pawn double moves from 2nd of 7th rank (our ranks are 0 indexed)
                 if (rank_from == 1) {
                     update_array(pawn_moves_x2[WHITE], file_from, rank_from, 0, 2);
                 } else if (rank_from == 6) {
@@ -336,11 +344,6 @@ namespace bb_normal_moves {
     }
 }
 
-/**
- * =====================================================================================================================
- * HEADER IMPLEMENTATION
- * =====================================================================================================================
- */
 void init_tables() {
     bb_sliders::init_sliders();
     bb_util::init_util();
@@ -356,137 +359,5 @@ uint8_t to_sq(char file, char rank) {
 }
 
 std::string from_sq(uint8_t sq) {
-    switch (Square(sq)) {
-        case A1:
-            return std::string("a1");
-        case B1:
-            return std::string("b1");
-        case C1:
-            return std::string("c1");
-        case D1:
-            return std::string("d1");
-        case E1:
-            return std::string("e1");
-        case F1:
-            return std::string("f1");
-        case G1:
-            return std::string("g1");
-        case H1:
-            return std::string("h1");
-        case A2:
-            return std::string("a2");
-        case B2:
-            return std::string("b2");
-        case C2:
-            return std::string("c2");
-        case D2:
-            return std::string("d2");
-        case E2:
-            return std::string("e2");
-        case F2:
-            return std::string("f2");
-        case G2:
-            return std::string("g2");
-        case H2:
-            return std::string("h2");
-        case A3:
-            return std::string("a3");
-        case B3:
-            return std::string("b3");
-        case C3:
-            return std::string("c3");
-        case D3:
-            return std::string("d3");
-        case E3:
-            return std::string("e3");
-        case F3:
-            return std::string("f3");
-        case G3:
-            return std::string("g3");
-        case H3:
-            return std::string("h3");
-        case A4:
-            return std::string("a4");
-        case B4:
-            return std::string("b4");
-        case C4:
-            return std::string("c4");
-        case D4:
-            return std::string("d4");
-        case E4:
-            return std::string("e4");
-        case F4:
-            return std::string("f4");
-        case G4:
-            return std::string("g4");
-        case H4:
-            return std::string("h4");
-        case A5:
-            return std::string("a5");
-        case B5:
-            return std::string("b5");
-        case C5:
-            return std::string("c5");
-        case D5:
-            return std::string("d5");
-        case E5:
-            return std::string("e5");
-        case F5:
-            return std::string("f5");
-        case G5:
-            return std::string("g5");
-        case H5:
-            return std::string("h5");
-        case A6:
-            return std::string("a6");
-        case B6:
-            return std::string("b6");
-        case C6:
-            return std::string("c6");
-        case D6:
-            return std::string("d6");
-        case E6:
-            return std::string("e6");
-        case F6:
-            return std::string("f6");
-        case G6:
-            return std::string("g6");
-        case H6:
-            return std::string("h6");
-        case A7:
-            return std::string("a7");
-        case B7:
-            return std::string("b7");
-        case C7:
-            return std::string("c7");
-        case D7:
-            return std::string("d7");
-        case E7:
-            return std::string("e7");
-        case F7:
-            return std::string("f7");
-        case G7:
-            return std::string("g7");
-        case H7:
-            return std::string("h7");
-        case A8:
-            return std::string("a8");
-        case B8:
-            return std::string("b8");
-        case C8:
-            return std::string("c8");
-        case D8:
-            return std::string("d8");
-        case E8:
-            return std::string("e8");
-        case F8:
-            return std::string("f8");
-        case G8:
-            return std::string("g8");
-        case H8:
-            return std::string("h8");
-    }
-
-    return std::string(); // Can't happen
+    return std::string{(char) (file_index(sq) + 'a'), (char) (rank_index(sq) + '1')};
 }
-
