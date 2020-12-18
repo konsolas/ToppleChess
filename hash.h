@@ -33,12 +33,34 @@ namespace zobrist {
  * Holds incrementally updated material counts for a position, along with a Zobrist hash
  */
 class material_data_t {
-    uint8_t counts[2][6];
-    U64 z_hash;
+    uint8_t counts[2][6] = {};
+    U64 z_hash = 0;
 public:
+    material_data_t() = default;
+    constexpr material_data_t(
+            int w_pawns, int w_knights, int w_bishops, int w_rooks, int w_queens,
+            int b_pawns, int b_knights, int b_bishops, int b_rooks, int b_queens
+    ) : counts{}, z_hash(0) {
+        // Add kings
+        inc(WHITE, KING);
+        inc(BLACK, KING);
+
+        // Add all other pieces
+        while (w_pawns-- > 0) inc(WHITE, PAWN);
+        while (w_knights-- > 0) inc(WHITE, KNIGHT);
+        while (w_bishops-- > 0) inc(WHITE, BISHOP);
+        while (w_rooks-- > 0) inc(WHITE, ROOK);
+        while (w_queens-- > 0) inc(WHITE, QUEEN);
+        while (b_pawns-- > 0) inc(BLACK, PAWN);
+        while (b_knights-- > 0) inc(BLACK, KNIGHT);
+        while (b_bishops-- > 0) inc(BLACK, BISHOP);
+        while (b_rooks-- > 0) inc(BLACK, ROOK);
+        while (b_queens-- > 0) inc(BLACK, QUEEN);
+    }
+
     // Accessors
     [[nodiscard]] inline int count(Team team, Piece piece) const { return counts[team][piece]; }
-    [[nodiscard]] inline int hash() const { return z_hash; }
+    [[nodiscard]] inline U64 hash() const { return z_hash; }
 
     inline void inc(Team team, Piece piece) {
         // We reuse piece-square hashes for material hashing. The square used corresponds to the count

@@ -43,3 +43,18 @@ TEST_CASE("Hash entry") {
     REQUIRE(entry.depth() == depth);
     REQUIRE(entry.bound() == bound);
 }
+
+TEST_CASE("Material hashes") {
+    material_data_t data = {};
+
+    REQUIRE(data.hash() == 0);
+
+    data.inc(WHITE, PAWN);
+
+    REQUIRE(data.count(WHITE, PAWN) == 1);
+    REQUIRE(data.hash() == zobrist::squares[0][WHITE][PAWN]);
+
+    data.dec(WHITE, PAWN);
+
+    REQUIRE(data.hash() == 0);
+}

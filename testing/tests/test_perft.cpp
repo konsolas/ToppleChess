@@ -9,7 +9,7 @@
 #include "../../eval.h"
 
 
-const bool operator==(const board_t& lhs, const board_t& rhs) {
+bool operator==(const board_t& lhs, const board_t& rhs) {
     for(uint8_t sq = 0; sq < 64; sq++) {
         if(lhs.sq(sq).occupied() != rhs.sq(sq).occupied()) return false;
         if(lhs.sq(sq).occupied()) {
@@ -21,14 +21,14 @@ const bool operator==(const board_t& lhs, const board_t& rhs) {
     return lhs.now().hash == rhs.now().hash;
 }
 
-const bool operator!=(const board_t& lhs, const board_t& rhs) {
+bool operator!=(const board_t& lhs, const board_t& rhs) {
     return !(lhs == rhs);
 }
 
 processed_params_t params = processed_params_t(eval_params_t());
 evaluator_t evaluator(params, 1 * MB);
 
-const void consistency_check(board_t &board) {
+void consistency_check(board_t &board) {
     int score = evaluator.evaluate(board);
     board.mirror();
     int mirrorscore = evaluator.evaluate(board);
@@ -40,7 +40,7 @@ const void consistency_check(board_t &board) {
     }
 }
 
-const void hash_check(const board_t &board) {
+void hash_check(const board_t &board) {
     // Generate hash of board
     U64 hash = 0;
     for(int i = 0; i < 64; i++) {
@@ -65,9 +65,31 @@ const void hash_check(const board_t &board) {
     REQUIRE(hash == board.now().hash);
 }
 
+void material_check(const board_t &board) {
+    // Check counts
+    for (Piece piece = PAWN; piece <= KING; piece++) {
+        REQUIRE(board.now().material.count(WHITE, piece) == pop_count(board.pieces(WHITE, piece)));
+        REQUIRE(board.now().material.count(BLACK, piece) == pop_count(board.pieces(BLACK, piece)));
+    }
+    
+    // Check hash
+    U64 z_hash = 0;
+    for (Piece piece = PAWN; piece <= KING; piece++) {
+        for (int i = 0; i < board.now().material.count(WHITE, piece); i++) {
+            z_hash ^= zobrist::squares[i][WHITE][piece];
+        }
+        for (int i = 0; i < board.now().material.count(BLACK, piece); i++) {
+            z_hash ^= zobrist::squares[i][BLACK][piece];
+        }
+    }
+
+    REQUIRE(z_hash == board.now().material.hash());
+}
+
 U64 perft(board_t &board, int depth) {
     consistency_check(board);
     hash_check(board);
+    material_check(board);
 
     if (depth == 0) {
         return 1;
