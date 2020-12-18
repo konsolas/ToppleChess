@@ -28,7 +28,6 @@ int main(int argc, char *argv[]) {
     init_tables();
     zobrist::init_hashes();
     evaluator_t::eval_init();
-    eg_init();
 
     // Startup
     std::cout << "ToppleTexelTune v" << TOPPLE_TUNE_VER << " (c) Vincent Tang 2020" << std::endl;

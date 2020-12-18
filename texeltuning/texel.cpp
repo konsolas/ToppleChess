@@ -45,7 +45,7 @@ double texel_t::mean_evaluation_error() {
             double total_squared_error = 0;
             for(size_t i = start; i < end; i++) {
                 int raw_eval = local_evaluator.evaluate(positions[i]);
-                if (positions[i].record.back().next_move) raw_eval = -raw_eval;
+                if (positions[i].now().next_move) raw_eval = -raw_eval;
                 double eval = sigmoid((double) raw_eval);
                 double error = eval - results[i];
                 total_squared_error += error * error;
@@ -60,7 +60,7 @@ double texel_t::mean_evaluation_error() {
     // Add on the missing bits (up to 3)
     for(size_t i = section_size * threads; i < entries; i++) {
         int raw_eval = evaluator.evaluate(positions[i]);
-        if (positions[i].record.back().next_move) raw_eval = -raw_eval;
+        if (positions[i].now().next_move) raw_eval = -raw_eval;
         double eval = sigmoid((double) raw_eval);
         double error = eval - results[i];
         total_squared_error += error * error;

@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
     }
 }
 
-void texel_t::print_params() {
+void print_params(const eval_params_t &current_params) {
     std::cout << "// Tapering parameters" << std::endl;
 
     std::cout << "int mat_exch_knight = " << current_params.mat_exch_knight << ";" << std::endl;
