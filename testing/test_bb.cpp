@@ -7,10 +7,6 @@
 #include "util.h"
 
 TEST_CASE("Bitboard engine") {
-    SECTION("Table initialisation") {
-        REQUIRE_NOTHROW(init_tables());
-    }
-
     SECTION("General operations") {
         SECTION("Single bit") {
             REQUIRE(single_bit(E4) == U64(1) << E4);

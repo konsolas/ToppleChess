@@ -3,19 +3,12 @@
 //
 
 #include <catch2/catch.hpp>
+#include <random>
 
 #include "util.h"
 #include "../board.h"
-#include "../movegen.h"
-#include "../eval.h"
-#include "../hash.h"
-#include "../move.h"
 
 TEST_CASE("Hash entry") {
-    init_tables();
-    zobrist::init_hashes();
-    evaluator_t::eval_init();
-    
     std::mt19937 gen(0);
     std::uniform_int_distribution<U64> dist;
     

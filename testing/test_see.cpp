@@ -7,8 +7,6 @@
 #include "../board.h"
 
 TEST_CASE("Static Exchange Evaluation") {
-    REQUIRE_NOTHROW(init_tables());
-
     SECTION("Petroff") {
         board_t board("rnbqkb1r/pppp1ppp/5n2/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3");
 

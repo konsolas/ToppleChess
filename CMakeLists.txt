@@ -44,7 +44,12 @@ FetchContent_MakeAvailable(Catch2)
 add_executable(ToppleTest ${SOURCE_FILES} ${TEST_FILES})
 target_link_libraries(ToppleTest Catch2::Catch2)
 target_compile_options(ToppleTest PUBLIC -march=native -O3)
-add_test(NAME ToppleTest COMMAND ToppleTest)
+
+# Add tests to ctest
+list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/contrib)
+include(CTest)
+include(Catch)
+catch_discover_tests(ToppleTest)
 
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 add_executable(Topple ${SOURCE_FILES} main.cpp)
@@ -66,6 +71,7 @@ target_compile_options(ToppleTexelTune PUBLIC -DTEXEL_TUNE -O3 -march=native -DN
 
 # Configure the "Release" target
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
+    # Generally building releases for Windows so link everything statically
     set(CMAKE_EXE_LINKER_FLAGS "-static -static-libgcc -static-libstdc++")
 
     add_custom_target(Release)
