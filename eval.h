@@ -233,7 +233,10 @@ struct eval_params_t {
 struct processed_params_t : public eval_params_t {
     explicit processed_params_t(const eval_params_t &params);
 
+    // Expanded piece-square tables for fast lookup
     v4si_t pst[2][6][64] = {}; // [TEAM][PIECE][SQUARE][MG/EG]
+
+    // Precomputed king danger scores for fast lookup
     v4si_t kat_table[128] = {};
 };
 
@@ -243,18 +246,46 @@ class alignas(64) evaluator_t {
 
     const processed_params_t &params;
 public:
+    /**
+     * Construct a new evaluator with a pawn hash table using the given parameters and size in bytes.
+     *
+     * @param params evaluation parameters
+     * @param pawn_hash_size size of the pawn hash table in bytes
+     */
     evaluator_t(const processed_params_t &params, size_t pawn_hash_size);
     ~evaluator_t();
 
+    // This object has a (potentially large) pawn hash table - don't copy
     evaluator_t(const evaluator_t &) = delete;
 
+    /**
+     * Evaluate a position, giving a result in centipawns.
+     *
+     * @param board position to evaluate
+     * @return evaluation in centipawns.
+     */
     int evaluate(const board_t &board);
 
+    /**
+     * Prefetch an entry in the pawn hash table
+     *
+     * @param pawn_hash hash of entry to prefetch
+     */
     void prefetch(U64 pawn_hash);
 
-    /// Initialise generic evaluation tables
+    /**
+     * Initialise evaluation tables. Must be called before any evaluators are constructed
+     */
     static void eval_init();
 
+    /**
+     * Computes the game phase of the given position, used to taper evaluation.
+     * Topple's search uses this value to guide time management.
+     * Close to 1.0 in the middlegame, 0.0 in the endgame
+     *
+     * @param board position to check
+     * @return tapering factor between 0 and 1
+     */
     [[nodiscard]] float game_phase(const board_t &board) const; // returns tapering factor 0-1
 private:
     struct eval_data_t {

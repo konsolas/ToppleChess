@@ -7,6 +7,9 @@
 #include <cstring>
 #include "hash.h"
 
+/*
+ * Concrete fields and initialisation code - see hash.h for more info on Zobrist hashing
+ */
 namespace zobrist {
     const U64 seed = 0xBEEF;
 
@@ -16,7 +19,7 @@ namespace zobrist {
     U64 castle[2][2];
 
     void init_hashes() {
-        std::mt19937_64 gen(seed);
+        std::mt19937_64 gen(seed); // NOLINT(cert-msc51-cpp) - constant seed intended
         std::uniform_int_distribution<U64> dist;
 
         side = dist(gen);

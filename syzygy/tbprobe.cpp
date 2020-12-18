@@ -42,12 +42,12 @@ static void prt_str(board_t& pos, char *str, int mirror)
 
     color = !mirror ? WHITE : BLACK;
     for (pt = KING; pt >= PAWN; pt--)
-        for (i = pos.now().material.info.count(color, Piece(pt)); i > 0; i--)
+        for (i = pos.now().material.count(color, Piece(pt)); i > 0; i--)
             *str++ = pchr[5 - pt];
     *str++ = 'v';
     color = Team(!color);
     for (pt = KING; pt >= PAWN; pt--)
-        for (i = pos.now().material.info.count(color, Piece(pt)); i > 0; i--)
+        for (i = pos.now().material.count(color, Piece(pt)); i > 0; i--)
             *str++ = pchr[5 - pt];
     *str++ = 0;
 }
@@ -64,11 +64,11 @@ static uint64 calc_key(board_t& pos, int mirror)
 
     color = !mirror ? WHITE : BLACK;
     for (pt = PAWN; pt <= KING; pt++)
-        for (i = pos.now().material.info.count(color, Piece(pt)); i > 0; i--)
+        for (i = pos.now().material.count(color, Piece(pt)); i > 0; i--)
             key ^= zobrist::squares[i - 1][WHITE][pt];
     color = Team(!color);
     for (pt = PAWN; pt <= KING; pt++)
-        for (i = pos.now().material.info.count(color, Piece(pt)); i > 0; i--)
+        for (i = pos.now().material.count(color, Piece(pt)); i > 0; i--)
             key ^= zobrist::squares[i - 1][BLACK][pt];
 
     return key;

@@ -156,14 +156,14 @@ int evaluator_t::evaluate(const board_t &board) {
 float evaluator_t::game_phase(const board_t &board) const {
     material_data_t material = board.now().material;
 
-    const int mat_w = params.mat_exch_knight * (material.info.w_knights)
-                      + params.mat_exch_bishop * (material.info.w_bishops)
-                      + params.mat_exch_rook * (material.info.w_rooks)
-                      + params.mat_exch_queen * (material.info.w_queens);
-    const int mat_b = params.mat_exch_knight * (material.info.b_knights)
-                      + params.mat_exch_bishop * (material.info.b_bishops)
-                      + params.mat_exch_rook * (material.info.b_rooks)
-                      + params.mat_exch_queen * (material.info.b_queens);
+    const int mat_w = params.mat_exch_knight * (material.count(WHITE, KNIGHT))
+                      + params.mat_exch_bishop * (material.count(WHITE, BISHOP))
+                      + params.mat_exch_rook * (material.count(WHITE, ROOK))
+                      + params.mat_exch_queen * (material.count(WHITE, QUEEN));
+    const int mat_b = params.mat_exch_knight * (material.count(BLACK, KNIGHT))
+                      + params.mat_exch_bishop * (material.count(BLACK, BISHOP))
+                      + params.mat_exch_rook * (material.count(BLACK, ROOK))
+                      + params.mat_exch_queen * (material.count(BLACK, QUEEN));
     const int mat_max = 2 * (params.mat_exch_knight * 2
                              + params.mat_exch_bishop * 2
                              + params.mat_exch_rook * 2
@@ -382,11 +382,11 @@ v4si_t evaluator_t::eval_threats(const board_t &board, eval_data_t &data) {
 v4si_t evaluator_t::eval_positional(const board_t &board, eval_data_t &data) {
     v4si_t score = {0, 0, 0, 0};
 
-    if(board.now().material.info.w_bishops >= 2) {
+    if(board.now().material.count(WHITE, BISHOP) >= 2) {
         score += params.pos_bishop_pair;
     }
 
-    if(board.now().material.info.b_bishops >= 2) {
+    if(board.now().material.count(BLACK, BISHOP) >= 2) {
         score -= params.pos_bishop_pair;
     }
 
@@ -394,7 +394,7 @@ v4si_t evaluator_t::eval_positional(const board_t &board, eval_data_t &data) {
     bool opposite_coloured_bishops = board.pieces(WHITE, BISHOP) && board.pieces(BLACK, BISHOP)
                                      && !multiple_bits(board.pieces(WHITE, BISHOP)) && !multiple_bits(board.pieces(BLACK, BISHOP))
                                      && !same_colour(bit_scan(board.pieces(WHITE, BISHOP)), bit_scan(board.pieces(BLACK, BISHOP)));
-    const int pawn_balance = board.now().material.info.w_pawns - board.now().material.info.b_pawns;
+    const int pawn_balance = board.now().material.count(WHITE, PAWN) - board.now().material.count(BLACK, PAWN);
 
     if(opposite_coloured_bishops) {
         if(pawn_balance > 0) {

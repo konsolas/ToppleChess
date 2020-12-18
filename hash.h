@@ -10,6 +10,13 @@
 #include "types.h"
 #include "move.h"
 
+/**
+ * Random hash values used for Zobrist hashing.
+ *
+ * Each feature in a position is given a unique integer hash. The Zobrist hash of a position
+ * is the XOR product of all of these features. This allows for fast incremental hash updates,
+ * e.g. in move and unmove and avoids recomputing the hash.
+ */
 namespace zobrist {
     extern U64 squares[64][2][6];
     extern U64 side;
@@ -22,105 +29,37 @@ namespace zobrist {
     void init_hashes();
 }
 
-union material_data_t {
-    struct {
-        uint32_t w_pawns : 4,
-                 w_knights : 4,
-                 w_bishops : 4,
-                 w_rooks : 4,
-                 w_queens : 4;
-        uint32_t b_pawns : 4,
-                b_knights : 4,
-                b_bishops : 4,
-                b_rooks : 4,
-                b_queens : 4;
-        
-        inline unsigned count(Team team, Piece piece) const {
-            switch (team) {
-                case WHITE:
-                    switch (piece) {
-                        case PAWN: return w_pawns;
-                        case KNIGHT: return w_knights;
-                        case BISHOP: return w_bishops;
-                        case ROOK: return w_rooks;
-                        case QUEEN: return w_queens;
-                        case KING: return 1;
-                    }
-                    break;
-                case BLACK:
-                    switch (piece) {
-                        case PAWN: return b_pawns;
-                        case KNIGHT: return b_knights;
-                        case BISHOP: return b_bishops;
-                        case ROOK: return b_rooks;
-                        case QUEEN: return b_queens;
-                        case KING: return 1;
-                    }
-                    break;
-            }
+/**
+ * Holds incrementally updated material counts for a position, along with a Zobrist hash
+ */
+class material_data_t {
+    uint8_t counts[2][6];
+    U64 z_hash;
+public:
+    // Accessors
+    [[nodiscard]] inline int count(Team team, Piece piece) const { return counts[team][piece]; }
+    [[nodiscard]] inline int hash() const { return z_hash; }
 
-            return 0;
-        }
-
-        inline void inc(Team team, Piece piece) {
-            switch (team) {
-                case WHITE:
-                    switch (piece) {
-                        case PAWN: w_pawns++; break;
-                        case KNIGHT: w_knights++; break;
-                        case BISHOP: w_bishops++; break;
-                        case ROOK: w_rooks++; break;
-                        case QUEEN: w_queens++; break;
-                        case KING: break;
-                    }
-                    break;
-                case BLACK:
-                    switch (piece) {
-                        case PAWN: b_pawns++; break;
-                        case KNIGHT: b_knights++; break;
-                        case BISHOP: b_bishops++; break;
-                        case ROOK: b_rooks++; break;
-                        case QUEEN: b_queens++; break;
-                        case KING: break;
-                    }
-                    break;
-            }
-        }
-        
-        inline void dec(Team team, Piece piece) {
-            switch (team) {
-                case WHITE:
-                    switch (piece) {
-                        case PAWN: w_pawns--; break;
-                        case KNIGHT: w_knights--; break;
-                        case BISHOP: w_bishops--; break;
-                        case ROOK: w_rooks--; break;
-                        case QUEEN: w_queens--; break;
-                        case KING: break;
-                    }
-                    break;
-                case BLACK:
-                    switch (piece) {
-                        case PAWN: b_pawns--; break;
-                        case KNIGHT: b_knights--; break;
-                        case BISHOP: b_bishops--; break;
-                        case ROOK: b_rooks--; break;
-                        case QUEEN: b_queens--; break;
-                        case KING: break;
-                    }
-                    break;
-            }
-        }
-    } info;
-
-    uint64_t hash;
+    inline void inc(Team team, Piece piece) {
+        // We reuse piece-square hashes for material hashing. The square used corresponds to the count
+        // e.g. the first pawn has the hash of a pawn on square 0, the second on square 1, etc.
+        z_hash ^= zobrist::squares[counts[team][piece]++][team][piece];
+        assert(counts[team][piece] >= 0);
+    }
+    inline void dec(Team team, Piece piece) {
+        // Note the prefix instead of postfix operator here.
+        z_hash ^= zobrist::squares[--counts[team][piece]][team][piece];
+        assert(counts[team][piece] >= 0);
+    }
 };
 
 namespace tt {
+    // Hash scores can be upper bounds, lower bounds, or exact
     enum Bound : uint8_t {
         NONE=0, UPPER, LOWER, EXACT
     };
 
+    // Only use power of 2 sizes for efficiency (& rather than % for hashing)
     inline size_t lower_power_of_2(size_t size) {
         if (size & (size - 1)) { // Check if size is a power of 2
             for (unsigned int i = 1; i < 64; i++) {
@@ -134,8 +73,11 @@ namespace tt {
         return size;
     }
 
+    /**
+     * An entry in the hash table
+     */
     struct entry_t { // 16 bytes
-        U64 coded_hash; // 8 bytes
+        U64 coded_hash; // 8 bytes, = hash ^ data. Used to prevent races between threads.
         union {
             struct {
                 packed_move_t move;
@@ -147,7 +89,13 @@ namespace tt {
             U64 data;
         };
 
-        int value(int ply) const {
+        /**
+         * Return the value of this hash entry, with checkmate scores adjusted for the given ply
+         *
+         * @param ply search ply to adjust checkmate scores
+         * @return value of this entry
+         */
+        [[nodiscard]] int value(int ply) const {
             if (info.internal_value >= MINCHECKMATE) {
                 return info.internal_value - ply;
             } else if (info.internal_value <= -MINCHECKMATE) {
@@ -157,45 +105,84 @@ namespace tt {
             }
         }
 
-        inline Bound bound() {
-            return Bound(info.about & 3u);
-        }
-
-        inline int depth() {
-            return (info.about >> 2u) & 255u;
-        }
-
-        inline unsigned generation() {
-            return info.about >> 10u;
-        }
-
+        /**
+         * Set the generation of this hash entry, recoding the hash value as necessary
+         *
+         * @param gen new generation
+         */
         void refresh(unsigned gen) {
-            U64 original = coded_hash ^ data;
+            U64 hash = coded_hash ^ data;
             info.about = uint16_t((info.about & 1023u) | (gen << 10u));
-            coded_hash = original ^ data;
+            coded_hash = hash ^ data;
         }
+
+        // Other accessors
+        [[nodiscard]] inline Bound bound() const { return Bound(info.about & 3u); }
+        [[nodiscard]] inline unsigned depth() const { return (info.about >> 2u) & 255u; }
+        [[nodiscard]] inline unsigned generation() const { return info.about >> 10u; }
     };
+    static_assert(sizeof(entry_t) == 16);
 
     class hash_t {
         static constexpr size_t bucket_size = 4;
     public:
+        /**
+         * Construct a new hash table with the given size in bytes
+         *
+         * @param size size of table
+         */
         explicit hash_t(size_t size);
         ~hash_t();
 
+        // Hash tables are huge, don't copy them
+        hash_t(const hash_t &) = delete;
+
+        /**
+         * Prefetch an entry in the hash table
+         *
+         * @param hash hash of the entry to prefetch
+         */
         inline void prefetch(U64 hash) {
             const size_t index = (hash & num_entries) * bucket_size;
             tt::entry_t *bucket = table + index;
 
-#if defined(__GNUC__)
             __builtin_prefetch(bucket);
-#elif defined(_MSC_VER) || defined(__INTEL_COMPILER)
-            _mm_prefetch((char*) bucket, _MM_HINT_T0);
-#endif
         }
 
+        /**
+         * Probe the hash table with the given hash.
+         * Returns true on hit, and saves the result to entry
+         *
+         * @param hash hash to probe
+         * @param entry entry to store result
+         * @return true on hit, false otherwise
+         */
         bool probe(U64 hash, entry_t &entry);
+
+        /**
+         * Save an entry in the hash table. This method chooses an entry to replace and may not
+         * write anything at all if this entry does not appear to be valuable.
+         *
+         * @param bound
+         * @param hash
+         * @param depth
+         * @param ply
+         * @param static_eval
+         * @param score
+         * @param move
+         */
         void save(Bound bound, U64 hash, int depth, int ply, int static_eval, int score, move_t move);
+
+        /**
+         * Increase the generation of this hash table by 1, rendering existing entries out of date
+         */
         void age();
+
+        /**
+         * Calculate how full the hash table is, based on a convenience sample of the first few elements
+         *
+         * @return hash table use, permill
+         */
         size_t hash_full();
     private:
         size_t num_entries;

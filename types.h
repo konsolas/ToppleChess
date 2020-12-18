@@ -41,12 +41,12 @@ inline std::ostream& operator<<(std::ostream& os, v4si_t v4si) {
 enum Piece {
     PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING
 };
-inline Piece& operator++(Piece &p) {
-    return p = static_cast<Piece>(static_cast<int>(p) + 1);
-}
-inline Piece operator++(Piece &p, int) {
-    Piece tmp(p); ++p; return tmp;
-}
+// Basic piece values for SEE and MVV/LVA ordering. Uses the standard assignment of point values * 100
+constexpr int VAL[] = {100, 300, 300, 500, 900, INF};
+
+// We frequently need to iterate over pieces, so here are the increment operators.
+inline Piece& operator++(Piece &p) { return p = static_cast<Piece>(static_cast<int>(p) + 1); }
+inline Piece operator++(Piece &p, int) { Piece tmp(p); ++p; return tmp; }
 
 enum Team {
     WHITE, BLACK

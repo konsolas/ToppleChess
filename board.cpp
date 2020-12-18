@@ -390,8 +390,8 @@ void board_t::switch_piece(Team side, Piece piece, uint8_t sq) {
         U64 square_hash = zobrist::squares[sq][side][piece];
         record.back().hash ^= square_hash;
         if(piece == PAWN || piece == KING) record.back().kp_hash ^= square_hash;
-        if(sq_data[sq].occupied()) record.back().material.info.inc(side, piece);
-        else record.back().material.info.dec(side, piece);
+        if(sq_data[sq].occupied()) record.back().material.inc(side, piece);
+        else record.back().material.dec(side, piece);
     }
 }
 
@@ -571,13 +571,13 @@ bool board_t::is_repetition_draw(int search_ply) const {
 }
 
 bool board_t::is_material_draw() const {
-    if(record.back().material.info.w_pawns || record.back().material.info.b_pawns ||
-             record.back().material.info.w_queens || record.back().material.info.b_queens ||
-             record.back().material.info.w_rooks || record.back().material.info.b_rooks) {
+    if(record.back().material.count(WHITE, PAWN) || record.back().material.count(BLACK, PAWN) ||
+            record.back().material.count(WHITE, QUEEN) || record.back().material.count(BLACK, QUEEN) ||
+            record.back().material.count(WHITE, ROOK) || record.back().material.count(BLACK, ROOK)) {
         return false;
     } else {
-        return record.back().material.info.w_bishops + record.back().material.info.b_bishops
-               + record.back().material.info.w_knights + record.back().material.info.b_knights <= 1;
+        return record.back().material.count(WHITE, BISHOP) + record.back().material.count(BLACK, BISHOP)
+               + record.back().material.count(WHITE, KNIGHT) + record.back().material.count(BLACK, KNIGHT) <= 1;
     }
 }
 
@@ -617,7 +617,6 @@ void board_t::mirror() {
 }
 
 int board_t::see(move_t move) const {
-    constexpr int VAL[] = {100, 300, 300, 500, 900, INF};
     if(move == EMPTY_MOVE || move.info.is_ep)
         return 0;
 

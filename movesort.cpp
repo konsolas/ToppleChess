@@ -9,11 +9,7 @@ movesort_t::movesort_t(GenMode mode,  const heuristic_set_t &heuristics, const b
         mode(mode), heur(heuristics), board(board), hash_move(hash_move), refutation(refutation), gen(movegen_t(board)) {
     killer_1 = heur.killers.primary(ply);
     killer_2 = heur.killers.secondary(ply);
-    if(ply > 2) {
-        killer_3 = heur.killers.primary(ply - 2);
-    } else {
-        killer_3 = EMPTY_MOVE;
-    }
+    killer_3 = ply > 2 ? heur.killers.primary(ply - 2) : EMPTY_MOVE;
 
     if(killer_1 == hash_move) {
         killer_1 = EMPTY_MOVE;
@@ -28,9 +24,8 @@ movesort_t::movesort_t(GenMode mode,  const heuristic_set_t &heuristics, const b
     }
 }
 
+// Pray that the compiler optimises tail recursion here - this is a very hot method
 move_t movesort_t::next(GenStage &stage, int &score, bool skip_quiets) {
-    constexpr int VAL[] = {100, 300, 300, 500, 900, INF};
-    retry:
     switch (stage) {
         case GEN_NONE:
             stage = GEN_HASH;
@@ -57,14 +52,14 @@ move_t movesort_t::next(GenStage &stage, int &score, bool skip_quiets) {
 
                 if (capt_buf[capt_idx] == hash_move) {
                     capt_idx++;
-                    goto retry;
+                    return next(stage, score, skip_quiets);
                 }
 
                 if ((score = board.see(capt_buf[capt_idx])) >= 0) {
                     return capt_buf[capt_idx++];
                 } else {
                     capt_buf[bad_capt_buf_size++] = capt_buf[capt_idx++];
-                    goto retry;
+                    return next(stage, score, skip_quiets);
                 }
             }
 
@@ -105,7 +100,7 @@ move_t movesort_t::next(GenStage &stage, int &score, bool skip_quiets) {
 
                 if (main_buf[main_idx] == hash_move) {
                     main_idx++;
-                    goto retry;
+                    return next(stage, score, skip_quiets);
                 }
 
                 else stage = GEN_QUIETS;
@@ -118,7 +113,7 @@ move_t movesort_t::next(GenStage &stage, int &score, bool skip_quiets) {
             if (bad_capt_idx < bad_capt_buf_size) {
                 if (capt_buf[bad_capt_idx] == hash_move) {
                     bad_capt_idx++;
-                    goto retry;
+                    return next(stage, score, skip_quiets);
                 }
 
                 score = 0;

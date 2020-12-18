@@ -11,14 +11,14 @@
 
 const bool operator==(const board_t& lhs, const board_t& rhs) {
     for(uint8_t sq = 0; sq < 64; sq++) {
-        if(lhs.sq_data[sq].occupied != rhs.sq_data[sq].occupied) return false;
-        if(lhs.sq_data[sq].occupied) {
-            if(lhs.sq_data[sq].piece != rhs.sq_data[sq].piece) return false;
-            if(lhs.sq_data[sq].team != rhs.sq_data[sq].team) return false;
+        if(lhs.sq(sq).occupied() != rhs.sq(sq).occupied()) return false;
+        if(lhs.sq(sq).occupied()) {
+            if(lhs.sq(sq).piece() != rhs.sq(sq).piece()) return false;
+            if(lhs.sq(sq).team() != rhs.sq(sq).team()) return false;
         }
     }
 
-    return lhs.record.back().hash == rhs.record.back().hash;
+    return lhs.now().hash == rhs.now().hash;
 }
 
 const bool operator!=(const board_t& lhs, const board_t& rhs) {
@@ -44,25 +44,25 @@ const void hash_check(const board_t &board) {
     // Generate hash of board
     U64 hash = 0;
     for(int i = 0; i < 64; i++) {
-        if(board.sq_data[i].occupied) {
-            hash ^= zobrist::squares[i][board.sq_data[i].team][board.sq_data[i].piece];
+        if(board.sq(i).occupied()) {
+            hash ^= zobrist::squares[i][board.sq(i).team()][board.sq(i).piece()];
         }
     }
 
-    if(board.record.back().next_move) hash ^= zobrist::side;
+    if(board.now().next_move) hash ^= zobrist::side;
 
     for(int i = 0; i < 2; i++) {
         for(int j = 0; j < 2; j++) {
-            if(board.record.back().castle[i][j]) hash ^= zobrist::castle[i][j];
+            if(board.now().castle[i][j]) hash ^= zobrist::castle[i][j];
         }
     }
 
-    if(board.record.back().ep_square != 0) {
-        hash ^= zobrist::ep[board.record.back().ep_square];
+    if(board.now().ep_square != 0) {
+        hash ^= zobrist::ep[board.now().ep_square];
     }
 
     //INFO("position: " << board << " lastmove: " << board.record[board.now].prev_move);
-    REQUIRE(hash == board.record.back().hash);
+    REQUIRE(hash == board.now().hash);
 }
 
 U64 perft(board_t &board, int depth) {
@@ -103,8 +103,8 @@ U64 perft(board_t &board, int depth) {
         board.unmove();
 
         if(board != snapshot 
-            || board.record.back().hash != snapshot.record.back().hash
-            || board.record.back().kp_hash != snapshot.record.back().kp_hash) {
+            || board.now().hash != snapshot.now().hash
+            || board.now().kp_hash != snapshot.now().kp_hash) {
             FAIL("Unmake move failed at position: " << board
                                                     << "expecting " << snapshot
                                                     << " move=" << from_sq(next.info.from) << from_sq(next.info.to));

@@ -14,13 +14,13 @@ TEST_CASE("Board representation") {
     board_t board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
     SECTION("Initialised correctly") {
-        REQUIRE(board.record.back().next_move == WHITE);
-        REQUIRE(board.record.back().ep_square == 0);
-        REQUIRE(board.record.back().castle[0][0] == 1);
-        REQUIRE(board.record.back().castle[0][1] == 1);
-        REQUIRE(board.record.back().castle[1][0] == 1);
-        REQUIRE(board.record.back().castle[1][1] == 1);
-        REQUIRE(board.record.back().halfmove_clock == 0);
+        REQUIRE(board.now().next_move == WHITE);
+        REQUIRE(board.now().ep_square == 0);
+        REQUIRE(board.now().castle[0][0] == 1);
+        REQUIRE(board.now().castle[0][1] == 1);
+        REQUIRE(board.now().castle[1][0] == 1);
+        REQUIRE(board.now().castle[1][1] == 1);
+        REQUIRE(board.now().halfmove_clock == 0);
 
         expected = c_u64({1, 1, 1, 1, 1, 1, 1, 1,
                           1, 1, 1, 1, 1, 1, 1, 1,
@@ -30,7 +30,7 @@ TEST_CASE("Board representation") {
                           0, 0, 0, 0, 0, 0, 0, 0,
                           1, 1, 1, 1, 1, 1, 1, 1,
                           1, 1, 1, 1, 1, 1, 1, 1});
-        REQUIRE(board.bb_all == expected);
+        REQUIRE(board.all() == expected);
 
         expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
@@ -40,7 +40,7 @@ TEST_CASE("Board representation") {
                           0, 0, 0, 0, 0, 0, 0, 0,
                           1, 1, 1, 1, 1, 1, 1, 1,
                           1, 1, 1, 1, 1, 1, 1, 1});
-        REQUIRE(board.bb_side[WHITE] == expected);
+        REQUIRE(board.side(WHITE) == expected);
 
         expected = c_u64({1, 1, 1, 1, 1, 1, 1, 1,
                           1, 1, 1, 1, 1, 1, 1, 1,
@@ -50,7 +50,7 @@ TEST_CASE("Board representation") {
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0});
-        REQUIRE(board.bb_side[BLACK] == expected);
+        REQUIRE(board.side(BLACK) == expected);
 
         expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
@@ -60,7 +60,7 @@ TEST_CASE("Board representation") {
                           0, 0, 0, 0, 0, 0, 0, 0,
                           1, 1, 1, 1, 1, 1, 1, 1,
                           0, 0, 0, 0, 0, 0, 0, 0});
-        REQUIRE(board.bb_pieces[WHITE][PAWN] == expected);
+        REQUIRE(board.pieces(WHITE, PAWN) == expected);
 
         expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
                           1, 1, 1, 1, 1, 1, 1, 1,
@@ -70,7 +70,7 @@ TEST_CASE("Board representation") {
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0});
-        REQUIRE(board.bb_pieces[BLACK][PAWN] == expected);
+        REQUIRE(board.pieces(BLACK, PAWN) == expected);
 
         expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
@@ -80,7 +80,7 @@ TEST_CASE("Board representation") {
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
                           1, 0, 0, 0, 0, 0, 0, 1});
-        REQUIRE(board.bb_pieces[WHITE][ROOK] == expected);
+        REQUIRE(board.pieces(WHITE, ROOK) == expected);
 
         expected = c_u64({1, 0, 0, 0, 0, 0, 0, 1,
                           0, 0, 0, 0, 0, 0, 0, 0,
@@ -90,7 +90,7 @@ TEST_CASE("Board representation") {
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0});
-        REQUIRE(board.bb_pieces[BLACK][ROOK] == expected);
+        REQUIRE(board.pieces(BLACK, ROOK) == expected);
 
         expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
@@ -100,7 +100,7 @@ TEST_CASE("Board representation") {
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 1, 0, 0, 0, 0, 1, 0});
-        REQUIRE(board.bb_pieces[WHITE][KNIGHT] == expected);
+        REQUIRE(board.pieces(WHITE, KNIGHT) == expected);
 
         expected = c_u64({0, 1, 0, 0, 0, 0, 1, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
@@ -110,7 +110,7 @@ TEST_CASE("Board representation") {
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0});
-        REQUIRE(board.bb_pieces[BLACK][KNIGHT] == expected);
+        REQUIRE(board.pieces(BLACK, KNIGHT) == expected);
 
         expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
@@ -120,7 +120,7 @@ TEST_CASE("Board representation") {
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 1, 0, 0, 1, 0, 0});
-        REQUIRE(board.bb_pieces[WHITE][BISHOP] == expected);
+        REQUIRE(board.pieces(WHITE, BISHOP) == expected);
 
         expected = c_u64({0, 0, 1, 0, 0, 1, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
@@ -130,7 +130,7 @@ TEST_CASE("Board representation") {
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0});
-        REQUIRE(board.bb_pieces[BLACK][BISHOP] == expected);
+        REQUIRE(board.pieces(BLACK, BISHOP) == expected);
 
         expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
@@ -140,7 +140,7 @@ TEST_CASE("Board representation") {
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 1, 0, 0, 0});
-        REQUIRE(board.bb_pieces[WHITE][KING] == expected);
+        REQUIRE(board.pieces(WHITE, KING) == expected);
 
         expected = c_u64({0, 0, 0, 0, 1, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
@@ -150,7 +150,7 @@ TEST_CASE("Board representation") {
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0});
-        REQUIRE(board.bb_pieces[BLACK][KING] == expected);
+        REQUIRE(board.pieces(BLACK, KING) == expected);
 
         expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
@@ -160,7 +160,7 @@ TEST_CASE("Board representation") {
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 1, 0, 0, 0, 0});
-        REQUIRE(board.bb_pieces[WHITE][QUEEN] == expected);
+        REQUIRE(board.pieces(WHITE, QUEEN) == expected);
 
         expected = c_u64({0, 0, 0, 1, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
@@ -170,7 +170,7 @@ TEST_CASE("Board representation") {
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0});
-        REQUIRE(board.bb_pieces[BLACK][QUEEN] == expected);
+        REQUIRE(board.pieces(BLACK, QUEEN) == expected);
     }
 
     SECTION("Basic move") {
@@ -181,13 +181,13 @@ TEST_CASE("Board representation") {
 
         board.move(move);
 
-        REQUIRE(board.record.back().next_move == BLACK);
-        REQUIRE(board.record.back().ep_square == E3);
-        REQUIRE(board.record.back().castle[0][0] == 1);
-        REQUIRE(board.record.back().castle[0][1] == 1);
-        REQUIRE(board.record.back().castle[1][0] == 1);
-        REQUIRE(board.record.back().castle[1][1] == 1);
-        REQUIRE(board.record.back().halfmove_clock == 0);
+        REQUIRE(board.now().next_move == BLACK);
+        REQUIRE(board.now().ep_square == E3);
+        REQUIRE(board.now().castle[0][0] == 1);
+        REQUIRE(board.now().castle[0][1] == 1);
+        REQUIRE(board.now().castle[1][0] == 1);
+        REQUIRE(board.now().castle[1][1] == 1);
+        REQUIRE(board.now().halfmove_clock == 0);
 
         expected = c_u64({1, 1, 1, 1, 1, 1, 1, 1,
                           1, 1, 1, 1, 1, 1, 1, 1,
@@ -197,20 +197,20 @@ TEST_CASE("Board representation") {
                           0, 0, 0, 0, 0, 0, 0, 0,
                           1, 1, 1, 1, 0, 1, 1, 1,
                           1, 1, 1, 1, 1, 1, 1, 1});
-        REQUIRE(board.bb_all == expected);
-        REQUIRE(!board.sq_data[E2].occupied);
+        REQUIRE(board.all() == expected);
+        REQUIRE(!board.sq(E2).occupied());
 
         // Undo the move
         board.unmove();
 
         // Recheck original position
-        REQUIRE(board.record.back().next_move == WHITE);
-        REQUIRE(board.record.back().ep_square == 0);
-        REQUIRE(board.record.back().castle[0][0] == 1);
-        REQUIRE(board.record.back().castle[0][1] == 1);
-        REQUIRE(board.record.back().castle[1][0] == 1);
-        REQUIRE(board.record.back().castle[1][1] == 1);
-        REQUIRE(board.record.back().halfmove_clock == 0);
+        REQUIRE(board.now().next_move == WHITE);
+        REQUIRE(board.now().ep_square == 0);
+        REQUIRE(board.now().castle[0][0] == 1);
+        REQUIRE(board.now().castle[0][1] == 1);
+        REQUIRE(board.now().castle[1][0] == 1);
+        REQUIRE(board.now().castle[1][1] == 1);
+        REQUIRE(board.now().halfmove_clock == 0);
 
         expected = c_u64({1, 1, 1, 1, 1, 1, 1, 1,
                           1, 1, 1, 1, 1, 1, 1, 1,
@@ -220,8 +220,8 @@ TEST_CASE("Board representation") {
                           0, 0, 0, 0, 0, 0, 0, 0,
                           1, 1, 1, 1, 1, 1, 1, 1,
                           1, 1, 1, 1, 1, 1, 1, 1});
-        REQUIRE(board.bb_all == expected);
-        REQUIRE(board.sq_data[E2].occupied);
+        REQUIRE(board.all() == expected);
+        REQUIRE(board.sq(E2).occupied());
     }
 }
 
@@ -230,7 +230,7 @@ TEST_CASE("Legality") {
     REQUIRE(board1.is_incheck());
 
     board_t board2("rnbqkb1r/ppp2ppp/3p4/8/4n3/3N4/PPPP1PPP/RNBQKB1R w KQkq - 0 5");
-    INFO(((find_moves(PAWN, WHITE, D2, board2.bb_all) & single_bit(D4)) == 0))
+    INFO(((find_moves(PAWN, WHITE, D2, board2.all()) & single_bit(D4)) == 0))
     REQUIRE(!board2.is_pseudo_legal(board2.parse_move("d2d4")));
 
     board_t board3("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8 ");
