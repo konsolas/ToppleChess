@@ -2,10 +2,9 @@
 // Created by Vincent on 01/06/2018.
 //
 
-#include <iostream>
-#include "../catch.hpp"
-#include "../util.h"
-#include "../../board.h"
+#include <catch2/catch.hpp>
+#include "util.h"
+#include "../board.h"
 
 TEST_CASE("Static Exchange Evaluation") {
     REQUIRE_NOTHROW(init_tables());

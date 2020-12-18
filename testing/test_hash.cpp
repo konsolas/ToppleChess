@@ -2,15 +2,14 @@
 // Created by Vincent on 23/06/2019.
 //
 
-#include <random>
+#include <catch2/catch.hpp>
 
-#include "../catch.hpp"
-#include "../util.h"
-#include "../../board.h"
-#include "../../movegen.h"
-#include "../../eval.h"
-#include "../../hash.h"
-#include "../../move.h"
+#include "util.h"
+#include "../board.h"
+#include "../movegen.h"
+#include "../eval.h"
+#include "../hash.h"
+#include "../move.h"
 
 TEST_CASE("Hash entry") {
     init_tables();

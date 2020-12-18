@@ -28,7 +28,7 @@ GameResult game_t::play(board_t pos) {
 
     while ((result = check_result(pos)) == UNKNOWN) {
         std::atomic_bool aborted = false;
-        search_t &player = search[pos.record.back().next_move];
+        search_t &player = search[pos.now().next_move];
         player.enable_timer();
         search_result_t search_result = player.think(pos, limits, aborted);
         if (search_result.best_move == EMPTY_MOVE) {
@@ -40,19 +40,19 @@ GameResult game_t::play(board_t pos) {
 
     //std::cout << pos << std::endl;
 
-    return pos.record.back().next_move == WHITE ? result : invert_result(result);
+    return pos.now().next_move == WHITE ? result : invert_result(result);
 }
 
 GameResult game_t::check_result(board_t &board) {
     // Game state
-    if (board.record.back().halfmove_clock >= 100
+    if (board.now().halfmove_clock >= 100
         || board.is_repetition_draw(100)
         || board.is_material_draw()) {
         return DRAW;
     }
 
     // Probe endgame tablebases
-    if (pop_count(board.bb_all) <= TBlargest) {
+    if (pop_count(board.all()) <= TBlargest) {
         int success;
         int value = probe_wdl(board, &success);
         if (success) {

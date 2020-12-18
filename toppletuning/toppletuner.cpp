@@ -40,7 +40,7 @@ eval_params_t topple_tuner_t::evolve(size_t threads) {
         for (size_t w = 0; w < population.size(); w++) {
             for (size_t b = 0; b < population.size(); b++) {
                 if (w == b) continue;
-                pool.push([this, &scores, &games, max_games, w, b] (int id) {
+                pool.push([this, &scores, w, b] (int id) {
                     game_t game(processed_params_t(population[w].params), processed_params_t(population[b].params), limits);
                     for (const board_t &opening : openings) {
                         GameResult result = game.play(opening);

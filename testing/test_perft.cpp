@@ -2,12 +2,12 @@
 // Created by Vincent on 30/09/2017.
 //
 
-#include "../catch.hpp"
-#include "../util.h"
-#include "../../board.h"
-#include "../../movegen.h"
-#include "../../eval.h"
+#include "catch2/catch.hpp"
 
+#include "util.h"
+#include "../board.h"
+#include "../movegen.h"
+#include "../eval.h"
 
 bool operator==(const board_t& lhs, const board_t& rhs) {
     for(uint8_t sq = 0; sq < 64; sq++) {

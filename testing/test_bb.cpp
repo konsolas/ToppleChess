@@ -2,8 +2,9 @@
 // Created by Vincent on 27/09/2017.
 //
 
-#include "../catch.hpp"
-#include "../util.h"
+#include <catch2/catch.hpp>
+
+#include "util.h"
 
 TEST_CASE("Bitboard engine") {
     SECTION("Table initialisation") {

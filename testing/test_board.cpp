@@ -3,9 +3,9 @@
 //
 
 #include <iostream>
-#include "../catch.hpp"
-#include "../util.h"
-#include "../../board.h"
+#include <catch2/catch.hpp>
+#include "util.h"
+#include "../board.h"
 
 TEST_CASE("Board representation") {
     REQUIRE_NOTHROW(init_tables());
