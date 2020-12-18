@@ -163,8 +163,7 @@ board_t::board_t(const std::string &fen) {
     std::vector<std::string> split((std::istream_iterator<std::string>(iss)), std::istream_iterator<std::string>());
 
     if (split.size() > 6 || split.size() < 4) {
-        throw std::runtime_error(
-                std::string("FEN: ") + std::to_string(split.size()) + std::string(" components, 4-6 expected"));
+        throw std::runtime_error("fen: not enough sections: " + std::to_string(split.size()));
     }
 
     record.emplace_back();
@@ -176,52 +175,24 @@ board_t::board_t(const std::string &fen) {
             file += ch - '0';
         } else {
             uint8_t square = square_index(file, rank);
-            switch (ch) {
-                case '/':
-                    rank--;
-                    file = 0;
-                    break;
-                case 'P':
-                    switch_piece<true>(WHITE, PAWN, square);
-                    break;
-                case 'N':
-                    switch_piece<true>(WHITE, KNIGHT, square);
-                    break;
-                case 'B':
-                    switch_piece<true>(WHITE, BISHOP, square);
-                    break;
-                case 'R':
-                    switch_piece<true>(WHITE, ROOK, square);
-                    break;
-                case 'Q':
-                    switch_piece<true>(WHITE, QUEEN, square);
-                    break;
-                case 'K':
-                    switch_piece<true>(WHITE, KING, square);
-                    break;
-                case 'p':
-                    switch_piece<true>(BLACK, PAWN, square);
-                    break;
-                case 'n':
-                    switch_piece<true>(BLACK, KNIGHT, square);
-                    break;
-                case 'b':
-                    switch_piece<true>(BLACK, BISHOP, square);
-                    break;
-                case 'r':
-                    switch_piece<true>(BLACK, ROOK, square);
-                    break;
-                case 'q':
-                    switch_piece<true>(BLACK, QUEEN, square);
-                    break;
-                case 'k':
-                    switch_piece<true>(BLACK, KING, square);
-                    break;
-                default:
-                    throw std::runtime_error(std::string("Unrecognised FEN character: '") + ch + "'");
+            if (ch == '/') {
+                --rank;
+                file = 0;
+            } else {
+                ++file;
+                Team team = Team(!std::isupper(ch));
+                Piece piece;
+                switch (std::tolower(ch)) {
+                    case 'p': piece = PAWN; break;
+                    case 'n': piece = KNIGHT; break;
+                    case 'b': piece = BISHOP; break;
+                    case 'r': piece = ROOK; break;
+                    case 'q': piece = QUEEN; break;
+                    case 'k': piece = KING; break;
+                    default: throw std::runtime_error(std::string("fen: invalid character: '") + ch + "'");
+                }
+                switch_piece<true>(team, piece, square);
             }
-
-            if (ch != '/') file++;
         }
     }
 
@@ -232,31 +203,34 @@ board_t::board_t(const std::string &fen) {
         record[0].next_move = BLACK;
         record[0].hash ^= zobrist::side;
     } else {
-        throw std::runtime_error("Unrecognised descriptor (looking for w/b): " + split[1]);
+        throw std::runtime_error("fen: invalid team: " + split[1]);
     }
 
     // Parse castling
-    for (char i : split[2]) {
-        if (i == 'K') {
-            record[0].castle[WHITE][0] = true;
-            record[0].hash ^= zobrist::castle[WHITE][0];
-        } else if (i == 'Q') {
-            record[0].castle[WHITE][1] = true;
-            record[0].hash ^= zobrist::castle[WHITE][1];
-        } else if (i == 'k') {
-            record[0].castle[BLACK][0] = true;
-            record[0].hash ^= zobrist::castle[BLACK][0];
-        } else if (i == 'q') {
-            record[0].castle[BLACK][1] = true;
-            record[0].hash ^= zobrist::castle[BLACK][1];
+    if (split[2] != "-") {
+        for (char i : split[2]) {
+            if (i == 'K') {
+                record[0].castle[WHITE][0] = true;
+                record[0].hash ^= zobrist::castle[WHITE][0];
+            } else if (i == 'Q') {
+                record[0].castle[WHITE][1] = true;
+                record[0].hash ^= zobrist::castle[WHITE][1];
+            } else if (i == 'k') {
+                record[0].castle[BLACK][0] = true;
+                record[0].hash ^= zobrist::castle[BLACK][0];
+            } else if (i == 'q') {
+                record[0].castle[BLACK][1] = true;
+                record[0].hash ^= zobrist::castle[BLACK][1];
+            } else {
+                throw std::runtime_error("fen: invalid castling rights: " + std::string(1, i));
+            }
         }
     }
-
 
     // Parse ep square
     if (split[3] != "-") {
         if (split[3].length() != 2) {
-            throw std::runtime_error("Length of ep square is not 2");
+            throw std::runtime_error("en-passant square has invalid length");
         } else {
             record[0].ep_square = to_sq(split[3][0], split[3][1]);
         }
@@ -269,8 +243,7 @@ board_t::board_t(const std::string &fen) {
         record[0].halfmove_clock = 0;
     }
 
-    // Ignore fullmove number - nobody cares
-
+    // Fullmove number is not needed
 }
 
 // This does not properly consider legality:
