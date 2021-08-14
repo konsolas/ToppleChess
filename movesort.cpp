@@ -10,6 +10,18 @@ movesort_t::movesort_t(GenMode mode,  const heuristic_set_t &heuristics, const b
     killer_1 = heur.killers.primary(ply);
     killer_2 = heur.killers.secondary(ply);
     killer_3 = ply > 2 ? heur.killers.primary(ply - 2) : EMPTY_MOVE;
+
+    if(killer_1 == hash_move) {
+        killer_1 = EMPTY_MOVE;
+    }
+
+    if(killer_2 == killer_1 || killer_2 == hash_move) {
+        killer_2 = EMPTY_MOVE;
+    }
+
+    if(killer_3 == killer_2 || killer_3 == killer_1 || killer_3 == hash_move) {
+        killer_3 = EMPTY_MOVE;
+    }
 }
 
 // Pray that the compiler optimises tail recursion here - this is a very hot method
@@ -61,9 +73,7 @@ move_t movesort_t::next(GenStage &stage, int &score, bool skip_quiets) {
 
                 // Score quiets
                 for (int i = 0; i < main_buf_size; i++) {
-                    if (main_buf[i] == hash_move) {
-                        main_scores[i] = -1000000000;
-                    } else if (main_buf[i] == killer_1) {
+                    if (main_buf[i] == killer_1) {
                         main_scores[i] = 1000000003;
                     } else if (main_buf[i] == killer_2) {
                         main_scores[i] = 1000000002;

@@ -81,7 +81,7 @@ processed_params_t::processed_params_t(const eval_params_t &params)
     // Mirror PST for black
     for (int piece = 0; piece < 6; piece++) {
         for (int square = 0; square < 64; square++) {
-            pst[BLACK][piece][MIRROR_TABLE[square]] = pst[WHITE][piece][square];
+            pst[BLACK][piece][rel_sq(BLACK, square)] = pst[WHITE][piece][square];
         }
     }
 

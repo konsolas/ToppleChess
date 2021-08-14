@@ -562,7 +562,7 @@ void board_t::mirror() {
     // Mirror en-passant
     if (record.back().ep_square != 0) {
         record.back().hash ^= zobrist::ep[record.back().ep_square];
-        record.back().ep_square = MIRROR_TABLE[record.back().ep_square];
+        record.back().ep_square = rel_sq(BLACK, record.back().ep_square);
         record.back().hash ^= zobrist::ep[record.back().ep_square];
     }
 
@@ -585,7 +585,7 @@ void board_t::mirror() {
         if(old_data[sq].occupied()) switch_piece<true>(old_data[sq].team(), old_data[sq].piece(), sq);
     }
     for (uint8_t sq = 0; sq < 64; sq++) {
-        if(old_data[sq].occupied()) switch_piece<true>(Team(!old_data[sq].team()), old_data[sq].piece(), MIRROR_TABLE[sq]);
+        if(old_data[sq].occupied()) switch_piece<true>(Team(!old_data[sq].team()), old_data[sq].piece(), rel_sq(BLACK, sq));
     }
 }
 
