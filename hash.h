@@ -140,7 +140,7 @@ namespace tt {
 
         // Other accessors
         [[nodiscard]] inline Bound bound() const { return Bound(info.about & 3u); }
-        [[nodiscard]] inline unsigned depth() const { return (info.about >> 2u) & 255u; }
+        [[nodiscard]] inline int depth() const { return int((info.about >> 2u) & 255u); }
         [[nodiscard]] inline unsigned generation() const { return info.about >> 10u; }
     };
     static_assert(sizeof(entry_t) == 16);
