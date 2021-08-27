@@ -11,7 +11,6 @@
 
 int main(int argc, char* argv[]) {
     init_tables();
-    zobrist::init_hashes();
     evaluator_t::eval_init();
 
     return Catch::Session().run(argc, argv);

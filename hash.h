@@ -18,15 +18,49 @@
  * e.g. in move and unmove and avoids recomputing the hash.
  */
 namespace zobrist {
-    extern U64 squares[64][2][6];
-    extern U64 side;
-    extern U64 ep[64];
-    extern U64 castle[2][2];
+    // SplitMix64 PRNG (public domain)
+    struct split_mix_64_state { uint64_t x; };
+    constexpr uint64_t split_mix_64(split_mix_64_state &state) {
+        uint64_t z = (state.x += 0x9e3779b97f4a7c15);
+        z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
+        z = (z ^ (z >> 27)) * 0x94d049bb133111eb;
+        return z ^ (z >> 31);
+    }
 
-    /**
-     * Initialise the hash arrays
-     */
-    void init_hashes();
+    // Deterministically generates a random n-dimensional array of uint64_t at compile time
+    // Uses variadic templates and recursion to generate the nested array type
+    template<int Size, int... Rest>
+    constexpr auto random_array(split_mix_64_state &state) {
+        if constexpr (sizeof...(Rest) != 0) {
+            std::array<decltype(random_array<Rest...>(state)), Size> arr = {};
+            for (int i = 0; i < Size; ++i) {
+                arr[i] = random_array<Rest...>(state);
+            }
+            return arr;
+        } else {
+            std::array<uint64_t, Size> arr = {};
+            for (int i = 0; i < Size; ++i) {
+                arr[i] = split_mix_64(state);
+            }
+            return arr;
+        }
+    }
+
+    template<int... Dims>
+    constexpr auto random_array(uint64_t seed) {
+        split_mix_64_state state { seed };
+        return random_array<Dims...>(state);
+    }
+
+    constexpr auto random_uint(uint64_t seed) {
+        split_mix_64_state state { seed };
+        return split_mix_64(state);
+    }
+
+    inline constexpr auto squares = random_array<64, 2, 6>(0);
+    inline constexpr auto side = random_uint(1);
+    inline constexpr auto ep = random_array<64>(2);
+    inline constexpr auto castle = random_array<2, 2>(3);
 }
 
 /**
@@ -59,16 +93,16 @@ public:
     }
 
     // Accessors
-    [[nodiscard]] inline int count(Team team, Piece piece) const { return counts[team][piece]; }
-    [[nodiscard]] inline U64 hash() const { return z_hash; }
+    [[nodiscard]] constexpr int count(Team team, Piece piece) const { return counts[team][piece]; }
+    [[nodiscard]] constexpr U64 hash() const { return z_hash; }
 
-    inline void inc(Team team, Piece piece) {
+    constexpr void inc(Team team, Piece piece) {
         // We reuse piece-square hashes for material hashing. The square used corresponds to the count
         // e.g. the first pawn has the hash of a pawn on square 0, the second on square 1, etc.
         z_hash ^= zobrist::squares[counts[team][piece]++][team][piece];
         assert(counts[team][piece] >= 0);
     }
-    inline void dec(Team team, Piece piece) {
+    constexpr void dec(Team team, Piece piece) {
         // Note the prefix instead of postfix operator here.
         z_hash ^= zobrist::squares[--counts[team][piece]][team][piece];
         assert(counts[team][piece] >= 0);

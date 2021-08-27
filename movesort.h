@@ -76,9 +76,6 @@ private:
 
     move_t killer_1, killer_2, killer_3;
 
-    void buf_swap_main(int a, int b);
-    void buf_swap_capt(int a, int b);
-
     movegen_t gen;
 
     int main_idx = 0;

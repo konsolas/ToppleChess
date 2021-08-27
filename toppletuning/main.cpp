@@ -10,7 +10,6 @@ void print_params(const eval_params_t &current_params);
 int main(int argc, char *argv[]) {
     // Initialise engine
     init_tables();
-    zobrist::init_hashes();
     evaluator_t::eval_init();
 
     std::cout << "total parameters: " << sizeof(eval_params_t) / sizeof(int) << std::endl;

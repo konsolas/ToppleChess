@@ -7,36 +7,6 @@
 #include <cstring>
 #include "hash.h"
 
-/*
- * Concrete fields and initialisation code - see hash.h for more info on Zobrist hashing
- */
-namespace zobrist {
-    const U64 seed = 0xBEEF;
-
-    U64 squares[64][2][6];
-    U64 side;
-    U64 ep[64];
-    U64 castle[2][2];
-
-    void init_hashes() {
-        std::mt19937_64 gen(seed); // NOLINT(cert-msc51-cpp) - constant seed intended
-        std::uniform_int_distribution<U64> dist;
-
-        side = dist(gen);
-        castle[0][0] = dist(gen);
-        castle[0][1] = dist(gen);
-        castle[1][0] = dist(gen);
-        castle[1][1] = dist(gen);
-
-        for (int i = 0; i < 64; i++) {
-            for (int j = 0; j < 2; j++)
-                for (int k = 0; k < 6; k++)
-                    squares[i][j][k] = dist(gen);
-            ep[i] = dist(gen);
-        }
-    }
-}
-
 tt::hash_t::hash_t(size_t size) {
     // Divide size by the sizeof an entry
     size /= (sizeof(tt::entry_t) * bucket_size);

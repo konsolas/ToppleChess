@@ -14,7 +14,6 @@ U64 perft(board_t &, int);
 int main(int argc, char *argv[]) {
     // Initialise engine
     init_tables();
-    zobrist::init_hashes();
     evaluator_t::eval_init();
 
     // Board

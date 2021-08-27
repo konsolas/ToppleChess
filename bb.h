@@ -21,7 +21,7 @@
  * @param square bit to set
  * @return bitboard with the bit at {@code square} set
  */
-inline U64 single_bit(uint8_t square) {
+constexpr U64 single_bit(uint8_t square) {
     return 0x1ull << square;
 }
 

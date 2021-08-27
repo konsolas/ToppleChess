@@ -48,7 +48,7 @@ move_t movesort_t::next(GenStage &stage, int &score, bool skip_quiets) {
                     }
                 }
 
-                buf_swap_capt(best_idx, capt_idx);
+                std::swap(capt_buf[best_idx], capt_buf[capt_idx]);
 
                 if (capt_buf[capt_idx] == hash_move) {
                     capt_idx++;
@@ -96,7 +96,8 @@ move_t movesort_t::next(GenStage &stage, int &score, bool skip_quiets) {
                         best_main_idx = i;
                     }
                 }
-                buf_swap_main(best_main_idx, main_idx);
+                std::swap(main_scores[best_main_idx], main_scores[main_idx]);
+                std::swap(main_buf[best_main_idx], main_buf[main_idx]);
 
                 if (main_buf[main_idx] == hash_move) {
                     main_idx++;
@@ -124,22 +125,6 @@ move_t movesort_t::next(GenStage &stage, int &score, bool skip_quiets) {
         default:
             throw std::runtime_error("illegal move generation stage");
     }
-}
-
-void movesort_t::buf_swap_main(int a, int b) {
-    move_t temp = main_buf[a];
-    main_buf[a] = main_buf[b];
-    main_buf[b] = temp;
-
-    int score = main_scores[a];
-    main_scores[a] = main_scores[b];
-    main_scores[b] = score;
-}
-
-void movesort_t::buf_swap_capt(int a, int b) {
-    move_t temp = capt_buf[a];
-    capt_buf[a] = capt_buf[b];
-    capt_buf[b] = temp;
 }
 
 move_t *movesort_t::generated_quiets(size_t &count) {

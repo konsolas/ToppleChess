@@ -26,7 +26,6 @@ double get_result(const std::string &result) {
 int main(int argc, char *argv[]) {
     // Initialise engine
     init_tables();
-    zobrist::init_hashes();
     evaluator_t::eval_init();
 
     // Startup
