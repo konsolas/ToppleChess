@@ -10,6 +10,11 @@ constexpr U64 PROMOTING[2] = {
         0x000000000000FF00
 };
 
+constexpr U64 STARTING[2] = {
+        0x000000000000FF00,
+        0x00FF000000000000
+};
+
 movegen_t::movegen_t(const board_t &board) : board(board) {
     team = board.now().next_move;
     x_team = Team(!board.now().next_move);
@@ -37,19 +42,25 @@ int movegen_t::gen_noisy(move_t *buf) {
     move.info.piece = PAWN;
     U64 bb_pawns = board.pieces(team, PAWN) & ~PROMOTING[team];
 
-    while (bb_pawns) {
-        uint8_t from = pop_bit(bb_pawns);
-        move.info.from = from;
+    U64 capt_left = (team ? bb_shifts::shift<D_SE>(bb_pawns) : bb_shifts::shift<D_NW>(bb_pawns)) & board.side(x_team);
+    U64 capt_right = (team ? bb_shifts::shift<D_SW>(bb_pawns) : bb_shifts::shift<D_NE>(bb_pawns)) & board.side(x_team);
 
-        U64 bb_targets = pawn_caps(team, from) & board.side(x_team);
+    while (capt_left) {
+        uint8_t to = pop_bit(capt_left);
+        move.info.to = to;
+        move.info.from = to - rel_offset(team, D_NW);
+        move.info.captured_type = board.sq(to).piece();
 
-        while (bb_targets) {
-            uint8_t to = pop_bit(bb_targets);
-            move.info.to = to;
-            move.info.captured_type = board.sq(to).piece();
+        buf[buf_size++] = move;
+    }
 
-            buf[buf_size++] = move;
-        }
+    while (capt_right) {
+        uint8_t to = pop_bit(capt_right);
+        move.info.to = to;
+        move.info.from = to - rel_offset(team, D_NE);
+        move.info.captured_type = board.sq(to).piece();
+
+        buf[buf_size++] = move;
     }
 
     // Generate piece caps (not pawns)
@@ -64,7 +75,7 @@ int movegen_t::gen_noisy(move_t *buf) {
 
 int movegen_t::gen_castling(move_t *buf) {
     int buf_size = 0;
-    move_t move{};
+    move_t move = EMPTY_MOVE;
 
     // Generate castling kingside
     if (board.now().castle[team][0]) {
@@ -194,24 +205,39 @@ int movegen_t::gen_quiets(move_t *buf) {
     U64 mask = ~board.all();
 
     // Pawn moves
-    move_t move{};
-    move = EMPTY_MOVE;
+    move_t move = EMPTY_MOVE;
     move.info.team = team;
     move.info.piece = PAWN;
     U64 bb_pawns = board.pieces(team, PAWN) & ~PROMOTING[team];
 
-    while (bb_pawns) {
-        uint8_t from = pop_bit(bb_pawns);
+    U64 blocked_x1, blocked_x2;
+    if (team) {
+        blocked_x1 = bb_shifts::shift<D_N>(board.all());
+        blocked_x2 = bb_shifts::shift<D_N>(blocked_x1) | blocked_x1;
+    } else {
+        blocked_x1 = bb_shifts::shift<D_S>(board.all());
+        blocked_x2 = bb_shifts::shift<D_S>(blocked_x1) | blocked_x1;
+    }
+
+    U64 single_movers = bb_pawns & ~blocked_x1;
+    U64 double_movers = bb_pawns & STARTING[team] & ~blocked_x2;
+    int single_offset = rel_offset(team, D_N);
+    int double_offset = single_offset * 2;
+
+    while (single_movers) {
+        uint8_t from = pop_bit(single_movers);
         move.info.from = from;
+        move.info.to = from + single_offset;
 
-        U64 bb_targets = find_moves<PAWN>(team, from, board.all()) & mask;
+        buf[buf_size++] = move;
+    }
 
-        while (bb_targets) {
-            uint8_t to = pop_bit(bb_targets);
-            move.info.to = to;
+    while (double_movers) {
+        uint8_t from = pop_bit(double_movers);
+        move.info.from = from;
+        move.info.to = from + double_offset;
 
-            buf[buf_size++] = move;
-        }
+        buf[buf_size++] = move;
     }
 
     // Generate piece moves (not pawns)
