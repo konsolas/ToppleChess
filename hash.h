@@ -139,7 +139,7 @@ namespace tt {
                 packed_move_t move;
                 int16_t static_eval;
                 int16_t internal_value;
-                uint16_t about; // 6G 8D 2B
+                uint16_t about; // 6G 2B 8D
             } info;
 
             U64 data;
@@ -173,9 +173,9 @@ namespace tt {
         }
 
         // Other accessors
-        [[nodiscard]] inline Bound bound() const { return Bound(info.about & 3u); }
-        [[nodiscard]] inline int depth() const { return int((info.about >> 2u) & 255u); }
         [[nodiscard]] inline unsigned generation() const { return info.about >> 10u; }
+        [[nodiscard]] inline Bound bound() const { return Bound((info.about >> 8) & 3u); }
+        [[nodiscard]] inline int depth() const { return int(info.about & 255u); }
     };
     static_assert(sizeof(entry_t) == 16);
 

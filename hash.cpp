@@ -54,7 +54,7 @@ void tt::hash_t::save(Bound bound, U64 hash, int depth, int ply, int static_eval
     updated.info.move = compress(move);
     updated.info.static_eval = static_cast<int16_t>(static_eval);
     updated.info.internal_value = static_cast<int16_t>(score);
-    updated.info.about = uint16_t(bound) | (uint16_t(depth) << 2u) | (generation << 10u);
+    updated.info.about = (generation << 10u) | (uint16_t(bound) << 8u) | uint16_t(depth);
     updated.coded_hash = hash ^ updated.data;
 
     if((bucket->coded_hash ^ bucket->data) == hash) {
