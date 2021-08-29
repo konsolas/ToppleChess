@@ -16,8 +16,7 @@ set(SOURCE_FILES
         pawns.cpp pawns.h
         search.h search.cpp
         pvs.h pvs.cpp
-        syzygy/tbcore.h
-        syzygy/tbprobe.h syzygy/tbprobe.cpp syzygy/tbresolve.h syzygy/tbresolve.cpp)
+        syzygy/tbconfig.h syzygy/tbconfig.cpp syzygy/fathom.h syzygy/fathom.cpp)
 set(TEST_FILES testing/runner.cpp testing/util.h testing/util.cpp
         testing/test_bb.cpp
         testing/test_board.cpp
@@ -34,21 +33,31 @@ set(TEXEL_TUNE_FILES texeltuning/main.cpp
 # Add version definitions
 add_definitions(-DTOPPLE_VER="${TOPPLE_VERSION}")
 
-# Set up Catch2 unit tests
+# Download dependencies
 Include(FetchContent)
 FetchContent_Declare(
         Catch2
         GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-        GIT_TAG        v2.13.3)
-FetchContent_MakeAvailable(Catch2)
-add_executable(ToppleTest ${SOURCE_FILES} ${TEST_FILES})
-target_link_libraries(ToppleTest Catch2::Catch2)
-target_compile_options(ToppleTest PUBLIC -march=native -O3)
+        GIT_TAG        v2.13.7
+)
+FetchContent_Declare(
+        Fathom
+        GIT_REPOSITORY https://github.com/jdart1/Fathom.git
+        GIT_TAG        85b69687088a8baf33f911cf0ce31611906fdd12
+)
+FetchContent_MakeAvailable(Catch2 Fathom)
 
-# Add tests to ctest
+# Set up Fathom to probe syzygy tablebases
+include_directories(syzygy ${fathom_SOURCE_DIR}/src)
+list(APPEND SOURCE_FILES ${fathom_SOURCE_DIR}/src/tbprobe.c)
+
+# Enable unit tests
 list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/contrib)
 include(CTest)
 include(Catch)
+add_executable(ToppleTest ${SOURCE_FILES} ${TEST_FILES})
+target_link_libraries(ToppleTest Catch2::Catch2)
+target_compile_options(ToppleTest PUBLIC -march=native -O3)
 catch_discover_tests(ToppleTest)
 
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
@@ -71,24 +80,19 @@ target_compile_options(ToppleTexelTune PUBLIC -DTEXEL_TUNE -O3 -march=native -DN
 
 # Configure the "Release" target
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
-    # Generally building releases for Windows so link everything statically
-    set(CMAKE_EXE_LINKER_FLAGS "-static -static-libgcc -static-libstdc++")
-
     add_custom_target(Release)
     add_executable(Topple_${TOPPLE_VERSION}_legacy ${SOURCE_FILES} main.cpp)
     target_link_libraries(Topple_${TOPPLE_VERSION}_legacy Threads::Threads)
-    target_compile_options(Topple_${TOPPLE_VERSION}_legacy PUBLIC -s -mmmx -msse -msse2)
+    target_compile_options(Topple_${TOPPLE_VERSION}_legacy PUBLIC)
     add_dependencies(Release Topple_${TOPPLE_VERSION}_legacy)
 
     add_executable(Topple_${TOPPLE_VERSION}_popcnt ${SOURCE_FILES} main.cpp)
     target_link_libraries(Topple_${TOPPLE_VERSION}_popcnt Threads::Threads)
-    target_compile_options(Topple_${TOPPLE_VERSION}_popcnt PUBLIC -s -mmmx -msse -msse2
-            -msse3 -mssse3 -msse4.1 -msse4.2 -mpopcnt)
+    target_compile_options(Topple_${TOPPLE_VERSION}_popcnt PUBLIC -march=nehalem)
     add_dependencies(Release Topple_${TOPPLE_VERSION}_popcnt)
 
     add_executable(Topple_${TOPPLE_VERSION}_modern ${SOURCE_FILES} main.cpp)
     target_link_libraries(Topple_${TOPPLE_VERSION}_modern Threads::Threads)
-    target_compile_options(Topple_${TOPPLE_VERSION}_modern PUBLIC -s -mmmx -msse -msse2
-            -msse3 -mssse3 -msse4.1 -msse4.2 -mpopcnt -mavx -mavx2 -mbmi -mbmi2)
+    target_compile_options(Topple_${TOPPLE_VERSION}_modern PUBLIC -march=haswell)
     add_dependencies(Release Topple_${TOPPLE_VERSION}_modern)
 endif ()

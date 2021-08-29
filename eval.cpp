@@ -114,11 +114,7 @@ void evaluator_t::prefetch(U64 pawn_hash) {
     size_t index = (pawn_hash & pawn_hash_entries);
     pawns::structure_t *bucket = pawn_hash_table + index;
 
-#if defined(__GNUC__)
     __builtin_prefetch(bucket);
-#elif defined(_MSC_VER) || defined(__INTEL_COMPILER)
-    _mm_prefetch((char*) bucket, _MM_HINT_T0);
-#endif
 }
 
 int evaluator_t::evaluate(const board_t &board) {

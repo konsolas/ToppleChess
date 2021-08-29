@@ -4,7 +4,7 @@
 
 #include "pvs.h"
 
-#include "syzygy/tbprobe.h"
+#include "fathom.h"
 
 namespace pvs {
     struct pv_move_t {
@@ -201,19 +201,21 @@ namespace pvs {
 
         // Probe endgame tablebases
         if (ply && board->now().halfmove_clock == 0 && pop_count(board->all()) <= use_tb) {
-            int success;
-            int value = probe_wdl(*board, &success);
-            if (success) {
+            std::optional<WDL> result = probe_wdl(*board);
+            if (result) {
                 tb_hits++;
-                tt::Bound bound;
-                if (value < 0) {
+
+                WDL wdl = result.value();
+                tt::Bound bound; int value;
+                if (wdl == WDL::LOSS || wdl == WDL::BLESSED_LOSS) {
                     bound = tt::UPPER;
                     value = -TO_MATE_SCORE(MAX_TB_PLY + ply + 1);
-                } else if (value > 0) {
+                } else if (wdl == WDL::WIN || wdl == WDL::CURSED_WIN) {
                     bound = tt::LOWER;
                     value = TO_MATE_SCORE(MAX_TB_PLY + ply + 1);
                 } else {
                     bound = tt::EXACT;
+                    value = 0;
                 }
 
                 if (bound == tt::EXACT
@@ -392,28 +394,32 @@ namespace pvs {
 
         // Probe endgame tablebases
         if (ply && board->now().halfmove_clock == 0 && pop_count(board->all()) <= use_tb) {
-            int success;
-            int value = probe_wdl(*board, &success);
-            if (success) {
+            std::optional<WDL> result = probe_wdl(*board);
+            if (result) {
                 tb_hits++;
-                tt::Bound bound;
-                if (value < 0) {
+
+                WDL wdl = result.value();
+                tt::Bound bound; int value;
+                if (wdl == WDL::LOSS || wdl == WDL::BLESSED_LOSS) {
                     bound = tt::UPPER;
                     value = -TO_MATE_SCORE(MAX_TB_PLY + ply + 1);
-                } else if (value > 0) {
+                } else if (wdl == WDL::WIN || wdl == WDL::CURSED_WIN) {
                     bound = tt::LOWER;
                     value = TO_MATE_SCORE(MAX_TB_PLY + ply + 1);
                 } else {
                     bound = tt::EXACT;
+                    value = 0;
                 }
 
                 if (bound == tt::EXACT
-                    || (bound == tt::LOWER && value >= beta)
-                    || (bound == tt::UPPER && value <= alpha)) {
-                    tt->save(bound, board->now().hash, MAX_PLY - 1, ply, stack[ply].eval, value,
-                             EMPTY_MOVE);
+                || (bound == tt::LOWER && value >= beta)
+                || (bound == tt::UPPER && value <= alpha)) {
+                    tt->save(bound, board->now().hash, MAX_PLY, ply, stack[ply].eval, value, EMPTY_MOVE);
                     return value;
                 }
+
+                if (bound == tt::LOWER) alpha = std::max(alpha, value);
+                if (bound == tt::UPPER) beta = std::min(beta, value);
             }
         }
 
@@ -504,28 +510,31 @@ namespace pvs {
 
         // Probe endgame tablebases
         if (ply && board->now().halfmove_clock == 0 && pop_count(board->all()) <= use_tb) {
-            int success;
-            int value = probe_wdl(*board, &success);
-            if (success) {
+            std::optional<WDL> result = probe_wdl(*board);
+            if (result) {
                 tb_hits++;
-                tt::Bound bound;
-                if (value < 0) {
+
+                WDL wdl = result.value();
+                tt::Bound bound; int value;
+                if (wdl == WDL::LOSS || wdl == WDL::BLESSED_LOSS) {
                     bound = tt::UPPER;
                     value = -TO_MATE_SCORE(MAX_TB_PLY + ply + 1);
-                } else if (value > 0) {
+                } else if (wdl == WDL::WIN || wdl == WDL::CURSED_WIN) {
                     bound = tt::LOWER;
                     value = TO_MATE_SCORE(MAX_TB_PLY + ply + 1);
                 } else {
                     bound = tt::EXACT;
+                    value = 0;
                 }
 
                 if (bound == tt::EXACT
-                    || (bound == tt::LOWER && value >= beta)
-                    || (bound == tt::UPPER && value <= beta - 1)) {
-                    tt->save(bound, board->now().hash, MAX_PLY - 1, ply, stack[ply].eval, value,
-                             EMPTY_MOVE);
+                || (bound == tt::LOWER && value >= beta)
+                || (bound == tt::UPPER && value <= beta - 1)) {
+                    tt->save(bound, board->now().hash, MAX_PLY, ply, stack[ply].eval, value, EMPTY_MOVE);
                     return value;
                 }
+
+                if (bound == tt::UPPER) beta = std::min(beta, value);
             }
         }
 

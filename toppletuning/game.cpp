@@ -4,7 +4,7 @@
 
 #include "game.h"
 
-#include "../syzygy/tbprobe.h"
+#include "fathom.h"
 
 GameResult invert_result(GameResult result) {
     switch (result) {
@@ -52,13 +52,12 @@ GameResult game_t::check_result(board_t &board) {
     }
 
     // Probe endgame tablebases
-    if (pop_count(board.all()) <= TBlargest) {
-        int success;
-        int value = probe_wdl(board, &success);
-        if (success) {
-            if (value < 0) {
+    if (pop_count(board.all()) <= tb_largest()) {
+        std::optional<WDL> wdl = probe_wdl(board);
+        if (wdl) {
+            if (wdl.value() == WDL::LOSS) {
                 return LOSS;
-            } else if (value > 0) {
+            } else if (wdl.value() == WDL::WIN) {
                 return WIN;
             } else {
                 return DRAW;

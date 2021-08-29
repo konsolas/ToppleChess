@@ -3,7 +3,7 @@
 //
 
 #include "toppletuner.h"
-#include "../syzygy/tbprobe.h"
+#include "fathom.h"
 
 void print_params(const eval_params_t &current_params);
 
@@ -15,7 +15,7 @@ int main(int argc, char *argv[]) {
     std::cout << "total parameters: " << sizeof(eval_params_t) / sizeof(int) << std::endl;
 
     if (argc > 1) {
-        init_tablebases(argv[1]);
+        init_tb(argv[1]);
     }
 
     std::vector<board_t> openings{board_t{"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"}};

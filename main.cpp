@@ -6,8 +6,7 @@
 
 #include "board.h"
 #include "search.h"
-
-#include "syzygy/tbprobe.h"
+#include "fathom.h"
 
 U64 perft(board_t &, int);
 
@@ -63,7 +62,6 @@ int main(int argc, char *argv[]) {
                 std::cout << "option name MoveOverhead type spin default 50 min 0 max 10000" << std::endl;
                 std::cout << "option name Threads type spin default 1 min 1 max 256" << std::endl;
                 std::cout << "option name SyzygyPath type string default <empty>" << std::endl;
-                std::cout << "option name SyzygyResolve type spin default 512 min 1 max 1024" << std::endl;
                 std::cout << "option name Ponder type check default false" << std::endl;
 
                 std::cout << "uciok" << std::endl;
@@ -109,13 +107,9 @@ int main(int argc, char *argv[]) {
 
                         tb_path = tb_path.substr(1, tb_path.size() - 1);
 
-                        std::cout << "Looking for tablebases in: " << tb_path << std::endl;
-
-                        init_tablebases(tb_path.c_str());
-                    } else if (name == "SyzygyResolve") {
-                        std::string value;
-                        iss >> value; // Skip value
-                        iss >> syzygy_resolve;
+                        std::cout << "looking for tablebases in: " << tb_path << std::endl;
+                        init_tb(tb_path);
+                        std::cout << "found " << tb_largest() << " piece tablebases" << std::endl;
                     } else if (name == "Ponder") {
                         // Do nothing
                     } else {
@@ -299,44 +293,6 @@ int main(int argc, char *argv[]) {
                     board->mirror();
                 } else {
                     std::cerr << "warn: mirror command received, but no position specified" << std::endl;
-                }
-            } else if (cmd == "tbprobe") {
-                std::string type;
-                iss >> type;
-
-                if (board) {
-                    const std::string cases[5] = {"loss", "blessed_loss", "draw", "cursed_win", "win"};
-
-                    if (type == "dtz") {
-                        int success;
-                        int dtz = probe_dtz(*board, &success);
-
-                        if (success) {
-                            int cnt50 = board->now().halfmove_clock;
-                            int wdl = 0;
-                            if (dtz > 0)
-                                wdl = (dtz + cnt50 <= 100) ? 2 : 1;
-                            else if (dtz < 0)
-                                wdl = (-dtz + cnt50 <= 100) ? -2 : -1;
-
-                            std::cout << "syzygy " << cases[wdl + 2] << " dtz " << dtz << std::endl;
-                        } else {
-                            std::cout << "syzygy failed" << std::endl;
-                        }
-                    } else if (type == "wdl") {
-                        int success;
-                        int wdl = probe_wdl(*board, &success);
-
-                        if (success) {
-                            std::cout << "syzygy " << cases[wdl + 2] << std::endl;
-                        } else {
-                            std::cout << "syzygy failed" << std::endl;
-                        }
-                    } else {
-                        std::cerr << "warn: unrecognised table type: dtz or wdl?" << std::endl;
-                    }
-                } else {
-                    std::cerr << "warn: tbprobe command received, but no position specified" << std::endl;
                 }
             } else if (cmd == "print") {
                 if (board) {

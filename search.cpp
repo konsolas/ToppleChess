@@ -7,9 +7,7 @@
 #include <algorithm>
 
 #include "search.h"
-
-#include "syzygy/tbprobe.h"
-#include "syzygy/tbresolve.h"
+#include "fathom.h"
 
 search_t::search_t(tt::hash_t *tt, const processed_params_t &params, int threads, bool silent)
         : tt(tt), params(params), limits(nullptr), silent(silent) {
@@ -71,27 +69,15 @@ search_result_t search_t::think(board_t &board, const search_limits_t &search_li
     }
 
     // Probe tablebases at root if no root moves specified
-    int use_tb = TBlargest;
-    int tb_wdl = 0;
+    unsigned use_tb = tb_largest();
 
     // the UCI searchmoves option overrides tablebase root move filtering
-    if (search_limits.search_moves.empty() && pop_count(board.all()) <= TBlargest) {
-        std::vector<move_t> tb_root_moves = root_probe(board, tb_wdl);
+    if (search_limits.search_moves.empty() && pop_count(board.all()) <= tb_largest()) {
+        std::vector<move_t> tb_root_moves = probe_root(board);
 
         if (!tb_root_moves.empty()) {
-            // DTZ tablebases available: set root moves and don't use tablebases during search.
             root_moves = std::move(tb_root_moves);
             use_tb = 0;
-        } else {
-            tb_root_moves = root_probe_wdl(board, tb_wdl);
-
-            if (!tb_root_moves.empty()) {
-                // WDL tablebases available: set root moves and only use tablebases during search if we're winning.
-                root_moves = std::move(tb_root_moves);
-                if (tb_wdl <= 0) {
-                    use_tb = 0;
-                }
-            }
         }
     }
 
@@ -336,13 +322,7 @@ void search_t::print_stats(board_t &pos, int score, int depth, tt::Bound bound, 
     // Get an appropriate PV
     std::vector<move_t> pv = bound == tt::EXACT ? workers[0]->context.get_current_pv() : workers[0]->context.get_saved_pv();
 
-    // Try syzygy resolution
     auto sel_depth = size_t(workers[0]->context.get_sel_depth());
-    if (limits->syzygy_resolve > 0) {
-        resolve_pv(pos, workers[0]->evaluator, pv, score, limits->syzygy_resolve, aborted);
-        sel_depth = std::max(pv.size(), sel_depth);
-    }
-
     std::cout << "info depth " << depth << " seldepth " << sel_depth;
 
     if (score > MINCHECKMATE) {
