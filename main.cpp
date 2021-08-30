@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
     std::string tb_path;
 
     // Startup
-    std::cout << "Topple " << TOPPLE_VER << " (c) Vincent Tang 2020" << std::endl;
+    std::cout << "Topple " << TOPPLE_VER << " (c) Vincent Tang 2021" << std::endl;
 
     while (true) {
         std::string input;

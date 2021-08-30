@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.11)
 project(Topple)
 
 set(CMAKE_CXX_STANDARD 17)
-set(TOPPLE_VERSION 0.8.0)
+set(TOPPLE_VERSION 0.8.1)
 
 # Source files for different targets
 set(SOURCE_FILES
@@ -13,10 +13,11 @@ set(SOURCE_FILES
         movesort.h movesort.cpp
         move.h
         eval.h eval.cpp
-        pawns.cpp pawns.h
+        pawns.h pawns.cpp
         search.h search.cpp
         pvs.h pvs.cpp
-        syzygy/tbconfig.h syzygy/tbconfig.cpp syzygy/fathom.h syzygy/fathom.cpp)
+        syzygy/tbconfig.h syzygy/tbconfig.cpp
+        syzygy/fathom.h syzygy/fathom.cpp)
 set(TEST_FILES testing/runner.cpp testing/util.h testing/util.cpp
         testing/test_bb.cpp
         testing/test_board.cpp
