@@ -2,7 +2,7 @@
 // Created by Vincent on 23/06/2019.
 //
 
-#include <catch2/catch.hpp>
+#include <catch2/catch_all.hpp>
 #include <random>
 
 #include "util.h"

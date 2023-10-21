@@ -11,10 +11,6 @@
 U64 perft(board_t &, int);
 
 int main(int argc, char *argv[]) {
-    // Initialise engine
-    init_tables();
-    evaluator_t::eval_init();
-
     // Board
     std::unique_ptr<board_t> board = nullptr;
 

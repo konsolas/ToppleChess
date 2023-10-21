@@ -222,19 +222,34 @@ namespace bb_sliders {
 /*
  * Initialisation of various utility bitboards
  */
-namespace bb_util {
+namespace bb_tables {
     U64 between[64][64];
     U64 line[64][64];
     U64 ray[64][64];
-    U64 file[8];
+    U64 king_area[64];
 
-    void init_util() {
+    U64 king_moves[64];
+    U64 knight_moves[64];
+    U64 pawn_moves_x1[2][64];
+    U64 pawn_moves_x2[2][64];
+    U64 pawn_caps[2][64];
+
+    // We use this method (and signed integers) to not generate moves off the edge of the board (or which wrap around)
+    inline bool valid_square(const int &file, const int &rank) {
+        return file >= 0 && file < 8 && rank >= 0 && rank < 8;
+    }
+
+    // Check if move is valid and add to lookup table if it is
+    inline void update_array(U64 *arr, const uint8_t &file, const uint8_t &rank,
+                             int file_offset, int rank_offset) {
+        if (valid_square(file + file_offset, rank + rank_offset)) {
+            arr[square_index(file, rank)] |= single_bit(square_index(file + file_offset, rank + rank_offset));
+        }
+    }
+
+    void init_tables() {
+        // Utility tables
         for (uint8_t a = 0; a < 64; a++) {
-            // File
-            {
-                file[file_index(a)] |= single_bit(a);
-            }
-
             for (uint8_t b = 0; b < 64; b++) {
                 // Between
                 {
@@ -272,35 +287,8 @@ namespace bb_util {
                 }
             }
         }
-    }
-}
 
-/**
- * =====================================================================================================================
- * GENERATION FOR NON-SLIDING PIECES
- * =====================================================================================================================
- */
-namespace bb_normal_moves {
-    U64 king_moves[64];
-    U64 knight_moves[64];
-    U64 pawn_moves_x1[2][64];
-    U64 pawn_moves_x2[2][64];
-    U64 pawn_caps[2][64];
-
-    // We use this method (and signed integers) to not generate moves off the edge of the board (or which wrap around)
-    inline bool valid_square(const int &file, const int &rank) {
-        return file >= 0 && file < 8 && rank >= 0 && rank < 8;
-    }
-
-    // Check if move is valid and add to lookup table if it is
-    inline void update_array(U64 *arr, const uint8_t &file, const uint8_t &rank,
-                             int file_offset, int rank_offset) {
-        if (valid_square(file + file_offset, rank + rank_offset)) {
-            arr[square_index(file, rank)] |= single_bit(square_index(file + file_offset, rank + rank_offset));
-        }
-    }
-
-    void init_normal_moves() {
+        // Normal moves
         for (uint8_t file_from = 0; file_from < 8; file_from++) {
             for (uint8_t rank_from = 0; rank_from < 8; rank_from++) {
                 // King moves
@@ -341,13 +329,25 @@ namespace bb_normal_moves {
                 update_array(pawn_caps[BLACK], file_from, rank_from, -1, -1);
             }
         }
+
+        // King area
+        for (int file_from = 0; file_from < 8; file_from++) {
+            for (int rank_from = 0; rank_from < 8; rank_from++) {
+                uint8_t sq = square_index(file_from, rank_from);
+                uint8_t rel_sq = square_index(std::clamp(file_from, 1, 6), std::clamp(rank_from, 1, 6));
+                king_area[sq] = single_bit(rel_sq) | king_moves[rel_sq];
+            }
+        }
     }
 }
 
-void init_tables() {
-    bb_sliders::init_sliders();
-    bb_util::init_util();
-    bb_normal_moves::init_normal_moves();
+namespace {
+    struct init_tables {
+        init_tables() {
+            bb_sliders::init_sliders();
+            bb_tables::init_tables();
+        }
+    } _;
 }
 
 uint8_t to_sq(char file, char rank) {

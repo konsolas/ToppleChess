@@ -22,7 +22,7 @@ texel_t::texel_t(unsigned int threads, size_t entries, std::vector<board_t> &pos
     std::cout << "starting error: " << current_error << std::endl;
 
     // Pick scaling constant
-    //current_error = momentum_optimise(&scaling_constant, current_error, 500, 1);
+    current_error = momentum_optimise(&scaling_constant, current_error, 500, 1);
     std::cout << "scaling constant = " << scaling_constant << std::endl;
 }
 
@@ -198,13 +198,12 @@ void texel_t::print_params() {
     }
     std::cout << "};" << std::endl;
 
-    std::cout << "int pt_open_file[4] = {";
-    for (const auto &param : current_params.pt_open_file) {
+    std::cout << "int pt_closed_file[4] = {";
+    for (const auto &param : current_params.pt_closed_file) {
         std::cout << param << ",";
     }
     std::cout << "};" << std::endl;
 
-    std::cout << "int pt_island = " << current_params.pt_island << ";" << std::endl;
     std::cout << "int pt_max = " << current_params.pt_max << ";" << std::endl;
 
     std::cout << "// Piece-square tables" << std::endl;

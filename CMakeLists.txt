@@ -18,7 +18,7 @@ set(SOURCE_FILES
         pvs.h pvs.cpp
         syzygy/tbconfig.h syzygy/tbconfig.cpp
         syzygy/fathom.h syzygy/fathom.cpp)
-set(TEST_FILES testing/runner.cpp testing/util.h testing/util.cpp
+set(TEST_FILES testing/util.h testing/util.cpp
         testing/test_bb.cpp
         testing/test_board.cpp
         testing/test_perft.cpp
@@ -39,7 +39,7 @@ Include(FetchContent)
 FetchContent_Declare(
         Catch2
         GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-        GIT_TAG        v2.13.7
+        GIT_TAG        v3.4.0
 )
 FetchContent_Declare(
         Fathom
@@ -53,11 +53,10 @@ include_directories(syzygy ${fathom_SOURCE_DIR}/src)
 list(APPEND SOURCE_FILES ${fathom_SOURCE_DIR}/src/tbprobe.c)
 
 # Enable unit tests
-list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/contrib)
 include(CTest)
 include(Catch)
 add_executable(ToppleTest ${SOURCE_FILES} ${TEST_FILES})
-target_link_libraries(ToppleTest Catch2::Catch2)
+target_link_libraries(ToppleTest Catch2::Catch2WithMain)
 target_compile_options(ToppleTest PUBLIC -march=native -O3)
 catch_discover_tests(ToppleTest)
 

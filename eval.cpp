@@ -8,35 +8,6 @@
 #include <cmath>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// Utility tables
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-U64 BB_KING_SQUARE[64] = {};
-U64 BB_KING_CIRCLE[64] = {};
-U64 BB_PAWN_SHIELD[64] = {};
-
-void evaluator_t::eval_init() {
-    for (uint8_t sq = 0; sq < 64; sq++) {
-        BB_KING_SQUARE[sq] = single_bit(sq) | find_moves<KING>(WHITE, sq, 0);
-    }
-
-    for (uint8_t sq = 0; sq < 64; sq++) {
-        // King circle
-        BB_KING_CIRCLE[sq] = BB_KING_SQUARE[sq];
-        if(rank_index(sq) == 0) BB_KING_CIRCLE[sq] |= bb_shifts::shift<D_N>(BB_KING_SQUARE[sq]);
-        if(rank_index(sq) == 7) BB_KING_CIRCLE[sq] |= bb_shifts::shift<D_S>(BB_KING_SQUARE[sq]);
-        if(file_index(sq) == 0) BB_KING_CIRCLE[sq] |= bb_shifts::shift<D_E>(BB_KING_SQUARE[sq]);
-        if(file_index(sq) == 7) BB_KING_CIRCLE[sq] |= bb_shifts::shift<D_W>(BB_KING_SQUARE[sq]);
-
-        if(rank_index(sq) <= 1) {
-            BB_PAWN_SHIELD[sq] = bb_shifts::shift<D_N>(BB_KING_SQUARE[sq]);
-        } else if(rank_index(sq) >= 6) {
-            BB_PAWN_SHIELD[sq] = bb_shifts::shift<D_S>(BB_KING_SQUARE[sq]);
-        }
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Preprocessing evaluation parameters
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -123,8 +94,8 @@ int evaluator_t::evaluate(const board_t &board) {
     // Initialise king danger evaluation
     data.king_pos[WHITE] = bit_scan(board.pieces(WHITE, KING));
     data.king_pos[BLACK] = bit_scan(board.pieces(BLACK, KING));
-    data.king_circle[WHITE] = BB_KING_CIRCLE[data.king_pos[WHITE]];
-    data.king_circle[BLACK] = BB_KING_CIRCLE[data.king_pos[BLACK]];
+    data.king_circle[WHITE] = king_area(data.king_pos[WHITE]);
+    data.king_circle[BLACK] = king_area(data.king_pos[BLACK]);
     data.king_danger[WHITE] = params.kat_zero;
     data.king_danger[BLACK] = params.kat_zero;
     data.update_attacks(WHITE, KING, find_moves<KING>(WHITE, data.king_pos[WHITE], board.all()));
@@ -296,8 +267,8 @@ v4si_t evaluator_t::eval_pawns(const board_t &board, eval_data_t &data, float &t
     };
 
     // King shield
-    int pawn_shield_w = std::min(3, pop_count(BB_PAWN_SHIELD[data.king_pos[WHITE]] & board.pieces(WHITE, PAWN)));
-    int pawn_shield_b = std::min(3, pop_count(BB_PAWN_SHIELD[data.king_pos[BLACK]] & board.pieces(BLACK, PAWN)));
+    int pawn_shield_w = std::min(3, pop_count(data.king_circle[WHITE] & board.pieces(WHITE, PAWN)));
+    int pawn_shield_b = std::min(3, pop_count(data.king_circle[BLACK] & board.pieces(BLACK, PAWN)));
 
     score += (blocked_count[WHITE][0] - blocked_count[BLACK][0]) * params.blocked[0];
     score += (blocked_count[WHITE][1] - blocked_count[BLACK][1]) * params.blocked[1];

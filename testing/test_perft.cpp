@@ -2,7 +2,7 @@
 // Created by Vincent on 30/09/2017.
 //
 
-#include "catch2/catch.hpp"
+#include "catch2/catch_all.hpp"
 
 #include "util.h"
 #include "../board.h"

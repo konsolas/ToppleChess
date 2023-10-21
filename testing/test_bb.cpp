@@ -2,7 +2,7 @@
 // Created by Vincent on 27/09/2017.
 //
 
-#include <catch2/catch.hpp>
+#include <catch2/catch_all.hpp>
 
 #include "util.h"
 
@@ -122,6 +122,57 @@ TEST_CASE("Bitboard engine") {
         }
     }
 
+    SECTION("Bitboard tables") {
+        Square square;
+        U64 expected;
+
+        square = A2;
+        expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0,
+                         1, 1, 1, 0, 0, 0, 0, 0,
+                         1, 1, 1, 0, 0, 0, 0, 0,
+                         1, 1, 1, 0, 0, 0, 0, 0});
+
+        REQUIRE(bb_tables::king_area[square] == expected);
+        square = A1;
+        REQUIRE(bb_tables::king_area[square] == expected);
+        square = B2;
+        REQUIRE(bb_tables::king_area[square] == expected);
+        square = B1;
+        REQUIRE(bb_tables::king_area[square] == expected);
+
+        square = F8;
+        expected = c_u64({0, 0, 0, 0, 1, 1, 1, 0,
+                          0, 0, 0, 0, 1, 1, 1, 0,
+                          0, 0, 0, 0, 1, 1, 1, 0,
+                          0, 0, 0, 0, 0, 0, 0, 0,
+                          0, 0, 0, 0, 0, 0, 0, 0,
+                          0, 0, 0, 0, 0, 0, 0, 0,
+                          0, 0, 0, 0, 0, 0, 0, 0,
+                          0, 0, 0, 0, 0, 0, 0, 0});
+
+        REQUIRE(bb_tables::king_area[square] == expected);
+        square = F7;
+        REQUIRE(bb_tables::king_area[square] == expected);
+
+        square = A4;
+        expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
+                          0, 0, 0, 0, 0, 0, 0, 0,
+                          0, 0, 0, 0, 0, 0, 0, 0,
+                          1, 1, 1, 0, 0, 0, 0, 0,
+                          1, 1, 1, 0, 0, 0, 0, 0,
+                          1, 1, 1, 0, 0, 0, 0, 0,
+                          0, 0, 0, 0, 0, 0, 0, 0,
+                          0, 0, 0, 0, 0, 0, 0, 0});
+
+        REQUIRE(bb_tables::king_area[square] == expected);
+        square = B4;
+        REQUIRE(bb_tables::king_area[square] == expected);
+    }
+
     SECTION("Bitboard move generation") {
         Square square;
         U64 expected;
@@ -137,7 +188,7 @@ TEST_CASE("Bitboard engine") {
                               0, 0, 0, 0, 0, 0, 0, 0,
                               0, 0, 0, 0, 0, 0, 0, 0});
 
-            REQUIRE(bb_normal_moves::pawn_moves_x1[WHITE][square] == expected);
+            REQUIRE(bb_tables::pawn_moves_x1[WHITE][square] == expected);
 
             square = A7;
             expected = c_u64({0, 0, 0, 0, 0, 0, 0, 0,
@@ -149,7 +200,7 @@ TEST_CASE("Bitboard engine") {
                               0, 0, 0, 0, 0, 0, 0, 0,
                               0, 0, 0, 0, 0, 0, 0, 0});
 
-            REQUIRE(bb_normal_moves::pawn_moves_x1[BLACK][square] == expected);
+            REQUIRE(bb_tables::pawn_moves_x1[BLACK][square] == expected);
         }
 
         SECTION("King") {

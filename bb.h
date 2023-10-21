@@ -327,28 +327,17 @@ namespace bb_sliders {
 /*
  * Potentially useful bitboard lookup tables
  */
-namespace bb_util {
+namespace bb_tables {
     extern U64 between[64][64]; // between[a][b] is the bitboard between a and b, or 0 if they are unaligned
     extern U64 line[64][64]; // line[a][b] is the bitboard of the line through a and b, or 0 if they are unaligned
     extern U64 ray[64][64]; // ray[a][b] is the bitboard of the ray from a through b, or 0 if they are unaligned
-    extern U64 file[8]; // file[f] is the bitboard of file number f
-}
-
-/*
- * Non-sliding move generation lookup tables
- */
-namespace bb_normal_moves {
     extern U64 king_moves[64];
     extern U64 knight_moves[64];
     extern U64 pawn_moves_x1[2][64]; // Normal pawn advances
     extern U64 pawn_moves_x2[2][64]; // Double pawn advances on the 2nd or 7th rank
     extern U64 pawn_caps[2][64]; // Pawn captures
+    extern U64 king_area[64]; // 3x3 area around the king, shifted inwards if the king is on the edge of the board
 }
-
-/**
- * Initialise bitboard tables. Must be called before use of any other functions in this header.
- */
-void init_tables();
 
 /**
  * Generate a bitboard of possible moves from the {@code square}, assuming that {@code occupied} is a bitboard which
@@ -374,11 +363,11 @@ inline U64 find_moves(Team side, uint8_t square, U64 occupied);
 template<>
 inline U64 find_moves<PAWN>(Team side, uint8_t square, U64 occupied) {
     U64 result = 0;
-    result |= occupied & bb_normal_moves::pawn_caps[side][square];
-    if (!(occupied & bb_normal_moves::pawn_moves_x1[side][square])) {
-        result |= bb_normal_moves::pawn_moves_x1[side][square];
-        if (!(occupied & bb_normal_moves::pawn_moves_x2[side][square])) {
-            result |= bb_normal_moves::pawn_moves_x2[side][square];
+    result |= occupied & bb_tables::pawn_caps[side][square];
+    if (!(occupied & bb_tables::pawn_moves_x1[side][square])) {
+        result |= bb_tables::pawn_moves_x1[side][square];
+        if (!(occupied & bb_tables::pawn_moves_x2[side][square])) {
+            result |= bb_tables::pawn_moves_x2[side][square];
         }
     }
     return result;
@@ -386,7 +375,7 @@ inline U64 find_moves<PAWN>(Team side, uint8_t square, U64 occupied) {
 
 template<>
 inline U64 find_moves<KNIGHT>(Team side, uint8_t square, U64 occupied) {
-    return bb_normal_moves::knight_moves[square];
+    return bb_tables::knight_moves[square];
 }
 
 template<>
@@ -406,7 +395,7 @@ inline U64 find_moves<QUEEN>(Team side, uint8_t square, U64 occupied) {
 
 template<>
 inline U64 find_moves<KING>(Team side, uint8_t square, U64 occupied) {
-    return bb_normal_moves::king_moves[square];
+    return bb_tables::king_moves[square];
 }
 
 /**
@@ -447,7 +436,7 @@ inline U64 find_moves(Piece type, Team side, uint8_t square, U64 occupied) {
  * @return possible captures of the pawn
  */
 inline U64 pawn_caps(Team side, uint8_t square) {
-    return bb_normal_moves::pawn_caps[side][square];
+    return bb_tables::pawn_caps[side][square];
 }
 
 /**
@@ -470,7 +459,7 @@ inline bool multiple_bits(U64 bb) {
  * @return bitboard containing bits between the two squares
  */
 inline U64 bits_between(uint8_t a, uint8_t b) {
-    return bb_util::between[a][b];
+    return bb_tables::between[a][b];
 }
 
 /**
@@ -483,7 +472,7 @@ inline U64 bits_between(uint8_t a, uint8_t b) {
  * @return bitboard containing a line which crosses the two squares
  */
 inline U64 line(uint8_t a, uint8_t b) {
-    return bb_util::line[a][b];
+    return bb_tables::line[a][b];
 }
 
 /**
@@ -497,7 +486,19 @@ inline U64 line(uint8_t a, uint8_t b) {
  * @return bitboard containing the ray
  */
 inline U64 ray(uint8_t origin, uint8_t direction) {
-    return bb_util::ray[origin][direction];
+    return bb_tables::ray[origin][direction];
+}
+
+/**
+ * Generates a bitboard containing the area of the board immediately around the king. If the king is on the edge of
+ * the board, this returns a region shifted towards the centre of the board to account for the reduced mobility of
+ * the king, resulting in a potentially better evaluation of safety.
+ *
+ * @param sq king position
+ * @return bitboard of the king area
+ */
+inline U64 king_area(uint8_t sq) {
+    return bb_tables::king_area[sq];
 }
 
 /**
@@ -506,9 +507,18 @@ inline U64 ray(uint8_t origin, uint8_t direction) {
  * @param file_index index of file
  * @return bitboard of the file
  */
-
-inline U64 file_mask(uint8_t file_index) {
-    return bb_util::file[file_index];
+constexpr U64 file_mask(uint8_t file_index) {
+    constexpr U64 mask[8] = {
+            0x0101010101010101,
+            0x0202020202020202,
+            0x0404040404040404,
+            0x0808080808080808,
+            0x1010101010101010,
+            0x2020202020202020,
+            0x4040404040404040,
+            0x8080808080808080,
+    };
+    return mask[file_index];
 }
 
 /**
